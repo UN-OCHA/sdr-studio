@@ -1,5 +1,9 @@
 # SDR Studio Production Config
 sdr.hpcs.tools {
-    reverse_proxy /api/* backend:8000
-    reverse_proxy * frontend:80
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+    handle {
+        reverse_proxy frontend:80
+    }
 }
