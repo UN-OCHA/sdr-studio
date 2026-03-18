@@ -7,19 +7,26 @@ import {
   H3,
   H5,
   Icon,
-  type IconName,
   InputGroup,
   Intent,
+  MenuItem,
   NonIdealState,
+  Spinner,
   TextArea,
+  type IconName,
 } from "@blueprintjs/core";
-import { useState } from "react";
+import { Select, type ItemRenderer } from "@blueprintjs/select";
+import { useEffect, useState } from "react";
 import TimeAgo from "react-timeago";
-import type { Project, ProjectCreate } from "../types";
+import { templatesApi } from "../api";
+import type { Project, ProjectCreate, ProjectTemplate } from "../types";
 import { IconPicker } from "./IconPicker";
 
 type DashboardProps = {
   projects: Project[];
+  isLoading: boolean;
+  error: string | null;
+  onRetry: () => void;
   onCreateProject: (project: ProjectCreate) => void;
   onSelectProject: (id: string) => void;
   onDeleteProject: (id: string) => void;
@@ -27,32 +34,87 @@ type DashboardProps = {
 
 export function Dashboard({
   projects,
+  isLoading,
+  error,
+  onRetry,
   onCreateProject,
   onSelectProject,
   onDeleteProject,
 }: DashboardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("none");
   const [newProject, setNewProject] = useState({
     name: "",
     description: "",
     icon: "briefcase",
   });
 
+  useEffect(() => {
+    if (isDialogOpen) {
+      void templatesApi.list().then(setTemplates);
+    }
+  }, [isDialogOpen]);
+
   const handleCreate = () => {
     if (!newProject.name) return;
+
+    const template = templates.find((t) => t.id === selectedTemplateId);
+
     onCreateProject({
       name: newProject.name,
       description: newProject.description,
-      icon: newProject.icon,
+      icon: template?.icon || newProject.icon,
+      extraction_config: template?.extraction_config,
     });
     setIsDialogOpen(false);
     setNewProject({ name: "", description: "", icon: "briefcase" });
+    setSelectedTemplateId("none");
   };
+
+  const renderTemplateOption: ItemRenderer<
+    | ProjectTemplate
+    | { id: string; name: string; icon: string; description: string }
+  > = (option, { handleClick, handleFocus, modifiers }) => {
+    if (!modifiers.matchesPredicate) return null;
+    return (
+      <MenuItem
+        active={modifiers.active}
+        disabled={modifiers.disabled}
+        key={option.id}
+        onClick={handleClick}
+        onFocus={handleFocus}
+        text={
+          <div className="flex flex-col py-0.5">
+            <span className="font-semibold text-xs">{option.name}</span>
+            <span className="text-[10px] text-gray-500 font-normal leading-tight">
+              {option.description}
+            </span>
+          </div>
+        }
+        icon={option.icon as IconName}
+      />
+    );
+  };
+
+  const selectedTemplate =
+    selectedTemplateId === "none"
+      ? {
+          id: "none",
+          name: "Blank (No Template)",
+          icon: "blank",
+          description: "Start from scratch.",
+        }
+      : templates.find((t) => t.id === selectedTemplateId);
 
   return (
     <div className="mx-auto h-full">
-      <div className="flex justify-between items-center mb-2">
-        <H3>Projects</H3>
+      <div className="flex justify-between items-center mb-6">
+        <EntityTitle
+          title="Projects"
+          subtitle="Manage your disaster monitoring and analysis projects."
+          heading={H3}
+        />
         <Button
           intent={Intent.PRIMARY}
           icon="plus"
@@ -61,7 +123,26 @@ export function Dashboard({
         />
       </div>
 
-      {projects.length === 0 ? (
+      {isLoading && projects.length === 0 ? (
+        <div className="flex h-full items-center justify-center">
+          <Spinner size={50} />
+        </div>
+      ) : error && projects.length === 0 ? (
+        <NonIdealState
+          icon="offline"
+          title="Backend Connection Error"
+          description={error}
+          className="h-full"
+          action={
+            <Button
+              intent={Intent.PRIMARY}
+              icon="refresh"
+              text="Retry Connection"
+              onClick={onRetry}
+            />
+          }
+        />
+      ) : projects.length === 0 ? (
         <NonIdealState
           icon="projects"
           title="No Projects Yet"
@@ -129,6 +210,34 @@ export function Dashboard({
         title="New Project"
       >
         <div className="p-6">
+          <FormGroup label="Inherit from Template">
+            <Select<
+              | ProjectTemplate
+              | { id: string; name: string; icon: string; description: string }
+            >
+              items={[
+                {
+                  id: "none",
+                  name: "Blank (No Template)",
+                  icon: "blank",
+                  description: "Start from scratch.",
+                },
+                ...templates,
+              ]}
+              itemRenderer={renderTemplateOption}
+              onItemSelect={(t) => setSelectedTemplateId(t.id)}
+              filterable={false}
+              popoverProps={{ minimal: true, matchTargetWidth: true }}
+            >
+              <Button
+                fill
+                text={selectedTemplate?.name || "Select Template..."}
+                rightIcon="caret-down"
+                icon={selectedTemplate?.icon as IconName}
+                alignText="left"
+              />
+            </Select>
+          </FormGroup>
           <FormGroup
             label="Project Name"
             labelFor="name"

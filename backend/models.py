@@ -33,6 +33,34 @@ class ProjectBase(SQLModel):
     onboarding_completed: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# -- Project Template Models --
+
+class ProjectTemplateBase(SQLModel):
+    name: str
+    description: str = ""
+    icon: str = "cube"
+    org_id: str = Field(default="public", index=True)
+    extraction_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ProjectTemplate(ProjectTemplateBase, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+
+class ProjectTemplateRead(ProjectTemplateBase):
+    id: UUID
+
+class ProjectTemplateCreate(SQLModel):
+    name: str
+    description: str = ""
+    icon: Optional[str] = "cube"
+    extraction_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
+
+class ProjectTemplateUpdate(SQLModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    extraction_config: Optional[Dict[str, Any]] = None
+
 # -- Database Models --
 
 class Annotation(AnnotationBase, table=True):

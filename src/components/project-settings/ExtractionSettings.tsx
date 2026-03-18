@@ -1,4 +1,11 @@
-import { Button, Intent, Section, SectionCard } from "@blueprintjs/core";
+import {
+  Button,
+  EntityTitle,
+  H3,
+  Intent,
+  Section,
+  SectionCard,
+} from "@blueprintjs/core";
 import { useState } from "react";
 import type { Project } from "../../types";
 import { ClassificationManager } from "./ClassificationManager";
@@ -33,13 +40,12 @@ export function ExtractionSettings({
   return (
     <div className="space-y-6">
       {!hideHeader && (
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h3 className="text-xl font-bold">Extraction Schema</h3>
-            <p className="text-gray-500 text-sm">
-              Configure how sources are analyzed.
-            </p>
-          </div>
+        <div className="flex justify-between items-center mb-6">
+          <EntityTitle
+            title="Extraction Schema"
+            subtitle="Configure how news articles are analyzed and data is extracted."
+            heading={H3}
+          />
           <Button
             intent={Intent.PRIMARY}
             icon="floppy-disk"

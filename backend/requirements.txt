@@ -16,4 +16,5 @@ peft
 accelerate
 python-jose[cryptography]
 python-dotenv
+feedparser
 # Add any other specific libraries mentioned by the user if needed

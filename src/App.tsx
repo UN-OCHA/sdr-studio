@@ -13,10 +13,11 @@ import {
   Popover,
   Spinner,
 } from "@blueprintjs/core";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { projectsApi, setAuthToken } from "./api";
 import { Dashboard } from "./components/Dashboard";
 import { ProjectDetail } from "./components/ProjectDetail";
+import { TemplateManager } from "./components/TemplateManager";
 import { useStore } from "./store";
 import type { Project, ProjectCreate } from "./types";
 
@@ -37,9 +38,15 @@ function App() {
     getAccessTokenSilently,
   } = useAuth0();
 
+  const [activeView, setActiveView] = useState<"projects" | "templates">(
+    "projects",
+  );
+
   const {
     projects,
     currentProjectId,
+    isLoadingProjects,
+    errorProjects,
     fetchProjects,
     setCurrentProjectId,
     updateProject,
@@ -111,18 +118,37 @@ function App() {
           <NavbarGroup align={Alignment.START}>
             <NavbarHeading
               className="cursor-pointer"
-              onClick={() => setCurrentProjectId(null)}
+              onClick={() => {
+                setCurrentProjectId(null);
+                setActiveView("projects");
+              }}
             >
               <span className="font-black text-blue-400">OCHA</span> /{" "}
               <span className="font-black">SDR</span> Studio
             </NavbarHeading>
             <NavbarDivider />
-            <Button
-              minimal
-              icon="home"
-              text="Dashboard"
-              onClick={() => setCurrentProjectId(null)}
-            />
+            <div className="flex gap-1">
+              <Button
+                minimal
+                icon="home"
+                text="Projects"
+                active={activeView === "projects" || !!currentProjectId}
+                onClick={() => {
+                  setCurrentProjectId(null);
+                  setActiveView("projects");
+                }}
+              />
+              <Button
+                minimal
+                icon="cube"
+                text="Templates"
+                active={activeView === "templates" && !currentProjectId}
+                onClick={() => {
+                  setCurrentProjectId(null);
+                  setActiveView("templates");
+                }}
+              />
+            </div>
           </NavbarGroup>
           <NavbarGroup align={Alignment.RIGHT}>
             {isAuthenticated ? (
@@ -207,12 +233,22 @@ function App() {
             project={currentProject}
             onImportUrls={(urls) => handleImportUrls(currentProject.id, urls)}
             onUpdateProject={handleUpdateProject}
-            onBack={() => setCurrentProjectId(null)}
+            onBack={() => {
+              setCurrentProjectId(null);
+              setActiveView("projects");
+            }}
           />
+        ) : activeView === "templates" ? (
+          <div className="p-6 h-full overflow-y-auto">
+            <TemplateManager />
+          </div>
         ) : (
           <div className="p-6 h-full overflow-y-auto">
             <Dashboard
               projects={projects}
+              isLoading={isLoadingProjects}
+              error={errorProjects}
+              onRetry={fetchProjects}
               onCreateProject={handleCreateProject}
               onSelectProject={(id) => setCurrentProjectId(id)}
               onDeleteProject={handleDeleteProject}

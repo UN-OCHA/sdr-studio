@@ -9,6 +9,8 @@ interface AppState {
   currentArticleId: string | null;
   isLoadingProjects: boolean;
   isLoadingArticles: boolean;
+  errorProjects: string | null;
+  errorArticles: string | null;
 
   // Actions
   fetchProjects: () => Promise<void>;
@@ -30,21 +32,26 @@ export const useStore = create<AppState>((set, get) => ({
   currentArticleId: null,
   isLoadingProjects: false,
   isLoadingArticles: false,
+  errorProjects: null,
+  errorArticles: null,
 
   fetchProjects: async () => {
-    set({ isLoadingProjects: true });
+    set({ isLoadingProjects: true, errorProjects: null });
     try {
       const projects = await projectsApi.list();
-      set({ projects, isLoadingProjects: false });
+      set({ projects, isLoadingProjects: false, errorProjects: null });
       
       // If current project no longer exists, reset it
       const { currentProjectId } = get();
       if (currentProjectId && !projects.find((p: Project) => p.id === currentProjectId)) {
         get().setCurrentProjectId(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch projects:", error);
-      set({ isLoadingProjects: false });
+      set({ 
+        isLoadingProjects: false, 
+        errorProjects: error.message || "Failed to connect to backend" 
+      });
     }
   },
 
@@ -60,13 +67,16 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchArticles: async (projectId) => {
-    set({ isLoadingArticles: true });
+    set({ isLoadingArticles: true, errorArticles: null });
     try {
       const response = await projectsApi.listArticles(projectId);
-      set({ articles: response.articles, isLoadingArticles: false });
-    } catch (error) {
+      set({ articles: response.articles, isLoadingArticles: false, errorArticles: null });
+    } catch (error: any) {
       console.error("Failed to fetch articles:", error);
-      set({ isLoadingArticles: false });
+      set({ 
+        isLoadingArticles: false, 
+        errorArticles: error.message || "Failed to fetch articles" 
+      });
     }
   },
 

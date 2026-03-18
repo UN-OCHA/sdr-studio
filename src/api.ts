@@ -4,6 +4,8 @@ import type {
   ProjectCreate,
   ProjectUpdate,
   TrainingRequest,
+  ProjectTemplateCreate,
+  ProjectTemplateUpdate,
 } from "./types";
 
 const API_BASE_URL = "/api";
@@ -129,6 +131,24 @@ export const projectsApi = {
     }),
 };
 
+export const sourcesApi = {
+  list: (projectId: string) => apiFetch(`/projects/${projectId}/sources`),
+  create: (projectId: string, data: { name: string; url: string; type: string }) =>
+    apiFetch(`/projects/${projectId}/sources`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (sourceId: string, data: { active?: boolean; name?: string; url?: string }) =>
+    apiFetch(`/sources/${sourceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  delete: (sourceId: string) =>
+    apiFetch(`/sources/${sourceId}`, {
+      method: "DELETE",
+    }),
+};
+
 export const articlesApi = {
   get: (id: string) => apiFetch(`/articles/${id}`),
   process: (id: string) =>
@@ -147,6 +167,25 @@ export const articlesApi = {
     }),
   delete: (id: string) =>
     apiFetch(`/articles/${id}`, {
+      method: "DELETE",
+    }),
+};
+
+export const templatesApi = {
+  list: () => apiFetch("/templates"),
+  get: (id: string) => apiFetch(`/templates/${id}`),
+  create: (data: ProjectTemplateCreate) =>
+    apiFetch("/templates", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: ProjectTemplateUpdate) =>
+    apiFetch(`/templates/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: string) =>
+    apiFetch(`/templates/${id}`, {
       method: "DELETE",
     }),
 };

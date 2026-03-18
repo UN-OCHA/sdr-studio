@@ -9,7 +9,9 @@ from models import (
     Project, Article, Annotation, ModelAdapter,
     ProjectCreate, ProjectUpdate, ArticleImport, ArticleUpdate, AnnotationUpdate,
     ProjectRead, ArticleRead, ArticleReadWithAnnotations, ArticleListResponse,
-    ModelAdapterRead, TrainingRequest
+    ModelAdapterRead, TrainingRequest,
+    Source, SourceRead, SourceCreate, SourceUpdate,
+    ProjectTemplate, ProjectTemplateRead, ProjectTemplateCreate, ProjectTemplateUpdate
 )
 from curl_cffi import requests
 from readability import Document
@@ -128,9 +130,150 @@ def build_gliner_schema(extractor, config: Dict[str, Any]):
             )
     return schema
 
+def poll_sources_task():
+    """Periodically check all active sources for new articles."""
+    from database import engine
+    from datetime import datetime, timezone
+    import feedparser
+    
+    with Session(engine) as session:
+        # Get all active sources
+        sources = session.exec(select(Source).where(Source.active == True)).all()
+        
+        for source in sources:
+            try:
+                print(f"Polling source: {source.name} ({source.url})")
+                
+                if source.type == "rss":
+                    feed = feedparser.parse(source.url)
+                    new_urls = []
+                    
+                    for entry in feed.entries:
+                        url = entry.link
+                        # Basic check if article already exists in this project
+                        existing = session.exec(
+                            select(Article).where(Article.project_id == source.project_id).where(Article.url == url)
+                        ).first()
+                        
+                        if not existing:
+                            new_urls.append(url)
+                    
+                    if new_urls:
+                        print(f"Found {len(new_urls)} new articles in {source.name}")
+                        # Process them in background
+                        import_articles_logic(source.project_id, new_urls, source.org_id, session, None)
+                
+                # Update last_polled
+                source.last_polled = datetime.now(timezone.utc)
+                session.add(source)
+                session.commit()
+                
+            except Exception as e:
+                print(f"Error polling source {source.name}: {e}")
+
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+    
+    # Start poller in background
+    from threading import Thread
+    import time
+    
+    def poller_loop():
+        # Wait a bit for server to start
+        time.sleep(10)
+        while True:
+            try:
+                poll_sources_task()
+            except Exception as e:
+                print(f"Poller loop error: {e}")
+            # Poll every 15 minutes
+            time.sleep(900)
+            
+    Thread(target=poller_loop, daemon=True).start()
+
+# Templates
+@app.get("/api/templates", response_model=List[ProjectTemplateRead])
+def list_templates(org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    templates = session.exec(select(ProjectTemplate).where(ProjectTemplate.org_id == org_id)).all()
+    
+    # If no templates exist for this org, seed the defaults
+    if not templates:
+        defaults = [
+            {
+                "name": "Natural Disaster",
+                "description": "Template for monitoring floods, earthquakes, and other natural events.",
+                "icon": "flame",
+                "extraction_config": {
+                    "entities": {
+                        "Location": "Geographic area affected.",
+                        "DisasterType": "Type of event (Flood, Storm, etc.)",
+                        "Severity": "Scale of the event.",
+                        "Casualties": "Number of people affected."
+                    }
+                }
+            },
+            {
+                "name": "Armed Conflict",
+                "description": "Template for monitoring security incidents and conflicts.",
+                "icon": "shield",
+                "extraction_config": {
+                    "entities": {
+                        "Actor": "Groups or individuals involved.",
+                        "IncidentType": "Type of event (Clash, Attack, etc.)",
+                        "WeaponUsed": "Specific weaponry mentioned.",
+                        "Displaced": "Number of people fleeing."
+                    }
+                }
+            }
+        ]
+        for d in defaults:
+            template = ProjectTemplate(**d, org_id=org_id)
+            session.add(template)
+        session.commit()
+        templates = session.exec(select(ProjectTemplate).where(ProjectTemplate.org_id == org_id)).all()
+        
+    return templates
+
+@app.post("/api/templates", response_model=ProjectTemplateRead)
+def create_template(data: ProjectTemplateCreate, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    template = ProjectTemplate(**data.model_dump(), org_id=org_id)
+    session.add(template)
+    session.commit()
+    session.refresh(template)
+    return template
+
+@app.get("/api/templates/{template_id}", response_model=ProjectTemplateRead)
+def get_template(template_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    template = session.exec(select(ProjectTemplate).where(ProjectTemplate.id == template_id).where(ProjectTemplate.org_id == org_id)).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return template
+
+@app.patch("/api/templates/{template_id}", response_model=ProjectTemplateRead)
+def update_template(template_id: UUID, data: ProjectTemplateUpdate, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    template = session.exec(select(ProjectTemplate).where(ProjectTemplate.id == template_id).where(ProjectTemplate.org_id == org_id)).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    values = data.model_dump(exclude_unset=True)
+    for k, v in values.items():
+        setattr(template, k, v)
+    
+    session.add(template)
+    session.commit()
+    session.refresh(template)
+    return template
+
+@app.delete("/api/templates/{template_id}")
+def delete_template(template_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    template = session.exec(select(ProjectTemplate).where(ProjectTemplate.id == template_id).where(ProjectTemplate.org_id == org_id)).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    session.delete(template)
+    session.commit()
+    return {"message": "Template deleted"}
 
 # Projects
 @app.get("/api/projects", response_model=List[ProjectRead])
@@ -140,7 +283,7 @@ def list_projects(org_id: str = Depends(get_current_org_id), session: Session = 
 
 @app.post("/api/projects", response_model=ProjectRead)
 def create_project(project_data: ProjectCreate, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
-    config = project_data.extraction_config or DEFAULT_CONFIG
+    config = project_data.extraction_config if project_data.extraction_config is not None else DEFAULT_CONFIG
     project = Project(
         name=project_data.name,
         description=project_data.description,
@@ -253,20 +396,31 @@ def bulk_delete_articles(project_id: UUID, article_ids: List[UUID], org_id: str 
     session.commit()
     return {"message": f"Deleted {len(articles)} articles"}
 
-@app.post("/api/projects/{project_id}/import")
-def import_articles(project_id: UUID, data: ArticleImport, background_tasks: BackgroundTasks, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+def import_articles_logic(project_id: UUID, urls: List[str], org_id: str, session: Session, background_tasks: Optional[BackgroundTasks] = None):
     # Verify project belongs to org
     project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found or access denied")
-        
-    for url in data.urls:
+        return None
+
+    for url in urls:
         article = Article(project_id=project_id, url=url, org_id=org_id)
         session.add(article)
         session.commit()
         session.refresh(article)
-        background_tasks.add_task(process_article_task, article.id)
-    return {"message": "Articles imported and processing started"}
+        
+        if background_tasks:
+            background_tasks.add_task(process_article_task, article.id)
+        else:
+            from threading import Thread
+            Thread(target=process_article_task, args=(article.id,)).start()
+    return len(urls)
+
+@app.post("/api/projects/{project_id}/import")
+def import_articles(project_id: UUID, data: ArticleImport, background_tasks: BackgroundTasks, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    count = import_articles_logic(project_id, data.urls, org_id, session, background_tasks)
+    if count is None:
+        raise HTTPException(status_code=404, detail="Project not found or access denied")
+    return {"message": f"Imported {count} articles and processing started"}
 
 @app.post("/api/projects/{project_id}/reprocess")
 def reprocess_project(project_id: UUID, background_tasks: BackgroundTasks, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
@@ -352,6 +506,57 @@ def get_project_stats(project_id: UUID, org_id: str = Depends(get_current_org_id
     completed = session.exec(select(func.count(Article.id)).where(Article.project_id == project_id).where(Article.status == "completed")).one()
     error = session.exec(select(func.count(Article.id)).where(Article.project_id == project_id).where(Article.status == "error")).one()
     return {"total": total, "pending": pending, "processing": processing, "completed": completed, "error": error}
+
+# --- Monitoring Sources (Monitoring Station) ---
+
+@app.get("/api/projects/{project_id}/sources", response_model=List[SourceRead])
+def list_sources(project_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found or access denied")
+    
+    sources = session.exec(select(Source).where(Source.project_id == project_id)).all()
+    return sources
+
+@app.post("/api/projects/{project_id}/sources", response_model=SourceRead)
+def create_source(project_id: UUID, source_data: SourceCreate, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found or access denied")
+    
+    source = Source(
+        **source_data.dict(),
+        project_id=project_id,
+        org_id=org_id
+    )
+    session.add(source)
+    session.commit()
+    session.refresh(source)
+    return source
+
+@app.patch("/api/sources/{source_id}", response_model=SourceRead)
+def update_source(source_id: UUID, source_update: SourceUpdate, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    source = session.exec(select(Source).where(Source.id == source_id).where(Source.org_id == org_id)).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found or access denied")
+    
+    for key, value in source_update.dict(exclude_unset=True).items():
+        setattr(source, key, value)
+    
+    session.add(source)
+    session.commit()
+    session.refresh(source)
+    return source
+
+@app.delete("/api/sources/{source_id}")
+def delete_source(source_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    source = session.exec(select(Source).where(Source.id == source_id).where(Source.org_id == org_id)).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found or access denied")
+    
+    session.delete(source)
+    session.commit()
+    return {"detail": "Source deleted"}
 
 # --- Model Library & Training ---
 

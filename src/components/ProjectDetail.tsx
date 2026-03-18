@@ -2,6 +2,8 @@ import {
   Button,
   Checkbox,
   Dialog,
+  EntityTitle,
+  H3,
   H4,
   Icon,
   InputGroup,
@@ -18,13 +20,17 @@ import {
   type IconName,
 } from "@blueprintjs/core";
 import { Select, type ItemRenderer } from "@blueprintjs/select";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { articlesApi, projectsApi } from "../api";
 import { useToaster } from "../hooks/useToaster";
 import type { Article, Project } from "../types";
 import { ArticleView } from "./ArticleView";
 import { ExtractionSettings } from "./project-settings/ExtractionSettings";
+import {
+  MonitoringStation,
+  type MonitoringStationRef,
+} from "./MonitoringStation";
 import { GeneralSettings } from "./project-settings/GeneralSettings";
 import { ModelLibrary } from "./project-settings/ModelLibrary";
 import { ProjectProfile } from "./project-settings/ProjectProfile";
@@ -74,10 +80,10 @@ export function ProjectDetail({
   onBack,
 }: ProjectDetailProps) {
   const [activeTab, setActiveTab] = useState<
-    "articles" | "schema" | "settings"
+    "articles" | "schema" | "settings" | "monitoring"
   >("articles");
   const [settingsSection, setSettingsSection] = useState<
-    "profile" | "general" | "library" | "schema"
+    "profile" | "general" | "library" | "schema" | "monitoring"
   >("profile");
 
   // Articles state
@@ -101,7 +107,7 @@ export function ProjectDetail({
   const [skip, setSkip] = useState(0);
   const LIMIT = 50;
 
-  const toaster = useToaster();
+  const { toaster } = useToaster();
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [urlsToImport, setUrlsToImport] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -109,6 +115,7 @@ export function ProjectDetail({
   const [pendingProjectUpdates, setPendingProjectUpdates] = useState<
     Partial<Project>
   >({});
+  const monitoringRef = useRef<MonitoringStationRef>(null);
 
   const renderSortOption: ItemRenderer<SortOption> = (
     option,
@@ -729,6 +736,12 @@ export function ProjectDetail({
                   active={settingsSection === "schema"}
                   onClick={() => setSettingsSection("schema")}
                 />
+                <MenuItem
+                  icon="feed"
+                  text="Monitoring Station"
+                  active={settingsSection === "monitoring"}
+                  onClick={() => setSettingsSection("monitoring")}
+                />
               </Menu>
             </div>
           )}
@@ -782,44 +795,60 @@ export function ProjectDetail({
           ) : (
             <div className="p-8">
               <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h3 className="text-xl font-bold">
-                    {settingsSection === "profile"
+                <EntityTitle
+                  title={
+                    settingsSection === "profile"
                       ? "Project Profile"
                       : settingsSection === "general"
                         ? "Intelligence Engine"
                         : settingsSection === "library"
                           ? "Model Library"
-                          : "Extraction Schema"}
-                  </h3>
-                  <p className="text-gray-500 text-sm">
-                    {settingsSection === "profile"
+                          : settingsSection === "monitoring"
+                            ? "Monitoring Station"
+                            : "Extraction Schema"
+                  }
+                  subtitle={
+                    settingsSection === "profile"
                       ? "Identity and basic information."
                       : settingsSection === "general"
                         ? "Model and sensitivity parameters."
                         : settingsSection === "library"
                           ? "Manage trained LoRA adapters."
-                          : "Define categories and structures to recognize."}
-                  </p>
+                          : settingsSection === "monitoring"
+                            ? "Automated article discovery."
+                            : "Define categories and structures to recognize."
+                  }
+                  heading={H3}
+                />
+                <div className="flex gap-2">
+                  {settingsSection === "monitoring" && (
+                    <Button
+                      intent={Intent.PRIMARY}
+                      icon="plus"
+                      text="Add Source"
+                      onClick={() => monitoringRef.current?.openAddSource()}
+                    />
+                  )}
+                  {settingsSection !== "library" &&
+                    settingsSection !== "monitoring" && (
+                      <Button
+                        intent={Intent.PRIMARY}
+                        icon="floppy-disk"
+                        text="Save Settings"
+                        loading={isSaving}
+                        onClick={() => {
+                          if (settingsSection === "schema") {
+                            // Logic handled in child via props (though we could unify)
+                          } else if (settingsSection === "profile") {
+                            handleUpdateProjectDetails(pendingProjectUpdates);
+                            setPendingProjectUpdates({});
+                          } else {
+                            handleSaveConfig(project.extraction_config);
+                          }
+                        }}
+                      />
+                    )}
                 </div>
-                {settingsSection !== "library" && (
-                  <Button
-                    intent={Intent.PRIMARY}
-                    icon="floppy-disk"
-                    text="Save Settings"
-                    loading={isSaving}
-                    onClick={() => {
-                      if (settingsSection === "schema") {
-                        // Logic handled in child via props (though we could unify)
-                      } else if (settingsSection === "profile") {
-                        handleUpdateProjectDetails(pendingProjectUpdates);
-                        setPendingProjectUpdates({});
-                      } else {
-                        handleSaveConfig(project.extraction_config);
-                      }
-                    }}
-                  />
-                )}
               </div>
 
               {settingsSection === "profile" && (
@@ -860,6 +889,10 @@ export function ProjectDetail({
                   isSaving={isSaving}
                   hideHeader
                 />
+              )}
+
+              {settingsSection === "monitoring" && (
+                <MonitoringStation project={project} ref={monitoringRef} />
               )}
             </div>
           )}

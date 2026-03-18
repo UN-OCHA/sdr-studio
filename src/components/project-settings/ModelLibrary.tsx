@@ -37,7 +37,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
     lora_alpha: 16,
   });
   const [isTraining, setIsTraining] = useState(false);
-  const toaster = useToaster();
+  const { toaster } = useToaster();
 
   const fetchAdapters = useCallback(async () => {
     try {

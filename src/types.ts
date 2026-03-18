@@ -39,6 +39,30 @@ export type ProjectUpdate = {
   onboarding_completed?: boolean;
 };
 
+export type ProjectTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  extraction_config: Project["extraction_config"];
+  org_id: string;
+  created_at: string;
+};
+
+export type ProjectTemplateCreate = {
+  name: string;
+  description: string;
+  icon?: string;
+  extraction_config?: Project["extraction_config"];
+};
+
+export type ProjectTemplateUpdate = {
+  name?: string;
+  description?: string;
+  icon?: string;
+  extraction_config?: Project["extraction_config"];
+};
+
 export type Article = {
   id: string;
   project_id: string;
