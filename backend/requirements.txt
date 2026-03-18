@@ -1,0 +1,19 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+pydantic
+sqlalchemy
+sqlite-utils
+gliner2
+readability-lxml
+requests
+beautifulsoup4
+python-multipart
+curl_cffi
+transformers
+torch
+peft
+accelerate
+python-jose[cryptography]
+python-dotenv
+# Add any other specific libraries mentioned by the user if needed

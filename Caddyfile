@@ -1,0 +1,11 @@
+# Replace with your actual domain or VPS IP
+# sdr-studio.yourdomain.com {
+#     reverse_proxy /api/* backend:8000
+#     reverse_proxy * frontend:80
+# }
+
+# For testing on IP:
+:80 {
+    reverse_proxy /api/* backend:8000
+    reverse_proxy * frontend:80
+}

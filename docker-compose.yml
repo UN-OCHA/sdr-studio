@@ -1,0 +1,40 @@
+services:
+  backend:
+    build: ./backend
+    restart: always
+    env_file: ./backend/.env
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/adapters:/app/adapters
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      args:
+        - VITE_AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
+        - VITE_AUTH0_CLIENT_ID=${VITE_AUTH0_CLIENT_ID}
+        - VITE_AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
+        - VITE_AUTH0_ORG_ID_CLAIM=${VITE_AUTH0_ORG_ID_CLAIM}
+    restart: always
+    ports:
+      - "8080:80"
+
+  caddy:
+    image: caddy:2
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  caddy_data:
+  caddy_config:
