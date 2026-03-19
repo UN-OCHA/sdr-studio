@@ -13,6 +13,8 @@ import {
   ProgressBar,
   Tag,
   TextArea,
+  Switch,
+  Divider,
 } from "@blueprintjs/core";
 import { useCallback, useEffect, useState } from "react";
 import { projectsApi } from "../../api";
@@ -28,6 +30,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
   const [adapters, setAdapters] = useState<ModelAdapter[]>([]);
   const [loading, setLoading] = useState(true);
   const [isTrainDialogOpen, setIsTrainDialogOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [trainingParams, setTrainingParams] = useState<TrainingRequest>({
     name: "Disaster Model v1",
     description: "Fine-tuned on reviewed disaster reports.",
@@ -35,6 +38,11 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
     batch_size: 4,
     lora_rank: 8,
     lora_alpha: 16,
+    encoder_lr: 1e-5,
+    task_lr: 5e-4,
+    warmup_ratio: 0.1,
+    weight_decay: 0.01,
+    use_early_stopping: false,
   });
   const [isTraining, setIsTraining] = useState(false);
   const { toaster } = useToaster();
@@ -200,8 +208,19 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
                     {adapter.status.toUpperCase()}
                   </Tag>
                   <span className="text-[10px] text-gray-400 font-mono">
-                    r={adapter.num_samples}
+                    n={adapter.num_samples}
                   </span>
+                  {adapter.f1_score !== undefined &&
+                    adapter.f1_score !== null && (
+                      <Tag
+                        minimal
+                        round
+                        intent={Intent.WARNING}
+                        className="text-[8px] h-3 px-1"
+                      >
+                        F1: {(adapter.f1_score * 100).toFixed(1)}%
+                      </Tag>
+                    )}
                 </div>
               </div>
             </div>
@@ -350,20 +369,104 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
             </FormGroup>
             <FormGroup
               label="LoRA Rank"
-              helperText="Adapter complexity (8 is standard)."
+              helperText="Complexity (8 is standard)."
             >
               <NumericInput
                 fill
                 min={4}
-                max={32}
+                max={64}
                 stepSize={4}
                 value={trainingParams.lora_rank}
                 onValueChange={(v) =>
-                  setTrainingParams({ ...trainingParams, lora_rank: v })
+                  setTrainingParams({
+                    ...trainingParams,
+                    lora_rank: v,
+                    lora_alpha: v * 2,
+                  })
                 }
               />
             </FormGroup>
           </div>
+
+          <Divider />
+
+          <div className="flex justify-between items-center">
+            <H5 className="mb-0 text-xs text-gray-500 uppercase">
+              Advanced Settings
+            </H5>
+            <Switch
+              checked={showAdvanced}
+              onChange={() => setShowAdvanced(!showAdvanced)}
+              large
+              className="mb-0!"
+            />
+          </div>
+
+          {showAdvanced && (
+            <div className="space-y-4 animate-[fade-in_0.2s_ease]">
+              <div className="grid grid-cols-2 gap-4">
+                <FormGroup label="Encoder LR" labelInfo="(default 1e-5)">
+                  <NumericInput
+                    fill
+                    stepSize={0.000001}
+                    minorStepSize={0.0000001}
+                    value={trainingParams.encoder_lr}
+                    onValueChange={(v) =>
+                      setTrainingParams({ ...trainingParams, encoder_lr: v })
+                    }
+                  />
+                </FormGroup>
+                <FormGroup label="Task LR" labelInfo="(default 5e-4)">
+                  <NumericInput
+                    fill
+                    stepSize={0.0001}
+                    minorStepSize={0.00001}
+                    value={trainingParams.task_lr}
+                    onValueChange={(v) =>
+                      setTrainingParams({ ...trainingParams, task_lr: v })
+                    }
+                  />
+                </FormGroup>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormGroup label="Warmup Ratio" labelInfo="(0-1)">
+                  <NumericInput
+                    fill
+                    min={0}
+                    max={1}
+                    stepSize={0.05}
+                    value={trainingParams.warmup_ratio}
+                    onValueChange={(v) =>
+                      setTrainingParams({ ...trainingParams, warmup_ratio: v })
+                    }
+                  />
+                </FormGroup>
+                <FormGroup label="Weight Decay" labelInfo="(default 0.01)">
+                  <NumericInput
+                    fill
+                    min={0}
+                    stepSize={0.005}
+                    value={trainingParams.weight_decay}
+                    onValueChange={(v) =>
+                      setTrainingParams({ ...trainingParams, weight_decay: v })
+                    }
+                  />
+                </FormGroup>
+              </div>
+
+              <Switch
+                label="Enable Early Stopping"
+                checked={trainingParams.use_early_stopping}
+                onChange={(e) =>
+                  setTrainingParams({
+                    ...trainingParams,
+                    use_early_stopping: e.currentTarget.checked,
+                  })
+                }
+              />
+            </div>
+          )}
         </div>
         <div className="p-3 bg-gray-50 border-t border-gray-200 flex justify-end gap-2 rounded-b">
           <Button

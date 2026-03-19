@@ -1,91 +1,149 @@
 import {
   Button,
-  ControlGroup,
-  H5,
+  Card,
+  Dialog,
+  Divider,
+  EntityTitle,
+  FormGroup,
   InputGroup,
   Intent,
-  Tag,
   TextArea,
 } from "@blueprintjs/core";
-import { useState } from "react";
+import { useState, useImperativeHandle, forwardRef } from "react";
 
 type RelationManagerProps = {
   relations: Record<string, string>;
   onChange: (relations: Record<string, string>) => void;
 };
 
-export function RelationManager({ relations, onChange }: RelationManagerProps) {
-  const [newRel, setNewRel] = useState("");
-  const [newDesc, setNewDesc] = useState("");
+export const RelationManager = forwardRef(({ relations, onChange }: RelationManagerProps, ref) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
 
-  const handleAdd = () => {
-    if (newRel.trim()) {
-      onChange({
-        ...relations,
-        [newRel.trim()]: newDesc.trim() || `Description for ${newRel}`,
-      });
-      setNewRel("");
-      setNewDesc("");
-    }
+  useImperativeHandle(ref, () => ({
+    openAdd: () => {
+      setEditingKey(null);
+      setName("");
+      setDescription("");
+      setIsDialogOpen(true);
+    },
+  }));
+
+  const handleOpenEdit = (key: string) => {
+    setEditingKey(key);
+    setName(key);
+    setDescription(relations[key]);
+    setIsDialogOpen(true);
   };
 
-  const handleRemove = (key: string) => {
+  const handleSave = () => {
+    if (!name.trim()) return;
+
+    const next = { ...relations };
+    if (editingKey && editingKey !== name.trim()) {
+      delete next[editingKey];
+    }
+
+    next[name.trim()] = description.trim() || `Description for ${name}`;
+    onChange(next);
+    setIsDialogOpen(false);
+  };
+
+  const handleRemove = (e: React.MouseEvent, key: string) => {
+    e.stopPropagation();
     const next = { ...relations };
     delete next[key];
     onChange(next);
   };
 
+  const entries = Object.entries(relations);
+
   return (
-    <div className="space-y-4">
-      <H5>Relation Extraction Labels</H5>
-      <p className="text-xs text-gray-500">
-        Define relationships to extract between entities.
-      </p>
-
-      <div className="flex flex-wrap gap-2 p-3 bg-gray-50 border border-gray-200 rounded-md min-h-[60px]">
-        {Object.entries(relations).map(([rel, desc]) => (
-          <Tag
-            key={rel}
-            large
-            minimal
-            intent={Intent.WARNING}
-            onRemove={() => handleRemove(rel)}
-            title={desc}
-          >
-            {rel}
-          </Tag>
-        ))}
-        {Object.keys(relations).length === 0 && (
-          <span className="text-gray-400 italic text-sm">
-            No relations added yet.
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <ControlGroup>
-          <InputGroup
-            placeholder="Relation Name (e.g. occurred_in)"
-            value={newRel}
-            onChange={(e) => setNewRel(e.target.value)}
-            fill
+    <>
+      {entries.map(([rel, desc]) => (
+        <Card
+          key={rel}
+          className="p-3 border-none shadow-none flex items-center justify-between"
+        >
+          <EntityTitle
+            title={rel}
+            icon="exchange"
+            subtitle={
+              <div className="flex flex-col">
+                 <span className="text-gray-500 font-bold uppercase tracking-tighter text-[9px] mb-0.5">
+                    Binary Relation
+                  </span>
+                <span className="line-clamp-1 text-[11px] text-gray-600">{desc}</span>
+              </div>
+            }
           />
+          <div className="flex items-center gap-2">
+            <Button
+              icon="edit"
+              minimal
+              small
+              onClick={() => handleOpenEdit(rel)}
+              title="Edit Relation"
+            />
+            <Button
+              icon="trash"
+              minimal
+              small
+              intent={Intent.DANGER}
+              onClick={(e) => handleRemove(e, rel)}
+              title="Remove Relation"
+            />
+          </div>
+        </Card>
+      ))}
+      {entries.length === 0 && (
+        <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded text-gray-400 text-xs italic">
+          No relations defined yet.
+        </div>
+      )}
+
+      <Dialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        title={editingKey ? `Edit Relation Label: ${editingKey}` : "Add New Relation Label"}
+        icon="exchange"
+        className="pb-0"
+      >
+        <div className="p-4 space-y-4">
+          <FormGroup label="Relation Name" labelInfo="(Required)">
+            <InputGroup
+              placeholder="e.g. occurred_in or victim_of"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </FormGroup>
+
+          <FormGroup label="Description / Model Hints">
+            <TextArea
+              fill
+              autoResize
+              placeholder="Provide context to help the model identify this relationship..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
+          </FormGroup>
+        </div>
+
+        <Divider className="m-0" />
+        <div className="p-3 bg-gray-50 flex justify-end gap-2 rounded-b">
+          <Button text="Cancel" onClick={() => setIsDialogOpen(false)} minimal />
           <Button
-            icon="plus"
             intent={Intent.PRIMARY}
-            onClick={handleAdd}
-            text="Add"
+            icon={editingKey ? "tick" : "plus"}
+            text={editingKey ? "Save Changes" : "Add Relation"}
+            disabled={!name.trim()}
+            onClick={handleSave}
           />
-        </ControlGroup>
-        <TextArea
-          placeholder="Description (Optional) - provide hints for the extraction model..."
-          value={newDesc}
-          onChange={(e) => setNewDesc(e.target.value)}
-          fill
-          rows={2}
-          className="text-xs"
-        />
-      </div>
-    </div>
+        </div>
+      </Dialog>
+    </>
   );
-}
+});

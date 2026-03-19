@@ -115,7 +115,15 @@ export function ProjectDetail({
   const [pendingProjectUpdates, setPendingProjectUpdates] = useState<
     Partial<Project>
   >({});
+  const [pendingConfig, setPendingConfig] = useState<
+    Project["extraction_config"] | null
+  >(null);
   const monitoringRef = useRef<MonitoringStationRef>(null);
+
+  useEffect(() => {
+    setPendingConfig(null);
+    setPendingProjectUpdates({});
+  }, [project.id]);
 
   const renderSortOption: ItemRenderer<SortOption> = (
     option,
@@ -279,6 +287,7 @@ export function ProjectDetail({
         extraction_config: newConfig,
       });
       onUpdateProject(updated);
+      setPendingConfig(null);
       toaster?.show({
         message: "Project schema updated successfully",
         intent: Intent.SUCCESS,
@@ -837,15 +846,23 @@ export function ProjectDetail({
                         text="Save Settings"
                         loading={isSaving}
                         onClick={() => {
-                          if (settingsSection === "schema") {
-                            // Logic handled in child via props (though we could unify)
+                          if (
+                            settingsSection === "schema" ||
+                            settingsSection === "general"
+                          ) {
+                            if (pendingConfig) {
+                              handleSaveConfig(pendingConfig);
+                            }
                           } else if (settingsSection === "profile") {
                             handleUpdateProjectDetails(pendingProjectUpdates);
                             setPendingProjectUpdates({});
-                          } else {
-                            handleSaveConfig(project.extraction_config);
                           }
                         }}
+                        disabled={
+                          (settingsSection === "schema" ||
+                            settingsSection === "general") &&
+                          !pendingConfig
+                        }
                       />
                     )}
                 </div>
@@ -865,10 +882,10 @@ export function ProjectDetail({
 
               {settingsSection === "general" && (
                 <GeneralSettings
-                  config={project.extraction_config}
+                  config={pendingConfig || project.extraction_config}
                   onUpdateConfig={(updates) =>
-                    handleSaveConfig({
-                      ...project.extraction_config,
+                    setPendingConfig({
+                      ...(pendingConfig || project.extraction_config),
                       ...updates,
                     })
                   }
@@ -884,8 +901,8 @@ export function ProjectDetail({
 
               {settingsSection === "schema" && (
                 <ExtractionSettings
-                  config={project.extraction_config}
-                  onSave={handleSaveConfig}
+                  config={pendingConfig || project.extraction_config}
+                  onChange={setPendingConfig}
                   isSaving={isSaving}
                   hideHeader
                 />

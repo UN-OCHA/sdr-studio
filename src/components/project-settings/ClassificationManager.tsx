@@ -1,151 +1,277 @@
 import {
   Button,
+  Card,
   ControlGroup,
+  Dialog,
+  Divider,
+  EntityTitle,
   FormGroup,
-  H5,
   InputGroup,
   Intent,
   Tag,
+  Switch,
+  NumericInput,
+  Tooltip,
 } from "@blueprintjs/core";
-import { useState } from "react";
+import { useState, useImperativeHandle, forwardRef } from "react";
+import type { Project } from "../../types";
+
+type ClassificationConfig = NonNullable<Project["extraction_config"]["classifications"]>;
 
 type ClassificationManagerProps = {
-  classifications: Record<string, string[]>;
-  onChange: (classifications: Record<string, string[]>) => void;
+  classifications: ClassificationConfig;
+  onChange: (classifications: ClassificationConfig) => void;
 };
 
-export function ClassificationManager({
+export const ClassificationManager = forwardRef(({
   classifications,
   onChange,
-}: ClassificationManagerProps) {
-  const [newName, setNewName] = useState("");
-  const [currentOptions, setCurrentOptions] = useState<string[]>([]);
+}: ClassificationManagerProps, ref) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+
+  const [name, setName] = useState("");
+  const [currentOptions, setCurrentOptions] = useState<
+    Array<{ label: string; description: string }>
+  >([]);
   const [optionInput, setOptionInput] = useState("");
+  const [descInput, setDescInput] = useState("");
+  const [multiLabel, setMultiLabel] = useState(false);
+  const [threshold, setThreshold] = useState(0.5);
+
+  useImperativeHandle(ref, () => ({
+    openAdd: () => {
+      setEditingKey(null);
+      setName("");
+      setCurrentOptions([]);
+      setOptionInput("");
+      setDescInput("");
+      setMultiLabel(false);
+      setThreshold(0.5);
+      setIsDialogOpen(true);
+    },
+  }));
+
+  const handleOpenEdit = (key: string) => {
+    const config = classifications[key];
+    setEditingKey(key);
+    setName(key);
+    
+    if (Array.isArray(config)) {
+      setCurrentOptions(config.map(opt => ({ label: opt, description: "" })));
+      setMultiLabel(false);
+      setThreshold(0.5);
+    } else {
+      const opts = config.labels || [];
+      if (Array.isArray(opts)) {
+        setCurrentOptions(opts.map(opt => ({ label: opt, description: "" })));
+      } else {
+        setCurrentOptions(Object.entries(opts).map(([l, d]) => ({ label: l, description: d })));
+      }
+      setMultiLabel(config.multi_label || false);
+      setThreshold(config.threshold ?? 0.5);
+    }
+    setIsDialogOpen(true);
+  };
 
   const handleAddOption = () => {
-    if (optionInput.trim() && !currentOptions.includes(optionInput.trim())) {
-      setCurrentOptions([...currentOptions, optionInput.trim()]);
+    if (
+      optionInput.trim() &&
+      !currentOptions.find((o) => o.label === optionInput.trim())
+    ) {
+      setCurrentOptions([
+        ...currentOptions,
+        { label: optionInput.trim(), description: descInput.trim() },
+      ]);
       setOptionInput("");
+      setDescInput("");
     }
   };
 
-  const handleRemoveOption = (opt: string) => {
-    setCurrentOptions(currentOptions.filter((o) => o !== opt));
+  const handleRemoveOption = (label: string) => {
+    setCurrentOptions(currentOptions.filter((o) => o.label !== label));
   };
 
-  const handleAddClassification = () => {
-    if (newName.trim() && currentOptions.length > 0) {
-      onChange({ ...classifications, [newName.trim()]: currentOptions });
-      setNewName("");
-      setCurrentOptions([]);
+  const handleSave = () => {
+    if (!name.trim() || currentOptions.length === 0) return;
+
+    const next = { ...classifications };
+    if (editingKey && editingKey !== name.trim()) {
+      delete next[editingKey];
     }
+
+    const labels: Record<string, string> = {};
+    currentOptions.forEach((o) => {
+      labels[o.label] = o.description;
+    });
+
+    next[name.trim()] = {
+      labels: labels,
+      multi_label: multiLabel,
+      threshold: threshold,
+    };
+
+    onChange(next);
+    setIsDialogOpen(false);
   };
 
-  const handleRemoveClassification = (key: string) => {
+  const handleRemoveClassification = (e: React.MouseEvent, key: string) => {
+    e.stopPropagation();
     const next = { ...classifications };
     delete next[key];
     onChange(next);
   };
 
+  const entries = Object.entries(classifications);
+
   return (
-    <div className="space-y-4">
-      <H5>Classifications</H5>
-      <p className="text-xs text-gray-500">
-        Categorize the overall text (e.g. Sentiment, Severity).
-      </p>
+    <>
+      {entries.map(([name, config]) => {
+        const isMulti = !Array.isArray(config) && config.multi_label;
+        const t = !Array.isArray(config) ? config.threshold : 0.5;
+        const options = Array.isArray(config)
+          ? config
+          : config.labels
+          ? Array.isArray(config.labels)
+            ? config.labels
+            : Object.keys(config.labels)
+          : [];
 
-      <div className="space-y-3">
-        {Object.entries(classifications).map(([name, options]) => (
-          <div
+        return (
+          <Card
             key={name}
-            className="p-4 bg-white border border-gray-200 shadow-sm rounded-lg flex justify-between items-start"
+            className="p-3 border-none shadow-none flex items-center justify-between"
           >
-            <div className="grow">
-              <span className="font-bold text-sm text-gray-800 block mb-2">
-                {name}
-              </span>
-              <div className="flex flex-wrap gap-1">
-                {options.map((opt) => (
-                  <Tag key={opt} minimal round intent={Intent.NONE}>
-                    {opt}
-                  </Tag>
-                ))}
-              </div>
-            </div>
-            <Button
-              icon="trash"
-              minimal
-              intent={Intent.DANGER}
-              onClick={() => handleRemoveClassification(name)}
+            <EntityTitle
+              title={name}
+              icon={isMulti ? "property" : "list"}
+              subtitle={
+                <div className="flex flex-col">
+                  <span className="text-gray-500 font-bold uppercase tracking-tighter text-[9px] mb-0.5">
+                    {isMulti ? "Multi-label Classification" : "Single Choice Classification"} • Confidence ≥ {t}
+                  </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {options.slice(0, 8).map(opt => (
+                      <span key={opt} className="text-[10px] text-gray-500 bg-gray-100 px-1 rounded">{opt}</span>
+                    ))}
+                    {options.length > 8 && <span className="text-[10px] text-gray-400">+{options.length - 8} more</span>}
+                  </div>
+                </div>
+              }
             />
-          </div>
-        ))}
-        {Object.keys(classifications).length === 0 && (
-          <div className="text-center py-6 bg-gray-50 border border-dashed border-gray-300 rounded-lg text-gray-400 text-xs italic">
-            No classifications defined.
-          </div>
-        )}
-      </div>
+            <div className="flex items-center gap-2">
+              <Button
+                icon="edit"
+                minimal
+                small
+                onClick={() => handleOpenEdit(name)}
+                title="Edit Classification"
+              />
+              <Button
+                icon="trash"
+                minimal
+                small
+                intent={Intent.DANGER}
+                onClick={(e) => handleRemoveClassification(e, name)}
+                title="Remove Classification"
+              />
+            </div>
+          </Card>
+        );
+      })}
+      {entries.length === 0 && (
+        <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded text-gray-400 text-xs italic">
+          No classifications defined yet.
+        </div>
+      )}
 
-      <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 shadow-inner">
-        <H5 className="text-sm mb-3">Add New Classification</H5>
-        <div className="space-y-4">
-          <FormGroup
-            label="Category Name"
-            labelInfo="(e.g. Severity)"
-            className="mb-0"
-          >
+      <Dialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        title={editingKey ? `Edit Classification: ${editingKey}` : "Add New Classification"}
+        icon="layers"
+        className="pb-0"
+        style={{ width: "500px" }}
+      >
+        <div className="p-4 space-y-4">
+          <FormGroup label="Category Name" labelInfo="(Required)">
             <InputGroup
-              placeholder="Enter category name..."
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. Sentiment or Severity"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
           </FormGroup>
 
-          <FormGroup
-            label="Options"
-            helperText="Add possible choices for this classification."
-            className="mb-0"
-          >
-            <div className="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 bg-white border border-gray-200 rounded">
+          <FormGroup label="Options" labelInfo="(At least one)">
+            <div className="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 bg-white border border-gray-200 rounded max-h-32 overflow-y-auto">
               {currentOptions.map((opt) => (
-                <Tag
-                  key={opt}
-                  onRemove={() => handleRemoveOption(opt)}
-                  intent={Intent.PRIMARY}
-                  minimal
-                >
-                  {opt}
-                </Tag>
+                <Tooltip key={opt.label} content={opt.description || "No description"}>
+                  <Tag
+                    onRemove={() => handleRemoveOption(opt.label)}
+                    intent={Intent.PRIMARY}
+                    minimal
+                    round
+                  >
+                    {opt.label}
+                  </Tag>
+                </Tooltip>
               ))}
               {currentOptions.length === 0 && (
-                <span className="text-gray-400 text-xs self-center">
-                  No options added.
-                </span>
+                <span className="text-gray-400 text-xs self-center">No options added yet.</span>
               )}
             </div>
-            <ControlGroup>
+            <ControlGroup fill>
               <InputGroup
-                placeholder="Option name..."
+                placeholder="Option label..."
                 value={optionInput}
                 onChange={(e) => setOptionInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddOption()}
-                fill
               />
-              <Button icon="plus" onClick={handleAddOption} text="Add" />
+              <InputGroup
+                placeholder="Description (hints)..."
+                value={descInput}
+                onChange={(e) => setDescInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddOption()}
+              />
+              <Button icon="plus" onClick={handleAddOption} />
             </ControlGroup>
           </FormGroup>
 
+          <div className="grid grid-cols-2 gap-4">
+            <FormGroup label="Multi-label">
+              <Switch
+                checked={multiLabel}
+                onChange={(e) => setMultiLabel(e.currentTarget.checked)}
+                label="Allow multiple choices"
+              />
+            </FormGroup>
+
+            <FormGroup label="Threshold" helperText="Min confidence (0-1)">
+              <NumericInput
+                fill
+                min={0}
+                max={1}
+                stepSize={0.05}
+                minorStepSize={0.01}
+                value={threshold}
+                onValueChange={(v) => setThreshold(v)}
+              />
+            </FormGroup>
+          </div>
+        </div>
+
+        <Divider className="m-0" />
+        <div className="p-3 bg-gray-50 flex justify-end gap-2 rounded-b">
+          <Button text="Cancel" onClick={() => setIsDialogOpen(false)} minimal />
           <Button
-            fill
             intent={Intent.PRIMARY}
-            icon="add"
-            text="Add Classification to Project"
-            disabled={!newName.trim() || currentOptions.length === 0}
-            onClick={handleAddClassification}
+            icon={editingKey ? "tick" : "plus"}
+            text={editingKey ? "Save Changes" : "Add Classification"}
+            disabled={!name.trim() || currentOptions.length === 0}
+            onClick={handleSave}
           />
         </div>
-      </div>
-    </div>
+      </Dialog>
+    </>
   );
-}
+});

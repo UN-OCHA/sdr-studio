@@ -17,7 +17,7 @@ import {
   Spinner,
   TextArea,
 } from "@blueprintjs/core";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { templatesApi } from "../api";
 import { useToaster } from "../hooks/useToaster";
 import type { ProjectTemplate, ProjectTemplateCreate } from "../types";
@@ -39,20 +39,20 @@ export function TemplateManager() {
   });
   const { showToaster } = useToaster();
 
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
       const data = await templatesApi.list();
       setTemplates(data);
-    } catch (error) {
+    } catch {
       showToaster("Failed to fetch templates", Intent.DANGER);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showToaster]);
 
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [fetchTemplates]);
 
   const handleSave = async (config?: ProjectTemplate["extraction_config"]) => {
     if (!formData.name) return;
@@ -72,7 +72,7 @@ export function TemplateManager() {
       }
       setEditingTemplate(null);
       fetchTemplates();
-    } catch (error) {
+    } catch {
       showToaster("Failed to save template", Intent.DANGER);
     } finally {
       setIsSaving(false);
@@ -85,7 +85,7 @@ export function TemplateManager() {
       await templatesApi.delete(id);
       showToaster("Template deleted", Intent.SUCCESS);
       fetchTemplates();
-    } catch (error) {
+    } catch {
       showToaster("Failed to delete template", Intent.DANGER);
     }
   };
@@ -97,7 +97,15 @@ export function TemplateManager() {
       icon: "cube",
       extraction_config: { entities: {} },
     });
-    setEditingTemplate({ id: "new" } as any);
+    setEditingTemplate({ 
+      id: "new",
+      name: "",
+      description: "",
+      icon: "cube",
+      extraction_config: { entities: {} },
+      org_id: "",
+      created_at: new Date().toISOString()
+    } as ProjectTemplate);
   };
 
   const openEdit = (template: ProjectTemplate) => {

@@ -6,8 +6,19 @@ export type Project = {
   extraction_config: {
     model_id?: string;
     summary_model_id?: string;
-    entities?: Record<string, string>;
-    classifications?: Record<string, string[]>;
+    entities?: Record<
+      string,
+      | string
+      | { description: string; threshold?: number; dtype?: "str" | "list" }
+    >;
+    classifications?: Record<
+      string,
+      {
+        labels: string[] | Record<string, string>;
+        multi_label?: boolean;
+        threshold?: number;
+      }
+    >;
     structures?: Array<{
       name: string;
       fields: Array<{
@@ -15,10 +26,18 @@ export type Project = {
         dtype: "str" | "int" | "float" | "bool" | "list";
         choices?: string[];
         description?: string;
+        threshold?: number;
+        validator_pattern?: string;
       }>;
     }>;
+    relations?: Record<string, string>;
     threshold?: number;
-    [key: string]: unknown;
+    cleaning?: {
+      use_local_model?: boolean;
+      model_id?: string;
+    };
+    active_adapter_id?: string;
+    active_adapter_path?: string;
   };
   onboarding_completed: boolean;
   created_at: string;
@@ -92,6 +111,7 @@ export type Annotation = {
   start: number;
   end: number;
   label: string;
+  confidence?: number;
 };
 
 export type ModelAdapter = {
@@ -114,4 +134,9 @@ export type TrainingRequest = {
   batch_size: number;
   lora_rank: number;
   lora_alpha: number;
+  encoder_lr: number;
+  task_lr: number;
+  warmup_ratio: number;
+  weight_decay: number;
+  use_early_stopping: boolean;
 };

@@ -92,7 +92,11 @@ DEFAULT_CONFIG = {
         "associated_with": "Two entities are related in some way"
     },
     "classifications": {
-        "Severity": ["Low", "Medium", "High", "Critical"]
+        "Severity": {
+            "labels": ["Low", "Medium", "High", "Critical"],
+            "multi_label": False,
+            "threshold": 0.5
+        }
     }
 }
 
@@ -101,15 +105,36 @@ def build_gliner_schema(extractor, config: Dict[str, Any]):
     
     entities = config.get("entities", {})
     if entities:
-        schema = schema.entities(entities)
+        if isinstance(entities, list):
+            schema = schema.entities(entities)
+        elif isinstance(entities, dict):
+            # Check if it's a simple name:desc mapping or complex config
+            first_val = next(iter(entities.values())) if entities else None
+            if isinstance(first_val, str):
+                schema = schema.entities(entities)
+            else:
+                # Complex per-entity config
+                schema = schema.entities(entities) # GLiNER2 library handles dict of dicts too
     
     relations = config.get("relations", {})
     if relations:
         schema = schema.relations(relations)
     
     classifications = config.get("classifications", {})
-    for name, choices in classifications.items():
-        schema = schema.classification(name, choices)
+    for name, class_config in classifications.items():
+        if isinstance(class_config, list):
+            # Legacy support for simple list of labels
+            schema = schema.classification(name, class_config)
+        elif isinstance(class_config, dict):
+            labels = class_config.get("labels", [])
+            multi_label = class_config.get("multi_label", False)
+            threshold = class_config.get("threshold", 0.5)
+            schema = schema.classification(
+                name, 
+                labels, 
+                multi_label=multi_label, 
+                cls_threshold=threshold
+            )
         
     structures = config.get("structures", [])
     for struct in structures:
@@ -117,6 +142,7 @@ def build_gliner_schema(extractor, config: Dict[str, Any]):
         for field in struct.get("fields", []):
             validators = []
             if field.get("validator_pattern"):
+                from gliner2 import RegexValidator
                 # Always use 'partial' mode as it is safer for extraction-only fields
                 # where exact string matches can be finicky.
                 validators.append(RegexValidator(field["validator_pattern"], mode="partial"))
@@ -126,6 +152,7 @@ def build_gliner_schema(extractor, config: Dict[str, Any]):
                 dtype=field.get("dtype", "str"),
                 choices=field.get("choices"),
                 description=field.get("description"),
+                threshold=field.get("threshold"),
                 validators=validators
             )
     return schema
@@ -210,6 +237,18 @@ def list_templates(org_id: str = Depends(get_current_org_id), session: Session =
                         "DisasterType": "Type of event (Flood, Storm, etc.)",
                         "Severity": "Scale of the event.",
                         "Casualties": "Number of people affected."
+                    },
+                    "classifications": {
+                        "Impact Level": {
+                            "labels": ["Minor", "Moderate", "Severe", "Extreme"],
+                            "multi_label": False,
+                            "threshold": 0.5
+                        },
+                        "Reporting Language": {
+                            "labels": ["English", "Spanish", "French", "Other"],
+                            "multi_label": True,
+                            "threshold": 0.3
+                        }
                     }
                 }
             },
@@ -223,6 +262,13 @@ def list_templates(org_id: str = Depends(get_current_org_id), session: Session =
                         "IncidentType": "Type of event (Clash, Attack, etc.)",
                         "WeaponUsed": "Specific weaponry mentioned.",
                         "Displaced": "Number of people fleeing."
+                    },
+                    "classifications": {
+                        "Conflict Type": {
+                            "labels": ["State-based", "Non-state", "One-sided", "Other"],
+                            "multi_label": True,
+                            "threshold": 0.4
+                        }
                     }
                 }
             }
@@ -597,7 +643,19 @@ def train_adapter(project_id: UUID, req: TrainingRequest, background_tasks: Back
     session.commit()
     session.refresh(adapter)
     
-    background_tasks.add_task(train_model_task, adapter.id, req.epochs, req.batch_size, req.lora_rank, req.lora_alpha)
+    background_tasks.add_task(
+        train_model_task, 
+        adapter.id, 
+        req.epochs, 
+        req.batch_size, 
+        req.lora_rank, 
+        req.lora_alpha,
+        req.encoder_lr,
+        req.task_lr,
+        req.warmup_ratio,
+        req.weight_decay,
+        req.use_early_stopping
+    )
     return adapter
 
 @app.post("/api/projects/{project_id}/activate-adapter/{adapter_id}")
@@ -634,23 +692,36 @@ def deactivate_adapter(project_id: UUID, org_id: str = Depends(get_current_org_i
     session.commit()
     return {"message": "Adapter deactivated. Using base model."}
 
-def train_model_task(adapter_id: UUID, epochs: int, batch_size: int, lora_rank: int, lora_alpha: float):
+def train_model_task(
+    adapter_id: UUID, 
+    epochs: int, 
+    batch_size: int, 
+    lora_rank: int, 
+    lora_alpha: float,
+    encoder_lr: float,
+    task_lr: float,
+    warmup_ratio: float,
+    weight_decay: float,
+    use_early_stopping: bool
+):
     from database import engine
     from sqlmodel import Session
     from models import Project, Article, Annotation, ModelAdapter
+    from gliner2.training.data import InputExample, TrainingDataset
     import os
-    
+    import random
+
     with Session(engine) as session:
         adapter = session.get(ModelAdapter, adapter_id)
         if not adapter: return
         project = session.get(Project, adapter.project_id)
         if not project: return
-        
+
         try:
             # 1. Prepare Dataset
             articles = session.exec(select(Article).where(Article.project_id == project.id).where(Article.reviewed == True)).all()
-            
-            examples = []
+
+            all_examples = []
             for art in articles:
                 # Group annotations by label
                 entities = {}
@@ -660,51 +731,70 @@ def train_model_task(adapter_id: UUID, epochs: int, batch_size: int, lora_rank: 
                     if label not in entities:
                         entities[label] = []
                     entities[label].append(text)
-                
-                # Format into InputExample (Entities only for now, can be extended)
-                examples.append(InputExample(
+
+                # Format into InputExample
+                all_examples.append(InputExample(
                     text=art.content,
                     entities=entities
                 ))
-            
+
+            # Simple 90/10 split
+            random.seed(42)
+            random.shuffle(all_examples)
+            split_idx = int(len(all_examples) * 0.9)
+            train_examples = all_examples[:split_idx]
+            val_examples = all_examples[split_idx:] if split_idx < len(all_examples) else []
+
             # 2. Configure Training
             adapter_dir = os.path.join("adapters", str(adapter_id))
             os.makedirs(adapter_dir, exist_ok=True)
-            
+
             config = TrainingConfig(
                 output_dir=adapter_dir,
                 experiment_name=adapter.name,
                 num_epochs=epochs,
                 batch_size=batch_size,
-                gradient_accumulation_steps=1,
+                encoder_lr=encoder_lr,
+                task_lr=task_lr,
+                warmup_ratio=warmup_ratio,
+                weight_decay=weight_decay,
                 use_lora=True,
                 lora_r=lora_rank,
                 lora_alpha=lora_alpha,
+                early_stopping=use_early_stopping,
                 save_adapter_only=True,
-                fp16=False, # Disable for local CPU training or ensure availability
+                fp16=False,
                 logging_steps=10
             )
-            
+
             # 3. Run Trainer
             model = GLiNER2.from_pretrained(adapter.base_model)
             trainer = GLiNER2Trainer(model=model, config=config)
-            
-            # We use a simple train set for now (no validation split in this first version)
-            trainer.train(train_data=examples)
-            
+
+            results = trainer.train(
+                train_data=train_examples,
+                eval_data=val_examples if val_examples else None
+            )
+
             # 4. Success
             adapter.status = "completed"
-            adapter.adapter_path = os.path.join(adapter_dir, "final")
+            adapter.adapter_path = os.path.join(adapter_dir, "best" if val_examples else "final")
+
+            # Extract F1 if available from results
+            if "eval_f1" in results:
+                adapter.f1_score = results["eval_f1"]
+            elif "best_metric" in results:
+                adapter.f1_score = results["best_metric"]
+
             session.add(adapter)
             session.commit()
-            
+
         except Exception as e:
             adapter.status = "error"
             import traceback
             traceback.print_exc()
             session.add(adapter)
             session.commit()
-
 @app.get("/api/articles/{article_id}", response_model=ArticleReadWithAnnotations)
 def get_article(article_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
     article = session.exec(
@@ -758,7 +848,15 @@ def update_annotations(article_id: UUID, data: AnnotationUpdate, org_id: str = D
         raise HTTPException(status_code=404, detail="Article not found or access denied")
     session.exec(delete(Annotation).where(Annotation.article_id == article_id))
     for ann in data.annotations:
-        new_ann = Annotation(article_id=article_id, start=ann.start, end=ann.end, label=ann.label, org_id=org_id)
+        # annotations from manual UI might not have confidence
+        new_ann = Annotation(
+            article_id=article_id, 
+            start=ann.start, 
+            end=ann.end, 
+            label=ann.label, 
+            confidence=getattr(ann, 'confidence', None),
+            org_id=org_id
+        )
         session.add(new_ann)
     session.commit()
     return {"message": "Annotations updated"}
@@ -867,25 +965,25 @@ def process_article_task(article_id: UUID):
             session.commit()
             extractor = get_gliner(model_id, adapter_path)
             schema = build_gliner_schema(extractor, config)
-            results = extractor.extract(clean_text, schema, threshold=threshold, include_spans=True)
-            
+            results = extractor.extract(clean_text, schema, threshold=threshold, include_spans=True, include_confidence=True)
+
             session.exec(delete(Annotation).where(Annotation.article_id == article_id))
-            
-            # results['entities'] is a dict like {'label': [{'text': '...', 'start': 0, 'end': 5}, ...]}
+
+            # results['entities'] is a dict like {'label': [{'text': '...', 'start': 0, 'end': 5, 'confidence': 0.95}, ...]}
             entity_groups = results.get("entities", {})
             count = 0
             for label, items in entity_groups.items():
                 for ent in items:
                     ann = Annotation(
-                        article_id=article_id, 
-                        start=ent["start"], 
-                        end=ent["end"], 
+                        article_id=article_id,
+                        start=ent["start"],
+                        end=ent["end"],
                         label=label,
+                        confidence=ent.get("confidence"),
                         org_id=article.org_id
                     )
                     session.add(ann)
                     count += 1
-            
             article.structured_data = {k: v for k, v in results.items() if k != "entities"}
             article.status = "completed"
             article.processing_step = None

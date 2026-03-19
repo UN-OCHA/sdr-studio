@@ -120,7 +120,7 @@ export function ProjectOnboarding({
                 config={config}
                 isSaving={false}
                 hideHeader
-                onSave={(newConfig) => setConfig(newConfig)}
+                onChange={(newConfig) => setConfig(newConfig)}
               />
             </div>
           )}

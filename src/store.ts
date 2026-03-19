@@ -46,11 +46,11 @@ export const useStore = create<AppState>((set, get) => ({
       if (currentProjectId && !projects.find((p: Project) => p.id === currentProjectId)) {
         get().setCurrentProjectId(null);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to fetch projects:", error);
       set({ 
         isLoadingProjects: false, 
-        errorProjects: error.message || "Failed to connect to backend" 
+        errorProjects: (error as Error).message || "Failed to connect to backend" 
       });
     }
   },
@@ -71,11 +71,11 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const response = await projectsApi.listArticles(projectId);
       set({ articles: response.articles, isLoadingArticles: false, errorArticles: null });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to fetch articles:", error);
       set({ 
         isLoadingArticles: false, 
-        errorArticles: error.message || "Failed to fetch articles" 
+        errorArticles: (error as Error).message || "Failed to fetch articles" 
       });
     }
   },

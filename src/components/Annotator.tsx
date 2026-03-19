@@ -27,7 +27,12 @@ type AnnotatorProps = {
   articleId: string;
   text: string;
   initialAnnotations?: Annotation[];
-  initialLabels?: string[];
+  initialLabels?:
+    | string[]
+    | Record<
+        string,
+        string | { description: string; threshold?: number; dtype?: "str" | "list" }
+      >;
   onChange?: (annotations: Annotation[]) => void;
   isEditable?: boolean;
 };
@@ -111,8 +116,14 @@ export function Annotator({
     initialAnnotations || [],
   );
 
+  const getLabelList = useCallback((raw: AnnotatorProps["initialLabels"]) => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    return Object.keys(raw);
+  }, []);
+
   const [availableLabels, setAvailableLabels] = useState<string[]>(
-    initialLabels || [],
+    getLabelList(initialLabels),
   );
 
   const [pendingSelection, setPendingSelection] =
@@ -140,9 +151,9 @@ export function Annotator({
 
   useEffect(() => {
     queueMicrotask(() => {
-      setAvailableLabels(initialLabels || []);
+      setAvailableLabels(getLabelList(initialLabels));
     });
-  }, [initialLabels]);
+  }, [initialLabels, getLabelList]);
 
   const updateAnnotations = useCallback(
     (updater: (prev: Annotation[]) => Annotation[]) => {

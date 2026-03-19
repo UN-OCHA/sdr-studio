@@ -17,8 +17,9 @@ import {
   Tab,
   Tabs,
   Tag,
+  Tooltip,
 } from "@blueprintjs/core";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { articlesApi } from "../api";
 import type { Annotation, Article, Project } from "../types";
 import { Annotator } from "./Annotator";
@@ -157,7 +158,10 @@ export function ArticleView({
     }
   };
 
-  const handleUpdateClassification = (name: string, value: string) => {
+  const handleUpdateClassification = (
+    name: string,
+    value: string | string[],
+  ) => {
     const next = { ...article.structured_data, [name]: value };
     void updateStructuredData(next);
   };
@@ -219,7 +223,7 @@ export function ArticleView({
     void updateStructuredData(nextData);
   };
 
-  const structuredAnalysis: React.JSX.Element | null = (() => {
+  const structuredAnalysis: React.ReactNode = (() => {
     if (!structures || structures.length === 0) return null;
 
     // Check if there is actually any structured data for the structures we have defined
@@ -541,8 +545,14 @@ export function ArticleView({
             {Object.keys(classifications).length > 0 && (
               <Section title="Classifications" icon="list-columns" collapsible>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-                  {Object.entries(classifications).map(([name, choices]) => {
+                  {Object.entries(classifications).map(([name, config]) => {
                     const value = article.structured_data?.[name];
+                    const choices = Array.isArray(config)
+                      ? config
+                      : Array.isArray(config.labels)
+                        ? config.labels
+                        : Object.keys(config.labels);
+
                     return (
                       <div
                         key={name}
@@ -563,14 +573,36 @@ export function ArticleView({
                             <Popover
                               content={
                                 <Menu>
-                                  {(choices as string[]).map((choice) => (
+                                  {choices.map((choice) => (
                                     <MenuItem
                                       key={choice}
                                       text={choice}
-                                      active={value === choice}
-                                      onClick={() =>
-                                        handleUpdateClassification(name, choice)
+                                      active={
+                                        Array.isArray(value)
+                                          ? value.includes(choice)
+                                          : value === choice
                                       }
+                                      onClick={() => {
+                                        if (
+                                          !Array.isArray(config) &&
+                                          config.multi_label
+                                        ) {
+                                          const current = Array.isArray(value)
+                                            ? (value as string[])
+                                            : value
+                                              ? [String(value)]
+                                              : [];
+                                          const next = current.includes(choice)
+                                            ? current.filter((c) => c !== choice)
+                                            : [...current, choice];
+                                          handleUpdateClassification(name, next);
+                                        } else {
+                                          handleUpdateClassification(
+                                            name,
+                                            choice,
+                                          );
+                                        }
+                                      }}
                                     />
                                   ))}
                                 </Menu>
@@ -583,20 +615,31 @@ export function ArticleView({
                                 minimal
                                 small
                                 fill
-                                text={String(value || "Select...")}
+                                text={
+                                  Array.isArray(value)
+                                    ? value.join(", ") || "Select..."
+                                    : String(value || "Select...")
+                                }
                                 intent={value ? Intent.PRIMARY : Intent.NONE}
                                 className="text-left flex justify-between"
                               />
                             </Popover>
                           ) : value ? (
-                            <Tag
-                              intent={Intent.PRIMARY}
-                              minimal
-                              large
-                              className="w-full justify-center"
-                            >
-                              {String(value)}
-                            </Tag>
+                            <div className="flex flex-wrap gap-1">
+                              {(Array.isArray(value) ? value : [value]).map(
+                                (v) => (
+                                  <Tag
+                                    key={String(v)}
+                                    intent={Intent.PRIMARY}
+                                    minimal
+                                    large
+                                    className="grow justify-center"
+                                  >
+                                    {String(v)}
+                                  </Tag>
+                                ),
+                              )}
+                            </div>
                           ) : (
                             <span className="text-gray-300 italic">
                               No match found
@@ -783,15 +826,32 @@ export function ArticleView({
                           </h6>
                           <div className="flex flex-wrap gap-2">
                             {labelAnns.map((ann) => (
-                              <Tag
+                              <Tooltip
                                 key={ann.id}
-                                round
-                                minimal
-                                interactive
-                                className="px-3 py-1"
+                                content={
+                                  ann.confidence
+                                    ? `Confidence: ${(
+                                        ann.confidence * 100
+                                      ).toFixed(1)}%`
+                                    : "Manual annotation"
+                                }
                               >
-                                {article.content.slice(ann.start, ann.end)}
-                              </Tag>
+                                <Tag
+                                  round
+                                  minimal
+                                  interactive
+                                  className="px-3 py-1"
+                                  intent={
+                                    ann.confidence && ann.confidence > 0.8
+                                      ? Intent.SUCCESS
+                                      : ann.confidence && ann.confidence > 0.5
+                                        ? Intent.WARNING
+                                        : Intent.NONE
+                                  }
+                                >
+                                  {article.content.slice(ann.start, ann.end)}
+                                </Tag>
+                              </Tooltip>
                             ))}
                           </div>
                         </div>

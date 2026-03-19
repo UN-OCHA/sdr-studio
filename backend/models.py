@@ -9,6 +9,7 @@ class AnnotationBase(SQLModel):
     start: int
     end: int
     label: str
+    confidence: Optional[float] = Field(default=None)
     org_id: str = Field(default="public", index=True)
 
 class ArticleBase(SQLModel):
@@ -177,6 +178,11 @@ class TrainingRequest(SQLModel):
     batch_size: int = 4
     lora_rank: int = 8
     lora_alpha: float = 16.0
+    encoder_lr: float = 1e-5
+    task_lr: float = 5e-4
+    warmup_ratio: float = 0.1
+    weight_decay: float = 0.01
+    use_early_stopping: bool = False
 
 class ArticleImport(SQLModel):
     urls: List[str]

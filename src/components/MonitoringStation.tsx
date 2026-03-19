@@ -13,7 +13,7 @@ import {
   Switch,
   Tag,
 } from "@blueprintjs/core";
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { sourcesApi } from "../api";
 import { useToaster } from "../hooks/useToaster";
 import type { Project } from "../types";
@@ -55,20 +55,20 @@ export const MonitoringStation = forwardRef<
     openAddSource: () => setIsAddDialogOpen(true),
   }));
 
-  const fetchSources = async () => {
+  const fetchSources = useCallback(async () => {
     try {
       const data = await sourcesApi.list(project.id);
       setSources(data);
-    } catch (error) {
+    } catch {
       showToaster("Failed to fetch sources", Intent.DANGER);
     } finally {
       setLoading(false);
     }
-  };
+  }, [project.id, showToaster]);
 
   useEffect(() => {
     fetchSources();
-  }, [project.id]);
+  }, [fetchSources]);
 
   const handleAddSource = async () => {
     if (!newSource.name || !newSource.url) {
@@ -83,7 +83,7 @@ export const MonitoringStation = forwardRef<
       setIsAddDialogOpen(false);
       setNewSource({ name: "", url: "", type: "rss" });
       fetchSources();
-    } catch (error) {
+    } catch {
       showToaster("Failed to add source", Intent.DANGER);
     } finally {
       setIsSubmitting(false);
@@ -95,10 +95,10 @@ export const MonitoringStation = forwardRef<
       await sourcesApi.update(source.id, { active: !source.active });
       setSources(
         sources.map((s) =>
-          s.id === source.id ? { ...s, active: !s.active } : s,
+          s.id === source.id ? { ...s, active: !source.active } : s,
         ),
       );
-    } catch (error) {
+    } catch {
       showToaster("Failed to update source", Intent.DANGER);
     }
   };
@@ -110,7 +110,7 @@ export const MonitoringStation = forwardRef<
       await sourcesApi.delete(sourceId);
       setSources(sources.filter((s) => s.id !== sourceId));
       showToaster("Source deleted", Intent.SUCCESS);
-    } catch (error) {
+    } catch {
       showToaster("Failed to delete source", Intent.DANGER);
     }
   };

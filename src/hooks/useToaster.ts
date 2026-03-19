@@ -1,4 +1,4 @@
-import { OverlayToaster, type Toaster, type Intent } from "@blueprintjs/core";
+import { OverlayToaster, type Toaster, type Intent, type IconName, type MaybeElement } from "@blueprintjs/core";
 import { useEffect, useState } from "react";
 
 let toasterInstance: Toaster | null = null;
@@ -19,7 +19,7 @@ export function useToaster() {
     }
   }, [instance]);
 
-  const showToaster = (message: string, intent: Intent = "none", icon?: any) => {
+  const showToaster = (message: string, intent: Intent = "none", icon?: IconName | MaybeElement) => {
     if (instance) {
       instance.show({ message, intent, icon });
     } else {
