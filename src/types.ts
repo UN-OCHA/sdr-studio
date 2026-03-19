@@ -7,7 +7,7 @@ export type ExportField = {
 export type ReportSection = {
   id: string;
   title: string;
-  type: "metadata" | "summary" | "entities" | "structured_data" | "custom_text" | "article_list";
+  type: "metadata" | "summary" | "entities" | "structured_data" | "article_list" | "custom_text";
   enabled: boolean;
   config?: {
     text?: string; // For custom_text
@@ -36,6 +36,19 @@ export type ReportConfig = {
 export type ExportConfig = {
   fields: ExportField[];
   report?: ReportConfig;
+};
+
+export type ApiKey = {
+  id: string;
+  name: string;
+  key: string;
+  project_id: string;
+  created_at: string;
+  last_used?: string;
+};
+
+export type ApiKeyCreate = {
+  name: string;
 };
 
 export type Project = {
@@ -185,4 +198,33 @@ export type TrainingRequest = {
   warmup_ratio: number;
   weight_decay: number;
   use_early_stopping: boolean;
+};
+
+export type Source = {
+  id: string;
+  project_id: string;
+  name: string;
+  url: string;
+  type: string;
+  active: boolean;
+  config?: any;
+  polling_interval: number;
+  last_polled?: string;
+  created_at: string;
+};
+
+export type SourceCreate = {
+  name: string;
+  url: string;
+  type: string;
+  polling_interval: number;
+  config?: any;
+};
+
+export type SourceUpdate = {
+  name?: string;
+  url?: string;
+  active?: boolean;
+  polling_interval?: number;
+  config?: any;
 };

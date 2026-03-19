@@ -1,11 +1,13 @@
 import os
 import json
 from typing import Optional
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, status, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader
 from jose import jwt
 from curl_cffi import requests
 from dotenv import load_dotenv
+from sqlmodel import Session, select
+from datetime import datetime, timezone
 
 load_dotenv()
 
@@ -16,6 +18,7 @@ ORG_ID_CLAIM = os.getenv("AUTH0_ORG_ID_CLAIM", "https://sdr-studio.com/org_id")
 APP_SECRET = os.getenv("APP_SECRET", "LTK_LOCAL_DEVELOPMENT_SECRET_KEY_CHANGE_IN_PROD")
 
 security = HTTPBearer(auto_error=False)
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 # In-memory cache for JWKS to avoid fetching on every request
 _jwks_cache = None
@@ -111,3 +114,29 @@ def get_current_org_id(
         detail="Missing authentication credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+def get_org_id_from_api_key(
+    api_key: str = Security(api_key_header)
+) -> dict:
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing API Key",
+        )
+    
+    from database import engine
+    from models import ApiKey
+    with Session(engine) as session:
+        db_key = session.exec(select(ApiKey).where(ApiKey.key == api_key)).first()
+        if not db_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API Key",
+            )
+        
+        # Update last used
+        db_key.last_used = datetime.now(timezone.utc)
+        session.add(db_key)
+        session.commit()
+        
+        return {"org_id": db_key.org_id, "project_id": db_key.project_id}

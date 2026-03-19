@@ -23,7 +23,6 @@ const renderIcon: ItemRenderer<string> = (
       onFocus={handleFocus}
       text={icon}
       icon={icon as IconName}
-      // Added roleStructure for better screen reader accessibility per Blueprint docs
       roleStructure="listoption"
     />
   );

@@ -6,6 +6,9 @@ import type {
   TrainingRequest,
   ProjectTemplateCreate,
   ProjectTemplateUpdate,
+  ApiKeyCreate,
+  SourceCreate,
+  SourceUpdate,
 } from "./types";
 
 const API_BASE_URL = "/api";
@@ -153,16 +156,31 @@ export const projectsApi = {
     apiFetch(`/projects/${projectId}/deactivate-adapter`, {
       method: "POST",
     }),
+  // API Key Management
+  listApiKeys: (projectId: string) => apiFetch(`/projects/${projectId}/api-keys`),
+  createApiKey: (projectId: string, data: ApiKeyCreate) =>
+    apiFetch(`/projects/${projectId}/api-keys`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  deleteApiKey: (keyId: string) =>
+    apiFetch(`/projects/api-keys/${keyId}`, {
+      method: "DELETE",
+    }),
+  externalExportUrl: (projectId: string, _key: string, format: string) => {
+    const base = window.location.origin;
+    return `${base}${API_BASE_URL}/projects/external/export?project_id=${projectId}&format=${format}`;
+  }
 };
 
 export const sourcesApi = {
   list: (projectId: string) => apiFetch(`/projects/${projectId}/sources`),
-  create: (projectId: string, data: { name: string; url: string; type: string }) =>
+  create: (projectId: string, data: SourceCreate) =>
     apiFetch(`/projects/${projectId}/sources`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  update: (sourceId: string, data: { active?: boolean; name?: string; url?: string }) =>
+  update: (sourceId: string, data: SourceUpdate) =>
     apiFetch(`/sources/${sourceId}`, {
       method: "PATCH",
       body: JSON.stringify(data),

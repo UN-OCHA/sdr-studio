@@ -30,6 +30,7 @@ import {
   MonitoringStation,
   type MonitoringStationRef,
 } from "./MonitoringStation";
+import { ApiKeyManager } from "./project-settings/ApiKeyManager";
 import { ExportSettings } from "./project-settings/ExportSettings";
 import { ExtractionSettings } from "./project-settings/ExtractionSettings";
 import { GeneralSettings } from "./project-settings/GeneralSettings";
@@ -84,7 +85,16 @@ export function ProjectDetail({
     "articles" | "schema" | "settings" | "monitoring"
   >("articles");
   const [settingsSection, setSettingsSection] = useState<
-    "profile" | "general" | "library" | "schema" | "monitoring" | "export"
+    | "profile"
+    | "general"
+    | "library"
+    | "entities"
+    | "relations"
+    | "classifications"
+    | "structures"
+    | "monitoring"
+    | "export"
+    | "api"
   >("profile");
 
   // Articles state
@@ -801,48 +811,90 @@ export function ProjectDetail({
               </div>
             </div>
           ) : (
-            <div className="p-4">
-              <p className="text-xs text-gray-500 uppercase font-bold mb-4">
-                Configuration
-              </p>
-              <Menu className="bg-transparent p-0">
-                <MenuItem
-                  icon="info-sign"
-                  text="Project Profile"
-                  active={settingsSection === "profile"}
-                  onClick={() => setSettingsSection("profile")}
-                />
-                <MenuItem
-                  icon="predictive-analysis"
-                  text="Intelligence Settings"
-                  active={settingsSection === "general"}
-                  onClick={() => setSettingsSection("general")}
-                />
-                <MenuItem
-                  icon="box"
-                  text="Model Library"
-                  active={settingsSection === "library"}
-                  onClick={() => setSettingsSection("library")}
-                />
-                <MenuItem
-                  icon="tag"
-                  text="Extraction Schema"
-                  active={settingsSection === "schema"}
-                  onClick={() => setSettingsSection("schema")}
-                />
-                <MenuItem
-                  icon="feed"
-                  text="Monitoring Station"
-                  active={settingsSection === "monitoring"}
-                  onClick={() => setSettingsSection("monitoring")}
-                />
-                <MenuItem
-                  icon="export"
-                  text="Export Configuration"
-                  active={settingsSection === "export"}
-                  onClick={() => setSettingsSection("export")}
-                />
-              </Menu>
+            <div className="p-4 space-y-4">
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase font-bold mb-2 pl-2 tracking-wider">
+                  General
+                </p>
+                <Menu className="bg-transparent p-0">
+                  <MenuItem
+                    icon="info-sign"
+                    text="Project Profile"
+                    active={settingsSection === "profile"}
+                    onClick={() => setSettingsSection("profile")}
+                  />
+                  <MenuItem
+                    icon="predictive-analysis"
+                    text="Intelligence Engine"
+                    active={settingsSection === "general"}
+                    onClick={() => setSettingsSection("general")}
+                  />
+                  <MenuItem
+                    icon="box"
+                    text="Model Library"
+                    active={settingsSection === "library"}
+                    onClick={() => setSettingsSection("library")}
+                  />
+                </Menu>
+              </div>
+
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase font-bold mb-2 pl-2 tracking-wider">
+                  Extraction Schema
+                </p>
+                <Menu className="bg-transparent p-0">
+                  <MenuItem
+                    icon="tag"
+                    text="Entity Labels"
+                    active={settingsSection === "entities"}
+                    onClick={() => setSettingsSection("entities")}
+                  />
+                  <MenuItem
+                    icon="link"
+                    text="Relations"
+                    active={settingsSection === "relations"}
+                    onClick={() => setSettingsSection("relations")}
+                  />
+                  <MenuItem
+                    icon="list-columns"
+                    text="Classifications"
+                    active={settingsSection === "classifications"}
+                    onClick={() => setSettingsSection("classifications")}
+                  />
+                  <MenuItem
+                    icon="layout-grid"
+                    text="Structured Objects"
+                    active={settingsSection === "structures"}
+                    onClick={() => setSettingsSection("structures")}
+                  />
+                </Menu>
+              </div>
+
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase font-bold mb-2 pl-2 tracking-wider">
+                  Data Pipeline
+                </p>
+                <Menu className="bg-transparent p-0">
+                  <MenuItem
+                    icon="feed"
+                    text="Monitoring Station"
+                    active={settingsSection === "monitoring"}
+                    onClick={() => setSettingsSection("monitoring")}
+                  />
+                  <MenuItem
+                    icon="export"
+                    text="Export Configuration"
+                    active={settingsSection === "export"}
+                    onClick={() => setSettingsSection("export")}
+                  />
+                  <MenuItem
+                    icon="key"
+                    text="API Access"
+                    active={settingsSection === "api"}
+                    onClick={() => setSettingsSection("api")}
+                  />
+                </Menu>
+              </div>
             </div>
           )}
         </div>
@@ -900,14 +952,22 @@ export function ProjectDetail({
                     settingsSection === "profile"
                       ? "Project Profile"
                       : settingsSection === "general"
-                        ? "Intelligence Settings"
+                        ? "Intelligence Engine"
                         : settingsSection === "library"
                           ? "Model Library"
                           : settingsSection === "monitoring"
                             ? "Monitoring Station"
                             : settingsSection === "export"
                               ? "Export Configuration"
-                              : "Extraction Schema"
+                              : settingsSection === "entities"
+                                ? "Entity Labels"
+                                : settingsSection === "relations"
+                                  ? "Relations"
+                                  : settingsSection === "classifications"
+                                    ? "Classifications"
+                                    : settingsSection === "api"
+                                      ? "External API Access"
+                                      : "Structured Objects"
                   }
                   subtitle={
                     settingsSection === "profile"
@@ -920,7 +980,15 @@ export function ProjectDetail({
                             ? "Automated article discovery."
                             : settingsSection === "export"
                               ? "Configure how data is formatted for export."
-                              : "Define categories and structures to recognize."
+                              : settingsSection === "api"
+                                ? "Manage API keys for external report integration."
+                                : settingsSection === "entities"
+                                ? "Identify specific spans of text like locations, dates, or names."
+                                : settingsSection === "relations"
+                                  ? "Extract relationships between recognized entities (e.g. 'victim_of')."
+                                  : settingsSection === "classifications"
+                                    ? "Categorize the overall document into predefined buckets."
+                                    : "Define complex JSON structures for deep data extraction."
                   }
                   heading={H3}
                 />
@@ -934,7 +1002,8 @@ export function ProjectDetail({
                     />
                   )}
                   {settingsSection !== "library" &&
-                    settingsSection !== "monitoring" && (
+                    settingsSection !== "monitoring" &&
+                    settingsSection !== "api" && (
                       <Button
                         intent={Intent.PRIMARY}
                         icon="floppy-disk"
@@ -942,7 +1011,10 @@ export function ProjectDetail({
                         loading={isSaving}
                         onClick={() => {
                           if (
-                            settingsSection === "schema" ||
+                            settingsSection === "entities" ||
+                            settingsSection === "relations" ||
+                            settingsSection === "classifications" ||
+                            settingsSection === "structures" ||
                             settingsSection === "general"
                           ) {
                             if (pendingConfig) {
@@ -961,7 +1033,10 @@ export function ProjectDetail({
                           }
                         }}
                         disabled={
-                          ((settingsSection === "schema" ||
+                          ((settingsSection === "entities" ||
+                            settingsSection === "relations" ||
+                            settingsSection === "classifications" ||
+                            settingsSection === "structures" ||
                             settingsSection === "general") &&
                             !pendingConfig) ||
                           (settingsSection === "export" && !pendingExportConfig)
@@ -1001,12 +1076,16 @@ export function ProjectDetail({
                 />
               )}
 
-              {settingsSection === "schema" && (
+              {(settingsSection === "entities" ||
+                settingsSection === "relations" ||
+                settingsSection === "classifications" ||
+                settingsSection === "structures") && (
                 <ExtractionSettings
                   config={pendingConfig || project.extraction_config}
                   onChange={setPendingConfig}
                   isSaving={isSaving}
                   hideHeader
+                  initialSection={settingsSection}
                 />
               )}
 
@@ -1022,6 +1101,10 @@ export function ProjectDetail({
                   onChange={setPendingExportConfig}
                   hideHeader
                 />
+              )}
+
+              {settingsSection === "api" && (
+                <ApiKeyManager project={project} />
               )}
             </div>
           )}

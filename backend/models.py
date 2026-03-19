@@ -86,14 +86,17 @@ class Project(ProjectBase, table=True):
     
     articles: List[Article] = Relationship(back_populates="project", cascade_delete=True)
     sources: List["Source"] = Relationship(back_populates="project", cascade_delete=True)
+    api_keys: List["ApiKey"] = Relationship(back_populates="project", cascade_delete=True)
 
 # -- Monitoring Source Models --
 
 class SourceBase(SQLModel):
     name: str
     url: str
-    type: str = "rss"  # rss, twitter, scrape
+    type: str = "rss"  # rss, exa, brave, twitter, scrape
     active: bool = True
+    config: Dict[str, Any] = Field(default={}, sa_type=JSON)
+    polling_interval: int = Field(default=15) # In minutes
     last_polled: Optional[datetime] = None
     org_id: str = Field(default="public", index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -112,12 +115,36 @@ class SourceCreate(SQLModel):
     name: str
     url: str
     type: str = "rss"
+    polling_interval: Optional[int] = 15
+    config: Optional[Dict[str, Any]] = Field(default={})
 
 class SourceUpdate(SQLModel):
     name: Optional[str] = None
     url: Optional[str] = None
     type: Optional[str] = None
     active: Optional[bool] = None
+    polling_interval: Optional[int] = None
+    config: Optional[Dict[str, Any]] = None
+
+# -- External Integration Models (API Keys) --
+
+class ApiKeyBase(SQLModel):
+    name: str
+    key: str = Field(index=True, unique=True)
+    project_id: UUID = Field(foreign_key="project.id")
+    org_id: str = Field(index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_used: Optional[datetime] = None
+
+class ApiKey(ApiKeyBase, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    project: Project = Relationship(back_populates="api_keys")
+
+class ApiKeyRead(ApiKeyBase):
+    id: UUID
+
+class ApiKeyCreate(SQLModel):
+    name: str
 
 # -- API Models (Schemas) --
 

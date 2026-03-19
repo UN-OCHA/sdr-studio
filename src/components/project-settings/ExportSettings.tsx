@@ -549,7 +549,7 @@ export function ExportSettings({
                     </div>
 
                     {section.enabled && (
-                      <div className="pl-3 border-l-2 border-gray-100 py-1 space-y-2">
+                      <div>
                         {section.type === "custom_text" ? (
                           <TextArea
                             fill
@@ -567,7 +567,7 @@ export function ExportSettings({
                             }
                           />
                         ) : (
-                          <div className="flex items-center gap-8">
+                          <div className="flex items-center gap-4">
                             <Checkbox
                               checked={section.config?.compact || false}
                               onChange={(e) =>
@@ -579,7 +579,7 @@ export function ExportSettings({
                                 })
                               }
                             >
-                              <span className="text-[11px] text-gray-600">
+                              <span className="text-xs text-gray-600">
                                 Compact View
                               </span>
                             </Checkbox>
@@ -595,7 +595,7 @@ export function ExportSettings({
                                   })
                                 }
                               >
-                                <span className="text-[11px] text-gray-600">
+                                <span className="text-xs text-gray-600">
                                   Show Labels
                                 </span>
                               </Checkbox>
@@ -668,7 +668,7 @@ export function ExportSettings({
         style={{ width: "900px" }}
       >
         <div className="p-0 flex flex-col h-[75vh]">
-          <div className="flex-grow overflow-auto bg-white p-10 border-b border-gray-200">
+          <div className="grow overflow-auto bg-white p-10 border-b border-gray-200">
             {isLoadingPreview ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <Spinner size={32} />

@@ -21,6 +21,7 @@ type ExtractionSettingsProps = {
   onChange?: (config: Project["extraction_config"]) => void;
   isSaving?: boolean;
   hideHeader?: boolean;
+  initialSection?: "entities" | "relations" | "classifications" | "structures";
 };
 
 export function ExtractionSettings({
@@ -29,6 +30,7 @@ export function ExtractionSettings({
   onChange,
   isSaving,
   hideHeader = false,
+  initialSection,
 }: ExtractionSettingsProps) {
   const [localConfig, setLocalConfig] = useState(config);
 
@@ -68,133 +70,143 @@ export function ExtractionSettings({
         </div>
       )}
 
-      <Section
-        title={
-          <EntityTitle
-            title="Entity Labels"
-            subtitle="Identify specific spans of text like locations, dates, or names."
-            heading={H5}
-          />
-        }
-        icon="tag"
-        collapsible={false}
-        rightElement={
-          <Button
-            intent={Intent.PRIMARY}
-            icon="plus"
-            text="Add Entity"
-            onClick={() => labelManagerRef.current?.openAdd()}
-            minimal
-            small
-          />
-        }
-      >
-        <SectionCard padded={false}>
-          <CardList>
-            <LabelManager
-              ref={labelManagerRef}
-              labels={localConfig.entities || {}}
-              onChange={(entities) => handleUpdate({ entities })}
+      {(!initialSection || initialSection === "entities") && (
+        <Section
+          title={
+            <EntityTitle
+              title="Entity Labels"
+              subtitle="Identify specific spans of text like locations, dates, or names."
+              heading={H5}
             />
-          </CardList>
-        </SectionCard>
-      </Section>
+          }
+          icon="tag"
+          collapsible={false}
+          rightElement={
+            <Button
+              intent={Intent.PRIMARY}
+              icon="plus"
+              text="Add Entity"
+              onClick={() => labelManagerRef.current?.openAdd()}
+              minimal
+              small
+            />
+          }
+        >
+          <SectionCard padded={false}>
+            <CardList>
+              <LabelManager
+                ref={labelManagerRef}
+                labels={localConfig.entities || {}}
+                onChange={(entities) => handleUpdate({ entities })}
+              />
+            </CardList>
+          </SectionCard>
+        </Section>
+      )}
 
-      <Section
-        title={
-          <EntityTitle
-            title="Relations"
-            subtitle="Extract relationships between recognized entities (e.g. 'victim_of')."
-            heading={H5}
-          />
-        }
-        icon="link"
-        collapsible={false}
-        rightElement={
-          <Button
-            intent={Intent.PRIMARY}
-            icon="plus"
-            text="Add Relation"
-            onClick={() => relationManagerRef.current?.openAdd()}
-            minimal
-            small
-          />
-        }
-      >
-        <SectionCard padded={false}>
-          <CardList>
-            <RelationManager
-              ref={relationManagerRef}
-              relations={(localConfig.relations as Record<string, string>) || {}}
-              onChange={(relations) => handleUpdate({ relations })}
+      {(!initialSection || initialSection === "relations") && (
+        <Section
+          title={
+            <EntityTitle
+              title="Relations"
+              subtitle="Extract relationships between recognized entities (e.g. 'victim_of')."
+              heading={H5}
             />
-          </CardList>
-        </SectionCard>
-      </Section>
+          }
+          icon="link"
+          collapsible={false}
+          rightElement={
+            <Button
+              intent={Intent.PRIMARY}
+              icon="plus"
+              text="Add Relation"
+              onClick={() => relationManagerRef.current?.openAdd()}
+              minimal
+              small
+            />
+          }
+        >
+          <SectionCard padded={false}>
+            <CardList>
+              <RelationManager
+                ref={relationManagerRef}
+                relations={
+                  (localConfig.relations as Record<string, string>) || {}
+                }
+                onChange={(relations) => handleUpdate({ relations })}
+              />
+            </CardList>
+          </SectionCard>
+        </Section>
+      )}
 
-      <Section
-        title={
-          <EntityTitle
-            title="Classifications"
-            subtitle="Categorize the overall document into predefined buckets."
-            heading={H5}
-          />
-        }
-        icon="list-columns"
-        collapsible={false}
-        rightElement={
-          <Button
-            intent={Intent.PRIMARY}
-            icon="plus"
-            text="Add Classification"
-            onClick={() => classificationManagerRef.current?.openAdd()}
-            minimal
-            small
-          />
-        }
-      >
-        <SectionCard padded={false}>
-          <CardList>
-            <ClassificationManager
-              ref={classificationManagerRef}
-              classifications={localConfig.classifications || {}}
-              onChange={(classifications) => handleUpdate({ classifications })}
+      {(!initialSection || initialSection === "classifications") && (
+        <Section
+          title={
+            <EntityTitle
+              title="Classifications"
+              subtitle="Categorize the overall document into predefined buckets."
+              heading={H5}
             />
-          </CardList>
-        </SectionCard>
-      </Section>
+          }
+          icon="list-columns"
+          collapsible={false}
+          rightElement={
+            <Button
+              intent={Intent.PRIMARY}
+              icon="plus"
+              text="Add Classification"
+              onClick={() => classificationManagerRef.current?.openAdd()}
+              minimal
+              small
+            />
+          }
+        >
+          <SectionCard padded={false}>
+            <CardList>
+              <ClassificationManager
+                ref={classificationManagerRef}
+                classifications={localConfig.classifications || {}}
+                onChange={(classifications) => handleUpdate({ classifications })}
+              />
+            </CardList>
+          </SectionCard>
+        </Section>
+      )}
 
-      <Section
-        title={
-          <EntityTitle
-            title="Structured Objects"
-            subtitle="Define complex JSON structures for deep data extraction."
-            heading={H5}
-          />
-        }
-        icon="layout-grid"
-        collapsible={false}
-        rightElement={
-          <Button
-            intent={Intent.PRIMARY}
-            icon="plus"
-            text="Add Object"
-            onClick={() => structureManagerRef.current?.openAdd()}
-            minimal
-            small
-          />
-        }
-      >
-        <SectionCard padded={false}>
-          <CardList>
-            <StructureManager
-              ref={structureManagerRef}
-              structures={localConfig.structures || []}
-              onChange={(structures) => handleUpdate({ structures })}
+      {(!initialSection || initialSection === "structures") && (
+        <Section
+          title={
+            <EntityTitle
+              title="Structured Objects"
+              subtitle="Define complex JSON structures for deep data extraction."
+              heading={H5}
             />
-          </CardList>
-        </SectionCard>
-      </Section>
+          }
+          icon="layout-grid"
+          collapsible={false}
+          rightElement={
+            <Button
+              intent={Intent.PRIMARY}
+              icon="plus"
+              text="Add Object"
+              onClick={() => structureManagerRef.current?.openAdd()}
+              minimal
+              small
+            />
+          }
+        >
+          <SectionCard padded={false}>
+            <CardList>
+              <StructureManager
+                ref={structureManagerRef}
+                structures={localConfig.structures || []}
+                onChange={(structures) => handleUpdate({ structures })}
+              />
+            </CardList>
+          </SectionCard>
+        </Section>
+      )}
     </div>
   );
 }

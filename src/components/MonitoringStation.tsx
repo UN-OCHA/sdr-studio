@@ -2,31 +2,33 @@ import {
   Button,
   Callout,
   Card,
+  Collapse,
   Dialog,
+  Divider,
   Elevation,
   FormGroup,
+  HTMLSelect,
   HTMLTable,
   InputGroup,
   Intent,
+  MenuItem,
   NonIdealState,
+  NumericInput,
   Spinner,
   Switch,
   Tag,
 } from "@blueprintjs/core";
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
+import { Select, type ItemRenderer } from "@blueprintjs/select";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from "react";
 import { sourcesApi } from "../api";
 import { useToaster } from "../hooks/useToaster";
-import type { Project } from "../types";
-
-interface Source {
-  id: string;
-  name: string;
-  url: string;
-  type: string;
-  active: boolean;
-  last_polled?: string;
-  created_at: string;
-}
+import type { Project, Source } from "../types";
 
 export interface MonitoringStationRef {
   openAddSource: () => void;
@@ -36,6 +38,32 @@ interface MonitoringStationProps {
   project: Project;
 }
 
+type PollingUnit = "min" | "hour" | "day";
+
+interface SourceTypeOption {
+  label: string;
+  value: string;
+  description: string;
+}
+
+const SOURCE_TYPES: SourceTypeOption[] = [
+  {
+    label: "RSS Feed",
+    value: "rss",
+    description: "Standard RSS/Atom/XML feed.",
+  },
+  {
+    label: "Exa Discovery",
+    value: "exa",
+    description: "AI-native search for high-quality links.",
+  },
+  {
+    label: "Brave Search",
+    value: "brave",
+    description: "Standard web search via Brave's API.",
+  },
+];
+
 export const MonitoringStation = forwardRef<
   MonitoringStationRef,
   MonitoringStationProps
@@ -43,10 +71,17 @@ export const MonitoringStation = forwardRef<
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const [pollingUnit, setPollingUnit] = useState<PollingUnit>("min");
+  const [tempInterval, setTempInterval] = useState(15);
+
   const [newSource, setNewSource] = useState({
     name: "",
     url: "",
     type: "rss",
+    polling_interval: 15,
+    config: {} as any,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToaster } = useToaster();
@@ -76,12 +111,29 @@ export const MonitoringStation = forwardRef<
       return;
     }
 
+    // Convert tempInterval to minutes for the backend
+    let intervalInMinutes = tempInterval;
+    if (pollingUnit === "hour") intervalInMinutes *= 60;
+    if (pollingUnit === "day") intervalInMinutes *= 1440;
+
     setIsSubmitting(true);
     try {
-      await sourcesApi.create(project.id, newSource);
+      await sourcesApi.create(project.id, {
+        ...newSource,
+        polling_interval: intervalInMinutes,
+      });
       showToaster("Source added successfully", Intent.SUCCESS);
       setIsAddDialogOpen(false);
-      setNewSource({ name: "", url: "", type: "rss" });
+      setNewSource({
+        name: "",
+        url: "",
+        type: "rss",
+        polling_interval: 15,
+        config: {},
+      });
+      setTempInterval(15);
+      setPollingUnit("min");
+      setShowAdvanced(false);
       fetchSources();
     } catch {
       showToaster("Failed to add source", Intent.DANGER);
@@ -93,8 +145,8 @@ export const MonitoringStation = forwardRef<
   const handleToggleActive = async (source: Source) => {
     try {
       await sourcesApi.update(source.id, { active: !source.active });
-      setSources(
-        sources.map((s) =>
+      setSources((prev) =>
+        prev.map((s) =>
           s.id === source.id ? { ...s, active: !source.active } : s,
         ),
       );
@@ -108,7 +160,7 @@ export const MonitoringStation = forwardRef<
 
     try {
       await sourcesApi.delete(sourceId);
-      setSources(sources.filter((s) => s.id !== sourceId));
+      setSources((prev) => prev.filter((s) => s.id !== sourceId));
       showToaster("Source deleted", Intent.SUCCESS);
     } catch {
       showToaster("Failed to delete source", Intent.DANGER);
@@ -124,12 +176,79 @@ export const MonitoringStation = forwardRef<
     );
   }
 
+  const getTypeIntent = (type: string) => {
+    switch (type) {
+      case "rss":
+        return Intent.NONE;
+      case "exa":
+        return Intent.PRIMARY;
+      case "brave":
+        return Intent.SUCCESS;
+      default:
+        return Intent.NONE;
+    }
+  };
+
+  const getSourceLabel = (type: string) => {
+    switch (type) {
+      case "rss":
+        return "Feed URL";
+      case "exa":
+      case "brave":
+        return "Search Query";
+      default:
+        return "URL";
+    }
+  };
+
+  const updateConfig = (key: string, value: any) => {
+    setNewSource({
+      ...newSource,
+      config: { ...newSource.config, [key]: value },
+    });
+  };
+
+  const formatInterval = (mins: number) => {
+    if (mins >= 1440 && mins % 1440 === 0) return `${mins / 1440}d`;
+    if (mins >= 60 && mins % 60 === 0) return `${mins / 60}h`;
+    return `${mins}m`;
+  };
+
+  const renderSourceType: ItemRenderer<SourceTypeOption> = (
+    item,
+    { handleClick, handleFocus, modifiers },
+  ) => {
+    if (!modifiers.matchesPredicate) return null;
+    return (
+      <MenuItem
+        active={modifiers.active}
+        disabled={modifiers.disabled}
+        key={item.value}
+        onClick={handleClick}
+        onFocus={handleFocus}
+        text={
+          <div>
+            <div className="font-bold text-xs">{item.label}</div>
+            <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
+              {item.description}
+            </div>
+          </div>
+        }
+        multiline
+      />
+    );
+  };
+
+  const currentSourceType =
+    SOURCE_TYPES.find((s) => s.value === newSource.type) || SOURCE_TYPES[0];
+
   return (
     <div className="space-y-6">
       <Callout intent={Intent.PRIMARY} icon="info-sign" title="How it works">
-        The Monitoring Station background worker polls your active sources every
-        15 minutes. New articles are automatically imported and processed using
-        your project's extraction configuration.
+        The Monitoring Station background worker polls your active sources based
+        on their individual refresh intervals. RSS feeds are parsed for new
+        links, and Discovery sources automatically search for new relevant
+        articles.
       </Callout>
 
       {sources.length === 0 ? (
@@ -140,7 +259,7 @@ export const MonitoringStation = forwardRef<
           <NonIdealState
             icon="feed"
             title="No Sources Configured"
-            description="Add your first RSS feed to start automated monitoring."
+            description="Add an RSS feed or a Discovery source to start automated monitoring."
             action={
               <Button
                 intent={Intent.PRIMARY}
@@ -158,7 +277,7 @@ export const MonitoringStation = forwardRef<
               <tr>
                 <th>Name</th>
                 <th>Type</th>
-                <th>URL</th>
+                <th>Interval</th>
                 <th>Status</th>
                 <th>Last Polled</th>
                 <th className="text-right">Actions</th>
@@ -169,12 +288,12 @@ export const MonitoringStation = forwardRef<
                 <tr key={source.id}>
                   <td className="font-medium">{source.name}</td>
                   <td>
-                    <Tag minimal intent={Intent.NONE}>
+                    <Tag minimal intent={getTypeIntent(source.type)}>
                       {source.type.toUpperCase()}
                     </Tag>
                   </td>
-                  <td className="max-w-xs truncate text-xs text-gray-500">
-                    {source.url}
+                  <td className="text-xs font-bold text-blue-600">
+                    {formatInterval(source.polling_interval)}
                   </td>
                   <td>
                     <Switch
@@ -209,6 +328,7 @@ export const MonitoringStation = forwardRef<
         title="Add Monitoring Source"
         isOpen={isAddDialogOpen}
         onClose={() => setIsAddDialogOpen(false)}
+        style={{ width: "500px" }}
       >
         <div className="p-6 space-y-4">
           <FormGroup label="Source Name" labelInfo="(required)">
@@ -216,19 +336,218 @@ export const MonitoringStation = forwardRef<
               placeholder="e.g. ReliefWeb Global Disaster Alerts"
               value={newSource.name}
               onChange={(e) =>
-                setNewSource({ ...newSource, name: e.target.value })
+                setNewSource((prev) => ({ ...prev, name: e.target.value }))
               }
             />
           </FormGroup>
-          <FormGroup label="Feed URL" labelInfo="(RSS/Atom required)">
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-1">
+              <FormGroup label="Source Type">
+                <Select<SourceTypeOption>
+                  items={SOURCE_TYPES}
+                  itemRenderer={renderSourceType}
+                  onItemSelect={(item) =>
+                    setNewSource({ ...newSource, type: item.value, config: {} })
+                  }
+                  filterable={false}
+                  popoverProps={{ minimal: true, matchTargetWidth: true }}
+                >
+                  <Button
+                    fill
+                    text={currentSourceType.label}
+                    rightIcon="double-caret-vertical"
+                    alignText="left"
+                    variant="outlined"
+                  />
+                </Select>
+              </FormGroup>
+            </div>
+
+            <div className="md:col-span-2">
+              <FormGroup
+                label="Polling Frequency"
+                helperText={`Refresh every ${tempInterval} ${pollingUnit}${tempInterval > 1 ? "s" : ""}`}
+                className="mb-0!"
+              >
+                <div className="flex gap-1">
+                  <NumericInput
+                    fill
+                    min={1}
+                    value={tempInterval}
+                    onValueChange={(val) => {
+                      if (!isNaN(val)) setTempInterval(val);
+                    }}
+                    className="grow"
+                  />
+                  <HTMLSelect
+                    value={pollingUnit}
+                    onChange={(e) =>
+                      setPollingUnit(e.target.value as PollingUnit)
+                    }
+                    options={[
+                      { label: "Mins", value: "min" },
+                      { label: "Hours", value: "hour" },
+                      { label: "Days", value: "day" },
+                    ]}
+                    style={{ width: "80px" }}
+                  />
+                </div>
+              </FormGroup>
+            </div>
+          </div>
+
+          <FormGroup
+            label={getSourceLabel(newSource.type)}
+            labelInfo="(required)"
+          >
             <InputGroup
-              placeholder="https://reliefweb.int/updates/rss.xml"
+              placeholder={
+                newSource.type === "rss"
+                  ? "https://reliefweb.int/updates/rss.xml"
+                  : "e.g. floods in South Sudan 2024"
+              }
               value={newSource.url}
               onChange={(e) =>
                 setNewSource({ ...newSource, url: e.target.value })
               }
             />
           </FormGroup>
+
+          {(newSource.type === "exa" || newSource.type === "brave") && (
+            <>
+              <Button
+                minimal
+                small
+                icon={showAdvanced ? "chevron-up" : "chevron-down"}
+                text={
+                  showAdvanced
+                    ? "Hide Advanced Settings"
+                    : "Show Advanced Settings"
+                }
+                onClick={() => setShowAdvanced(!showAdvanced)}
+              />
+
+              <Collapse isOpen={showAdvanced}>
+                <Card
+                  elevation={Elevation.ZERO}
+                  className="bg-gray-50 mt-2 space-y-3 border border-gray-200"
+                >
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormGroup label="Result Limit" className="mb-0">
+                      <NumericInput
+                        fill
+                        min={1}
+                        max={50}
+                        value={newSource.config.limit || 10}
+                        onValueChange={(val) => updateConfig("limit", val)}
+                      />
+                    </FormGroup>
+
+                    {newSource.type === "exa" && (
+                      <FormGroup label="Search Type" className="mb-0">
+                        <HTMLSelect
+                          fill
+                          value={newSource.config.search_type || "neural"}
+                          onChange={(e) =>
+                            updateConfig("search_type", e.target.value)
+                          }
+                          options={[
+                            { label: "Neural (AI)", value: "neural" },
+                            { label: "Keyword", value: "keyword" },
+                          ]}
+                        />
+                      </FormGroup>
+                    )}
+
+                    {newSource.type === "brave" && (
+                      <FormGroup label="Freshness" className="mb-0">
+                        <HTMLSelect
+                          fill
+                          value={newSource.config.freshness || ""}
+                          onChange={(e) =>
+                            updateConfig("freshness", e.target.value)
+                          }
+                          options={[
+                            { label: "Anytime", value: "" },
+                            { label: "Last 24h", value: "pd" },
+                            { label: "Last Week", value: "pw" },
+                            { label: "Last Month", value: "pm" },
+                            { label: "Last Year", value: "py" },
+                          ]}
+                        />
+                      </FormGroup>
+                    )}
+                  </div>
+
+                  {newSource.type === "exa" && (
+                    <>
+                      <FormGroup label="Category">
+                        <HTMLSelect
+                          fill
+                          value={newSource.config.category || ""}
+                          onChange={(e) =>
+                            updateConfig("category", e.target.value)
+                          }
+                          options={[
+                            { label: "General", value: "" },
+                            { label: "News", value: "news" },
+                            {
+                              label: "Research Paper",
+                              value: "research paper",
+                            },
+                            { label: "Tweet", value: "tweet" },
+                            { label: "Blog", value: "blog" },
+                          ]}
+                        />
+                      </FormGroup>
+                      <FormGroup label="Published After (ISO Date)">
+                        <InputGroup
+                          placeholder="YYYY-MM-DD"
+                          value={newSource.config.published_after || ""}
+                          onChange={(e) =>
+                            updateConfig("published_after", e.target.value)
+                          }
+                        />
+                      </FormGroup>
+                    </>
+                  )}
+
+                  {newSource.type === "brave" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormGroup label="Country (2-letter)">
+                        <InputGroup
+                          placeholder="US, GB, etc."
+                          value={newSource.config.country || ""}
+                          onChange={(e) =>
+                            updateConfig(
+                              "country",
+                              e.target.value.toUpperCase(),
+                            )
+                          }
+                        />
+                      </FormGroup>
+                      <FormGroup label="Language (2-letter)">
+                        <InputGroup
+                          placeholder="en, fr, es"
+                          value={newSource.config.search_lang || ""}
+                          onChange={(e) =>
+                            updateConfig(
+                              "search_lang",
+                              e.target.value.toLowerCase(),
+                            )
+                          }
+                        />
+                      </FormGroup>
+                    </div>
+                  )}
+                </Card>
+              </Collapse>
+            </>
+          )}
+
+          <Divider />
+
           <div className="flex justify-end gap-2 pt-2">
             <Button text="Cancel" onClick={() => setIsAddDialogOpen(false)} />
             <Button
