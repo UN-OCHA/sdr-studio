@@ -20,6 +20,7 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import React, { useEffect, useState } from "react";
+import TimeAgo from "react-timeago";
 import { articlesApi } from "../api";
 import type { Annotation, Article, Project } from "../types";
 import { Annotator, getProceduralColor } from "./Annotator";
@@ -223,6 +224,38 @@ export function ArticleView({
     void updateStructuredData(nextData);
   };
 
+  const renderValueWithConfidence = (val: unknown) => {
+    if (val === null || val === undefined) return null;
+
+    if (typeof val === "object" && val !== null && !Array.isArray(val)) {
+      const obj = val as Record<string, unknown>;
+      const confidence = obj.confidence as number | undefined;
+      const label = (obj.label || obj.text) as string | undefined;
+
+      if (confidence !== undefined && label !== undefined) {
+        const isLow = confidence < 0.3;
+        return (
+          <Tooltip
+            content={`${Math.round(confidence * 100)}% confidence`}
+            placement="top"
+          >
+            <span
+              className={`cursor-help border-b border-dotted ${
+                isLow
+                  ? "border-orange-500 text-orange-600 font-bold"
+                  : "border-gray-400"
+              }`}
+            >
+              {String(label)}
+            </span>
+          </Tooltip>
+        );
+      }
+    }
+
+    return String(val);
+  };
+
   const structuredAnalysis: React.ReactNode = (() => {
     if (!structures || structures.length === 0) return null;
 
@@ -420,13 +453,13 @@ export function ArticleView({
                                             {val.map(
                                               (v: unknown, i: number) => (
                                                 <Tag key={i} minimal round>
-                                                  {String(v)}
+                                                  {renderValueWithConfidence(v)}
                                                 </Tag>
                                               ),
                                             )}
                                           </div>
                                         ) : (
-                                          String(val)
+                                          renderValueWithConfidence(val)
                                         )}
                                       </span>
                                     ) : (
@@ -456,22 +489,47 @@ export function ArticleView({
     <div className="relative animate-[fade-in_0.3s_ease]">
       {/* Article Content */}
       <div className="mx-auto px-4 pt-4">
-        <header className="mb-4 border-b border-gray-100">
-          <div className="flex items-start gap-4 mb-3">
-            <EntityTitle
-              title={article.title}
-              titleURL={article.url}
-              heading={H3}
-              ellipsize={false}
-              className="text-gray-900 leading-tight tracking-tight flex-1"
-            />
+        <header className="mb-4 border-b border-gray-100 pb-1">
+          <div className="flex items-start gap-4 mb-2">
+            <div className="flex-1">
+              <EntityTitle
+                title={article.title}
+                titleURL={article.url}
+                heading={H3}
+                ellipsize={false}
+                className="text-gray-900 leading-tight tracking-tight mb-1"
+              />
+              <div className="flex items-center gap-3 text-[11px] text-gray-500">
+                <div className="flex items-center gap-1">
+                  <Icon icon="time" size={12} />
+                  <span>
+                    Collected <TimeAgo date={article.created_at} />
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Icon icon="link" size={12} />
+                  <a
+                    href={article.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline text-blue-500"
+                  >
+                    {new URL(article.url).hostname}
+                  </a>
+                </div>
+                {article.reviewed && (
+                  <Tag intent={Intent.SUCCESS} minimal round icon="tick-circle">
+                    Verified
+                  </Tag>
+                )}
+              </div>
+            </div>
             <div className="flex shrink-0 gap-2">
               <Button
                 minimal
                 icon="trash"
                 intent={Intent.DANGER}
                 loading={isDeleting}
-                text="Delete"
                 onClick={handleDelete}
               />
               <Button
@@ -648,7 +706,7 @@ export function ArticleView({
                                     large
                                     className="grow justify-center"
                                   >
-                                    {String(v)}
+                                    {renderValueWithConfidence(v)}
                                   </Tag>
                                 ),
                               )}
@@ -697,13 +755,16 @@ export function ArticleView({
                             {key}
                           </span>
                           <div className="text-sm">
-                            {typeof value === "object" ? (
+                            {typeof value === "object" &&
+                            value !== null &&
+                            !("label" in value) &&
+                            !("text" in value) ? (
                               <pre className="text-[10px] overflow-x-auto bg-white p-2 border border-gray-100 rounded mt-1">
                                 {JSON.stringify(value, null, 2)}
                               </pre>
                             ) : (
                               <span className="font-medium text-gray-700">
-                                {String(value)}
+                                {renderValueWithConfidence(value)}
                               </span>
                             )}
                           </div>
@@ -722,7 +783,10 @@ export function ArticleView({
                     {Object.entries(
                       article.structured_data.relation_extraction as Record<
                         string,
-                        { head: { text: string }; tail: { text: string } }[]
+                        {
+                          head: { text: string; confidence?: number };
+                          tail: { text: string; confidence?: number };
+                        }[]
                       >,
                     ).map(([relType, instances]) => (
                       <div key={relType} className="space-y-2">
@@ -740,7 +804,7 @@ export function ArticleView({
                                   SOURCE
                                 </span>
                                 <span className="font-medium text-gray-900">
-                                  {inst.head.text}
+                                  {renderValueWithConfidence(inst.head)}
                                 </span>
                               </div>
                               <Icon
@@ -752,7 +816,7 @@ export function ArticleView({
                                   TARGET
                                 </span>
                                 <span className="font-medium text-gray-900">
-                                  {inst.tail.text}
+                                  {renderValueWithConfidence(inst.tail)}
                                 </span>
                               </div>
                             </div>
@@ -859,13 +923,6 @@ export function ArticleView({
                                   minimal
                                   interactive
                                   className="px-3 py-1"
-                                  intent={
-                                    ann.confidence && ann.confidence > 0.8
-                                      ? Intent.SUCCESS
-                                      : ann.confidence && ann.confidence > 0.5
-                                        ? Intent.WARNING
-                                        : Intent.NONE
-                                  }
                                 >
                                   {article.content.slice(ann.start, ann.end)}
                                 </Tag>

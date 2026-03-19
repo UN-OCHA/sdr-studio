@@ -7,6 +7,7 @@ import {
   MenuItem,
   Popover,
   Tag,
+  Tooltip,
 } from "@blueprintjs/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Annotation } from "../types";
@@ -434,6 +435,18 @@ export function Annotator({
               </span>
             );
 
+            const wrappedTag =
+              ann.confidence !== undefined ? (
+                <Tooltip
+                  content={`${Math.round(ann.confidence * 100)}% confidence`}
+                  placement="top"
+                >
+                  {tagElement}
+                </Tooltip>
+              ) : (
+                tagElement
+              );
+
             return isEditable ? (
               <Popover
                 key={`tag-pop-${ann.id}`}
@@ -442,7 +455,14 @@ export function Annotator({
                 content={
                   <Menu>
                     <li className={Classes.MENU_HEADER}>
-                      <h6 className={Classes.HEADING}>{ann.label}</h6>
+                      <div className="flex items-center justify-between gap-4">
+                        <h6 className={Classes.HEADING}>{ann.label}</h6>
+                        {ann.confidence !== undefined && (
+                          <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1 rounded">
+                            {Math.round(ann.confidence * 100)}%
+                          </span>
+                        )}
+                      </div>
                     </li>
                     <MenuItem
                       text="Remove"
@@ -459,10 +479,10 @@ export function Annotator({
                   </Menu>
                 }
               >
-                {tagElement}
+                {wrappedTag}
               </Popover>
             ) : (
-              tagElement
+              <span key={`tag-wrap-${ann.id}`}>{wrappedTag}</span>
             );
           })}
         </span>,

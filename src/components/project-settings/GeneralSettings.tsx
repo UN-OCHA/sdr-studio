@@ -1,11 +1,10 @@
 import {
   Button,
   Callout,
-  EntityTitle,
   FormGroup,
-  H3,
   MenuItem,
   NumericInput,
+  Section,
   SectionCard,
   Switch,
 } from "@blueprintjs/core";
@@ -119,14 +118,12 @@ export function GeneralSettings({
 
   return (
     <div className="space-y-6">
-      <div>
-        <EntityTitle
-          heading={H3}
-          title="Intelligence Engine"
-          subtitle="The brain of your project. Determines extraction quality and speed."
-          icon="predictive-analysis"
-        />
-        <SectionCard className="mt-4">
+      <Section
+        title="Intelligence Engine"
+        subtitle="The brain of your project. Determines extraction quality and speed."
+        icon="predictive-analysis"
+      >
+        <SectionCard>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormGroup
               label="Extraction Model (GLiNER)"
@@ -175,16 +172,14 @@ export function GeneralSettings({
             </FormGroup>
           </div>
         </SectionCard>
-      </div>
+      </Section>
 
-      <div>
-        <EntityTitle
-          heading={H3}
-          title="Content Cleaning"
-          subtitle="Automated noise reduction for scraped web content."
-          icon="clean"
-        />
-        <SectionCard className="mt-4">
+      <Section
+        title="Content Cleaning"
+        subtitle="Automated noise reduction for scraped web content."
+        icon="clean"
+      >
+        <SectionCard>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -222,16 +217,14 @@ export function GeneralSettings({
             )}
           </div>
         </SectionCard>
-      </div>
+      </Section>
 
-      <div>
-        <EntityTitle
-          heading={H3}
-          title="Extraction Sensitivity"
-          subtitle="Fine-tune how strict the model is when identifying data points."
-          icon="filter"
-        />
-        <SectionCard className="mt-4">
+      <Section
+        title="Extraction Sensitivity"
+        subtitle="Fine-tune how strict the model is when identifying data points."
+        icon="filter"
+      >
+        <SectionCard>
           <FormGroup
             label="Global Confidence Threshold"
             labelInfo="(0.0 - 1.0)"
@@ -250,7 +243,7 @@ export function GeneralSettings({
             />
           </FormGroup>
         </SectionCard>
-      </div>
+      </Section>
     </div>
   );
 }

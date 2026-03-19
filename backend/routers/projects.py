@@ -245,7 +245,22 @@ def get_project_stats(project_id: UUID, org_id: str = Depends(get_current_org_id
     processing = session.exec(select(func.count(Article.id)).where(Article.project_id == project_id).where(Article.status == "processing")).one()
     completed = session.exec(select(func.count(Article.id)).where(Article.project_id == project_id).where(Article.status == "completed")).one()
     error = session.exec(select(func.count(Article.id)).where(Article.project_id == project_id).where(Article.status == "error")).one()
-    return {"total": total, "pending": pending, "processing": processing, "completed": completed, "error": error}
+    
+    # New stats: total annotations across all articles in project
+    total_annotations = session.exec(
+        select(func.count(Annotation.id))
+        .join(Article)
+        .where(Article.project_id == project_id)
+    ).one()
+
+    return {
+        "total": total, 
+        "pending": pending, 
+        "processing": processing, 
+        "completed": completed, 
+        "error": error,
+        "total_annotations": total_annotations
+    }
 
 # Exports
 @router.get("/{project_id}/export/json")

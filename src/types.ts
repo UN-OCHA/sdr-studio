@@ -114,6 +114,18 @@ export type ProjectUpdate = {
   onboarding_completed?: boolean;
 };
 
+export type SettingsSection =
+  | "profile"
+  | "general"
+  | "library"
+  | "entities"
+  | "relations"
+  | "classifications"
+  | "structures"
+  | "monitoring"
+  | "export"
+  | "api";
+
 export type ProjectTemplate = {
   id: string;
   name: string;
@@ -139,6 +151,15 @@ export type ProjectTemplateUpdate = {
   icon?: string;
   extraction_config?: Project["extraction_config"];
   export_config?: ExportConfig;
+};
+
+export type ProjectStats = {
+  total: number;
+  pending: number;
+  processing: number;
+  completed: number;
+  error: number;
+  total_annotations: number;
 };
 
 export type Article = {

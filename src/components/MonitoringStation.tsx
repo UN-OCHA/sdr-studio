@@ -245,10 +245,10 @@ export const MonitoringStation = forwardRef<
   return (
     <div className="space-y-6">
       <Callout intent={Intent.PRIMARY} icon="info-sign" title="How it works">
-        The Monitoring Station background worker polls your active sources based
-        on their individual refresh intervals. RSS feeds are parsed for new
-        links, and Discovery sources automatically search for new relevant
-        articles.
+        The Monitoring Station automatically searches for new articles from
+        different sources based on their individual refresh intervals. RSS feeds
+        and search APIs are supported, bringing you new relevant articles to
+        analyze periodically.
       </Callout>
 
       {sources.length === 0 ? (

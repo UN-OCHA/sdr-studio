@@ -1,50 +1,24 @@
 import {
   Button,
-  Checkbox,
   Dialog,
-  EntityTitle,
-  H3,
-  H4,
-  Icon,
-  InputGroup,
   Intent,
-  Menu,
-  MenuItem,
   NonIdealState,
-  Popover,
-  ProgressBar,
-  Tab,
-  Tabs,
   TextArea,
-  Tooltip,
-  type IconName,
 } from "@blueprintjs/core";
-import { Select, type ItemRenderer } from "@blueprintjs/select";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { articlesApi, projectsApi } from "../api";
 import { useToaster } from "../hooks/useToaster";
-import type { Article, Project } from "../types";
+import type { Article, Project, ProjectStats, SettingsSection } from "../types";
 import { ArticleView } from "./ArticleView";
-import {
-  MonitoringStation,
-  type MonitoringStationRef,
-} from "./MonitoringStation";
-import { ApiKeyManager } from "./project-settings/ApiKeyManager";
-import { ExportSettings } from "./project-settings/ExportSettings";
-import { ExtractionSettings } from "./project-settings/ExtractionSettings";
-import { GeneralSettings } from "./project-settings/GeneralSettings";
-import { ModelLibrary } from "./project-settings/ModelLibrary";
-import { ProjectProfile } from "./project-settings/ProjectProfile";
+import { ProjectHome } from "./ProjectHome";
 import { ProjectOnboarding } from "./ProjectOnboarding";
-
-type ProjectStats = {
-  total: number;
-  pending: number;
-  processing: number;
-  completed: number;
-  error: number;
-};
+import { ArticleSidebar } from "./project-detail/ArticleSidebar";
+import { ProjectHomeHeader } from "./project-detail/ProjectHomeHeader";
+import { SettingsContent } from "./project-detail/SettingsContent";
+import { SettingsSidebar } from "./project-detail/SettingsSidebar";
+import { SidebarExportDock } from "./project-detail/SidebarExportDock";
+import { SidebarHeader } from "./project-detail/SidebarHeader";
 
 type ProjectDetailProps = {
   project: Project;
@@ -53,49 +27,17 @@ type ProjectDetailProps = {
   onBack: () => void;
 };
 
-type SortOption = {
-  label: string;
-  value: string;
-};
-
-const SORT_OPTIONS: SortOption[] = [
-  { label: "Date Found", value: "created_at" },
-  { label: "Title", value: "title" },
-];
-
-type StatusFilterOption = {
-  label: string;
-  value: string;
-};
-
-const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
-  { label: "All Statuses", value: "all" },
-  { label: "Completed", value: "completed" },
-  { label: "Processing", value: "processing" },
-  { label: "Error", value: "error" },
-];
-
 export function ProjectDetail({
   project,
   onImportUrls,
   onUpdateProject,
   onBack,
 }: ProjectDetailProps) {
-  const [activeTab, setActiveTab] = useState<
-    "articles" | "schema" | "settings" | "monitoring"
-  >("articles");
-  const [settingsSection, setSettingsSection] = useState<
-    | "profile"
-    | "general"
-    | "library"
-    | "entities"
-    | "relations"
-    | "classifications"
-    | "structures"
-    | "monitoring"
-    | "export"
-    | "api"
-  >("profile");
+  const [activeTab, setActiveTab] = useState<"home" | "articles" | "settings">(
+    "home",
+  );
+  const [settingsSection, setSettingsSection] =
+    useState<SettingsSection>("profile");
 
   // Articles state
   const [articles, setArticles] = useState<Article[]>([]);
@@ -132,53 +74,12 @@ export function ProjectDetail({
   const [pendingExportConfig, setPendingExportConfig] = useState<
     Project["export_config"] | null
   >(null);
-  const monitoringRef = useRef<MonitoringStationRef>(null);
 
   useEffect(() => {
     setPendingConfig(null);
     setPendingExportConfig(null);
     setPendingProjectUpdates({});
   }, [project.id]);
-
-  const renderSortOption: ItemRenderer<SortOption> = (
-    option,
-    { handleClick, handleFocus, modifiers },
-  ) => {
-    if (!modifiers.matchesPredicate) return null;
-    return (
-      <MenuItem
-        active={modifiers.active}
-        disabled={modifiers.disabled}
-        key={option.value}
-        onClick={handleClick}
-        onFocus={handleFocus}
-        text={option.label}
-      />
-    );
-  };
-
-  const renderStatusOption: ItemRenderer<StatusFilterOption> = (
-    option,
-    { handleClick, handleFocus, modifiers },
-  ) => {
-    if (!modifiers.matchesPredicate) return null;
-    return (
-      <MenuItem
-        active={modifiers.active}
-        disabled={modifiers.disabled}
-        key={option.value}
-        onClick={handleClick}
-        onFocus={handleFocus}
-        text={option.label}
-      />
-    );
-  };
-
-  const currentSortLabel =
-    SORT_OPTIONS.find((o) => o.value === sortBy)?.label || "Sort By";
-  const currentStatusLabel =
-    STATUS_FILTER_OPTIONS.find((o) => o.value === statusFilter)?.label ||
-    "Filter Status";
 
   const fetchArticles = useCallback(
     async (isLoadMore = false) => {
@@ -406,709 +307,158 @@ export function ProjectDetail({
     }
   };
 
-  const getStatusIcon = (article: Article) => {
-    if (article.reviewed) {
-      return <Icon icon="endorsed" intent={Intent.SUCCESS} title="Reviewed" />;
-    }
-    switch (article.status) {
-      case "completed":
-        return <Icon icon="tick-circle" intent={Intent.SUCCESS} />;
-      case "processing":
-        return (
-          <Icon
-            icon="refresh"
-            intent={Intent.PRIMARY}
-            className="animate-spin"
-          />
-        );
-      case "error":
-        return (
-          <Tooltip
-            content={article.error_message || "Unknown error"}
-            intent={Intent.DANGER}
-          >
-            <Icon icon="error" intent={Intent.DANGER} />
-          </Tooltip>
-        );
-      default:
-        return <Icon icon="circle" intent={Intent.NONE} />;
-    }
-  };
-
   const entityLabels = Object.keys(project.extraction_config?.entities || {});
-  const isProcessing = stats && (stats.pending > 0 || stats.processing > 0);
 
   return (
     <PanelGroup direction="horizontal" className="h-full overflow-hidden">
-      {/* Sidebar */}
-      <Panel
-        defaultSize={25}
-        minSize={15}
-        maxSize={40}
-        className="flex flex-col bg-gray-50 border-r border-gray-200"
-      >
-        <div className="p-3 border-b border-gray-200 bg-white">
-          <div className="flex flex-row items-center gap-1 mb-1">
-            <Button icon="arrow-left" onClick={onBack} variant="minimal" />
-            <Icon
-              icon={project.icon as IconName}
-              size={16}
-              className="text-gray-500"
-            />
-
-            <H4 title={project.name} className="mb-0! truncate">
-              {project.name}
-            </H4>
-            <Popover
-              className="ml-auto"
-              content={
-                <Menu>
-                  <MenuItem
-                    icon="document"
-                    text="Export as JSON"
-                    onClick={async () => {
-                      const { token } = await projectsApi.getExportToken();
-                      window.open(
-                        projectsApi.exportJsonUrl(project.id, token),
-                        "_blank",
-                      );
-                    }}
-                  />
-                  <MenuItem
-                    icon="th"
-                    text="Export as CSV"
-                    onClick={async () => {
-                      const { token } = await projectsApi.getExportToken();
-                      window.open(
-                        projectsApi.exportCsvUrl(project.id, token),
-                        "_blank",
-                      );
-                    }}
-                  />
-                  <MenuItem
-                    icon="print"
-                    text="Generate Report (MD)"
-                    onClick={async () => {
-                      const { token } = await projectsApi.getExportToken();
-                      window.open(
-                        projectsApi.exportReportUrl(project.id, token, "md"),
-                        "_blank",
-                      );
-                    }}
-                  />
-                </Menu>
-              }
-              position="bottom"
-            >
-              <Button
-                small
-                intent="primary"
-                variant="outlined"
-                icon="cloud-download"
-                title="Export Options"
-                text="Export"
-                endIcon="caret-down"
-              />
-            </Popover>
-          </div>
-          <Tabs
-            id="ProjectSidebarTabs"
-            selectedTabId={activeTab}
-            onChange={(id) => setActiveTab(id as typeof activeTab)}
+      {activeTab !== "home" && (
+        <>
+          <Panel
+            defaultSize={25}
+            minSize={15}
+            maxSize={40}
+            className="flex flex-col bg-gray-50 border-r border-gray-200"
           >
-            <Tab
-              id="articles"
-              title="Articles"
-              icon="document"
-              tagContent={articles.length}
+            <SidebarHeader
+              project={project}
+              activeTab={activeTab}
+              articlesCount={articles.length}
+              onBack={onBack}
+              onTabChange={setActiveTab}
             />
-            <Tab id="settings" title="Settings" icon="cog" />
-          </Tabs>
-        </div>
-
-        <div className="grow overflow-y-clip">
-          {activeTab === "articles" ? (
-            <div className="flex flex-col h-full">
-              {/* Toolbar */}
-              <div className="p-2 border-b border-gray-200 bg-gray-100 space-y-2">
-                <div className="flex gap-2">
-                  <InputGroup
-                    leftIcon="search"
-                    placeholder="Search articles..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="grow"
-                    small
-                  />
-                  <Button
-                    small
-                    intent={Intent.PRIMARY}
-                    icon="plus"
-                    title="Import Articles"
-                    text="Import"
-                    onClick={() => setIsImportDialogOpen(true)}
-                  />
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-1">
-                    <Checkbox
-                      checked={
-                        checkedArticleIds.size > 0 &&
-                        checkedArticleIds.size === articles.length
-                      }
-                      indeterminate={
-                        checkedArticleIds.size > 0 &&
-                        checkedArticleIds.size < articles.length
-                      }
-                      onChange={handleToggleCheckAll}
-                      className="mb-0! mr-1"
-                    />
-                    <Select<StatusFilterOption>
-                      items={STATUS_FILTER_OPTIONS}
-                      itemRenderer={renderStatusOption}
-                      onItemSelect={(o) => setStatusFilter(o.value)}
-                      filterable={false}
-                      popoverProps={{ minimal: true, matchTargetWidth: true }}
-                    >
-                      <Button
-                        small
-                        minimal
-                        text={
-                          currentStatusLabel === "All Statuses"
-                            ? "All"
-                            : currentStatusLabel
-                        }
-                        rightIcon="filter"
-                        title="Filter by Status"
-                      />
-                    </Select>
-                    <Select<SortOption>
-                      items={SORT_OPTIONS}
-                      itemRenderer={renderSortOption}
-                      onItemSelect={(o) => setSortBy(o.value)}
-                      filterable={false}
-                      popoverProps={{ minimal: true }}
-                    >
-                      <Button
-                        small
-                        minimal
-                        icon={sortOrder === "asc" ? "sort-asc" : "sort-desc"}
-                        text={
-                          currentSortLabel === "Date Found" ? "Date" : "Title"
-                        }
-                        onClick={() => {
-                          // If clicking the icon area, toggle order, otherwise open select
-                          // Actually Blueprint Select handles click to open.
-                          // Let's just make it a select for now.
-                        }}
-                      />
-                    </Select>
-                    <Button
-                      small
-                      minimal
-                      icon="swap-vertical"
-                      title="Toggle Sort Direction"
-                      onClick={() =>
-                        setSortOrder(sortOrder === "asc" ? "desc" : "asc")
-                      }
-                    />
-                  </div>
-
-                  <div className="flex gap-1">
-                    {checkedArticleIds.size > 0 ? (
-                      <>
-                        <Button
-                          small
-                          minimal
-                          icon="trash"
-                          intent={Intent.DANGER}
-                          title={`Delete ${checkedArticleIds.size} Selected`}
-                          onClick={handleBulkDelete}
-                        />
-                        <Popover
-                          content={
-                            <Menu>
-                              <MenuItem
-                                icon="document"
-                                text="Export Selected as JSON"
-                                onClick={async () => {
-                                  const { token } =
-                                    await projectsApi.getExportToken();
-                                  const ids = Array.from(checkedArticleIds);
-                                  window.open(
-                                    projectsApi.exportJsonUrl(
-                                      project.id,
-                                      token,
-                                      ids,
-                                    ),
-                                    "_blank",
-                                  );
-                                }}
-                              />
-                              <MenuItem
-                                icon="th"
-                                text="Export Selected as CSV"
-                                onClick={async () => {
-                                  const { token } =
-                                    await projectsApi.getExportToken();
-                                  const ids = Array.from(checkedArticleIds);
-                                  window.open(
-                                    projectsApi.exportCsvUrl(
-                                      project.id,
-                                      token,
-                                      ids,
-                                    ),
-                                    "_blank",
-                                  );
-                                }}
-                              />
-                              <MenuItem
-                                icon="print"
-                                text="Generate Report (MD)"
-                                onClick={async () => {
-                                  const { token } =
-                                    await projectsApi.getExportToken();
-                                  const ids = Array.from(checkedArticleIds);
-                                  window.open(
-                                    projectsApi.exportReportUrl(
-                                      project.id,
-                                      token,
-                                      "md",
-                                      ids,
-                                    ),
-                                    "_blank",
-                                  );
-                                }}
-                              />
-                            </Menu>
-                          }
-                          position="bottom"
-                        >
-                          <Button
-                            size="small"
-                            variant="minimal"
-                            icon="download"
-                            title="Export Selected"
-                          />
-                        </Popover>
-                      </>
-                    ) : (
-                      <>
-                        <Button
-                          small
-                          minimal
-                          icon="refresh"
-                          title="Refresh List"
-                          onClick={() => void fetchArticles(false)}
-                        />
-                        <Button
-                          small
-                          minimal
-                          icon="automatic-updates"
-                          title="Reprocess All"
-                          onClick={handleReprocessAll}
-                          intent={isProcessing ? Intent.PRIMARY : Intent.NONE}
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {isProcessing && stats && (
-                <div className="p-3 bg-blue-50 border-b border-blue-100">
-                  <div className="flex justify-between text-[10px] font-bold uppercase text-blue-600 mb-1">
-                    <span>Processing Articles...</span>
-                    <span>
-                      {stats.completed + stats.error} / {stats.total}
-                    </span>
-                  </div>
-                  <ProgressBar
-                    intent={Intent.PRIMARY}
-                    value={(stats.completed + stats.error) / stats.total}
-                    stripes={true}
-                    animate={true}
-                    className="h-1.5"
-                  />
-                </div>
+            <div className="grow overflow-y-clip">
+              {activeTab === "articles" ? (
+                <ArticleSidebar
+                  project={project}
+                  articles={articles}
+                  totalCount={totalCount}
+                  stats={stats}
+                  isLoading={isLoading}
+                  selectedArticleId={selectedArticleId}
+                  checkedArticleIds={checkedArticleIds}
+                  search={search}
+                  statusFilter={statusFilter}
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                  onSearchChange={setSearch}
+                  onStatusFilterChange={setStatusFilter}
+                  onSortByChange={setSortBy}
+                  onSortOrderToggle={() =>
+                    setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+                  }
+                  onArticleSelect={setSelectedArticleId}
+                  onToggleCheck={handleToggleCheck}
+                  onToggleCheckAll={handleToggleCheckAll}
+                  onBulkDelete={handleBulkDelete}
+                  onRefresh={() => void fetchArticles(false)}
+                  onReprocessAll={handleReprocessAll}
+                  onRetryArticle={handleRetryArticle}
+                  onLoadMore={() => void fetchArticles(true)}
+                  onOpenImportDialog={() => setIsImportDialogOpen(true)}
+                />
+              ) : (
+                <SettingsSidebar
+                  activeSection={settingsSection}
+                  onChangeSection={setSettingsSection}
+                />
               )}
-
-              <div className="grow overflow-y-auto overflow-x-hidden">
-                {articles.length === 0 ? (
-                  <NonIdealState
-                    icon="document"
-                    title="No Articles"
-                    description={
-                      search || statusFilter !== "all"
-                        ? "No articles match your filters."
-                        : "Import some URLs to get started."
-                    }
-                    className="p-4"
-                  />
-                ) : (
-                  <>
-                    <Menu className="bg-transparent p-0! w-full">
-                      {articles.map((article) => (
-                        <div
-                          key={article.id}
-                          className="flex items-center px-2 py-1 hover:bg-gray-100 border-b border-gray-200 w-full min-w-0 group cursor-pointer"
-                          onClick={() => setSelectedArticleId(article.id)}
-                        >
-                          <Checkbox
-                            checked={checkedArticleIds.has(article.id)}
-                            onChange={() => {
-                              handleToggleCheck(article.id);
-                            }}
-                            className="mb-0! shrink-0 mr-2"
-                          />
-
-                          <div className="flex-1 min-w-0 flex items-center justify-between">
-                            {/* Article Title / URL */}
-                            <div
-                              className="truncate pr-2 text-sm font-medium flex items-center gap-2"
-                              title={article.title || article.url}
-                            >
-                              <span className="truncate">
-                                {article.title || article.url}
-                              </span>
-                            </div>
-
-                            {/* Status Icons */}
-                            <div className="flex items-center gap-2 shrink-0 ml-auto">
-                              {article.status === "error" && (
-                                <Button
-                                  size="small"
-                                  variant="minimal"
-                                  icon="refresh"
-                                  intent={Intent.PRIMARY}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void handleRetryArticle(article.id);
-                                  }}
-                                  title="Retry"
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                />
-                              )}
-                              {getStatusIcon(article)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </Menu>
-                    {articles.length < totalCount && (
-                      <div className="p-4 flex justify-center">
-                        <Button
-                          loading={isLoading}
-                          text="Load More"
-                          onClick={() => void fetchArticles(true)}
-                          minimal
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
             </div>
-          ) : (
-            <div className="p-4 space-y-4">
-              <div>
-                <p className="text-[10px] text-gray-500 uppercase font-bold mb-2 pl-2 tracking-wider">
-                  General
-                </p>
-                <Menu className="bg-transparent p-0">
-                  <MenuItem
-                    icon="info-sign"
-                    text="Project Profile"
-                    active={settingsSection === "profile"}
-                    onClick={() => setSettingsSection("profile")}
-                  />
-                  <MenuItem
-                    icon="predictive-analysis"
-                    text="Intelligence Engine"
-                    active={settingsSection === "general"}
-                    onClick={() => setSettingsSection("general")}
-                  />
-                  <MenuItem
-                    icon="box"
-                    text="Model Library"
-                    active={settingsSection === "library"}
-                    onClick={() => setSettingsSection("library")}
-                  />
-                </Menu>
-              </div>
-
-              <div>
-                <p className="text-[10px] text-gray-500 uppercase font-bold mb-2 pl-2 tracking-wider">
-                  Extraction Schema
-                </p>
-                <Menu className="bg-transparent p-0">
-                  <MenuItem
-                    icon="tag"
-                    text="Entity Labels"
-                    active={settingsSection === "entities"}
-                    onClick={() => setSettingsSection("entities")}
-                  />
-                  <MenuItem
-                    icon="link"
-                    text="Relations"
-                    active={settingsSection === "relations"}
-                    onClick={() => setSettingsSection("relations")}
-                  />
-                  <MenuItem
-                    icon="list-columns"
-                    text="Classifications"
-                    active={settingsSection === "classifications"}
-                    onClick={() => setSettingsSection("classifications")}
-                  />
-                  <MenuItem
-                    icon="layout-grid"
-                    text="Structured Objects"
-                    active={settingsSection === "structures"}
-                    onClick={() => setSettingsSection("structures")}
-                  />
-                </Menu>
-              </div>
-
-              <div>
-                <p className="text-[10px] text-gray-500 uppercase font-bold mb-2 pl-2 tracking-wider">
-                  Data Pipeline
-                </p>
-                <Menu className="bg-transparent p-0">
-                  <MenuItem
-                    icon="feed"
-                    text="Monitoring Station"
-                    active={settingsSection === "monitoring"}
-                    onClick={() => setSettingsSection("monitoring")}
-                  />
-                  <MenuItem
-                    icon="export"
-                    text="Export Configuration"
-                    active={settingsSection === "export"}
-                    onClick={() => setSettingsSection("export")}
-                  />
-                  <MenuItem
-                    icon="key"
-                    text="API Access"
-                    active={settingsSection === "api"}
-                    onClick={() => setSettingsSection("api")}
-                  />
-                </Menu>
-              </div>
-            </div>
-          )}
-        </div>
-      </Panel>
-
-      <PanelResizeHandle className="w-1.5 bg-gray-100 hover:bg-blue-200 transition-colors border-x border-gray-200 flex items-center justify-center group cursor-col-resize">
-        <div className="w-0.5 h-8 bg-gray-300 group-hover:bg-blue-400 rounded-full" />
-      </PanelResizeHandle>
+            <SidebarExportDock project={project} />
+          </Panel>
+          <PanelResizeHandle className="w-1.5 bg-gray-100 hover:bg-blue-200 transition-colors border-x border-gray-200 flex items-center justify-center group cursor-col-resize">
+            <div className="w-0.5 h-8 bg-gray-300 group-hover:bg-blue-400 rounded-full" />
+          </PanelResizeHandle>
+        </>
+      )}
 
       {/* Main Content */}
       <Panel className="bg-white flex flex-col overflow-hidden">
-        <div className="grow overflow-y-auto">
-          {activeTab === "articles" ? (
-            selectedArticle ? (
-              <ArticleView
-                article={selectedArticle}
-                labels={entityLabels}
-                extractionConfig={project.extraction_config}
-                onUpdate={(updated) => {
-                  setArticles((prev) =>
-                    prev.map((a) => (a.id === updated.id ? updated : a)),
-                  );
-                }}
-                onRefresh={() => void fetchArticles(false)}
-                onDelete={() => {
-                  setSelectedArticleId(null);
-                  void fetchArticles(false);
-                }}
-              />
-            ) : (
-              <div className="p-12">
-                <NonIdealState
-                  icon="document"
-                  title="No Article Selected"
-                  description="Select an article from the sidebar to view its content and extracted entities."
-                  action={
-                    articles.length === 0 &&
-                    !search &&
-                    statusFilter === "all" ? (
-                      <Button
-                        intent={Intent.PRIMARY}
-                        text="Import URLs"
-                        onClick={() => setIsImportDialogOpen(true)}
-                      />
-                    ) : undefined
-                  }
+        {activeTab === "home" ? (
+          <>
+            <ProjectHomeHeader
+              project={project}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              articlesCount={articles.length}
+            />
+            <div className="grow overflow-y-auto">
+              <ProjectHome
+                project={project}
+                onTabChange={(_tab) => {
+                                  if (_tab === "monitoring") {
+                                    setActiveTab("settings");
+                                    setSettingsSection("monitoring");
+                                  } else if (_tab === "schema") {
+                                    setActiveTab("settings");
+                                    setSettingsSection("entities");
+                                  } else if (_tab === "profile") {
+                                    setActiveTab("settings");
+                                    setSettingsSection("profile");
+                                  } else if (_tab === "general") {
+                                    setActiveTab("settings");
+                                    setSettingsSection("general");
+                                  } else {
+                                    setActiveTab(_tab as any);
+                                  }
+                                }}              />
+            </div>
+          </>
+        ) : activeTab === "articles" ? (
+          selectedArticle ? (
+            <div className="grow overflow-y-auto">
+                <ArticleView
+                  article={selectedArticle}
+                  labels={entityLabels}
+                  extractionConfig={project.extraction_config}
+                  onUpdate={(updated) => {
+                    setArticles((prev) =>
+                      prev.map((a) => (a.id === updated.id ? updated : a)),
+                    );
+                  }}
+                  onRefresh={() => void fetchArticles(false)}
+                  onDelete={() => {
+                    setSelectedArticleId(null);
+                    void fetchArticles(false);
+                  }}
                 />
-              </div>
-            )
+            </div>
           ) : (
-            <div className="p-8">
-              <div className="flex justify-between items-center mb-6">
-                <EntityTitle
-                  title={
-                    settingsSection === "profile"
-                      ? "Project Profile"
-                      : settingsSection === "general"
-                        ? "Intelligence Engine"
-                        : settingsSection === "library"
-                          ? "Model Library"
-                          : settingsSection === "monitoring"
-                            ? "Monitoring Station"
-                            : settingsSection === "export"
-                              ? "Export Configuration"
-                              : settingsSection === "entities"
-                                ? "Entity Labels"
-                                : settingsSection === "relations"
-                                  ? "Relations"
-                                  : settingsSection === "classifications"
-                                    ? "Classifications"
-                                    : settingsSection === "api"
-                                      ? "External API Access"
-                                      : "Structured Objects"
-                  }
-                  subtitle={
-                    settingsSection === "profile"
-                      ? "Identity and basic information."
-                      : settingsSection === "general"
-                        ? "Model and sensitivity parameters."
-                        : settingsSection === "library"
-                          ? "Manage trained LoRA adapters."
-                          : settingsSection === "monitoring"
-                            ? "Automated article discovery."
-                            : settingsSection === "export"
-                              ? "Configure how data is formatted for export."
-                              : settingsSection === "api"
-                                ? "Manage API keys for external report integration."
-                                : settingsSection === "entities"
-                                ? "Identify specific spans of text like locations, dates, or names."
-                                : settingsSection === "relations"
-                                  ? "Extract relationships between recognized entities (e.g. 'victim_of')."
-                                  : settingsSection === "classifications"
-                                    ? "Categorize the overall document into predefined buckets."
-                                    : "Define complex JSON structures for deep data extraction."
-                  }
-                  heading={H3}
-                />
-                <div className="flex gap-2">
-                  {settingsSection === "monitoring" && (
+            <div className="p-12">
+              <NonIdealState
+                icon="document"
+                title="No Article Selected"
+                description="Select an article from the sidebar to view its content and extracted entities."
+                action={
+                  articles.length === 0 &&
+                  !search &&
+                  statusFilter === "all" ? (
                     <Button
                       intent={Intent.PRIMARY}
-                      icon="plus"
-                      text="Add Source"
-                      onClick={() => monitoringRef.current?.openAddSource()}
+                      text="Import URLs"
+                      onClick={() => setIsImportDialogOpen(true)}
                     />
-                  )}
-                  {settingsSection !== "library" &&
-                    settingsSection !== "monitoring" &&
-                    settingsSection !== "api" && (
-                      <Button
-                        intent={Intent.PRIMARY}
-                        icon="floppy-disk"
-                        text="Save Settings"
-                        loading={isSaving}
-                        onClick={() => {
-                          if (
-                            settingsSection === "entities" ||
-                            settingsSection === "relations" ||
-                            settingsSection === "classifications" ||
-                            settingsSection === "structures" ||
-                            settingsSection === "general"
-                          ) {
-                            if (pendingConfig) {
-                              handleSaveConfig(pendingConfig);
-                            }
-                          } else if (settingsSection === "export") {
-                            if (pendingExportConfig) {
-                              handleSaveConfig(
-                                project.extraction_config,
-                                pendingExportConfig,
-                              );
-                            }
-                          } else if (settingsSection === "profile") {
-                            handleUpdateProjectDetails(pendingProjectUpdates);
-                            setPendingProjectUpdates({});
-                          }
-                        }}
-                        disabled={
-                          ((settingsSection === "entities" ||
-                            settingsSection === "relations" ||
-                            settingsSection === "classifications" ||
-                            settingsSection === "structures" ||
-                            settingsSection === "general") &&
-                            !pendingConfig) ||
-                          (settingsSection === "export" && !pendingExportConfig)
-                        }
-                      />
-                    )}
-                </div>
-              </div>
-              {settingsSection === "profile" && (
-                <ProjectProfile
-                  project={{ ...project, ...pendingProjectUpdates }}
-                  onChange={(updates) =>
-                    setPendingProjectUpdates((prev) => ({
-                      ...prev,
-                      ...updates,
-                    }))
-                  }
-                />
-              )}
-
-              {settingsSection === "general" && (
-                <GeneralSettings
-                  config={pendingConfig || project.extraction_config}
-                  onUpdateConfig={(updates) =>
-                    setPendingConfig({
-                      ...(pendingConfig || project.extraction_config),
-                      ...updates,
-                    })
-                  }
-                />
-              )}
-
-              {settingsSection === "library" && (
-                <ModelLibrary
-                  project={project}
-                  onProjectUpdate={onUpdateProject}
-                />
-              )}
-
-              {(settingsSection === "entities" ||
-                settingsSection === "relations" ||
-                settingsSection === "classifications" ||
-                settingsSection === "structures") && (
-                <ExtractionSettings
-                  config={pendingConfig || project.extraction_config}
-                  onChange={setPendingConfig}
-                  isSaving={isSaving}
-                  hideHeader
-                  initialSection={settingsSection}
-                />
-              )}
-
-              {settingsSection === "monitoring" && (
-                <MonitoringStation project={project} ref={monitoringRef} />
-              )}
-
-              {settingsSection === "export" && (
-                <ExportSettings
-                  projectId={project.id}
-                  config={pendingExportConfig || project.export_config}
-                  extractionConfig={project.extraction_config}
-                  onChange={setPendingExportConfig}
-                  hideHeader
-                />
-              )}
-
-              {settingsSection === "api" && (
-                <ApiKeyManager project={project} />
-              )}
+                  ) : undefined
+                }
+              />
             </div>
-          )}
-        </div>
+          )
+        ) : (
+          <SettingsContent
+            project={project}
+            stats={stats}
+            settingsSection={settingsSection}
+            isSaving={isSaving}
+            pendingConfig={pendingConfig}
+            pendingExportConfig={pendingExportConfig}
+            pendingProjectUpdates={pendingProjectUpdates}
+            onSaveConfig={handleSaveConfig}
+            onUpdateProjectDetails={handleUpdateProjectDetails}
+            onProjectUpdate={onUpdateProject}
+            onPendingConfigChange={setPendingConfig}
+            onPendingExportConfigChange={setPendingExportConfig}
+            onPendingProjectUpdatesChange={setPendingProjectUpdates}
+          />
+        )}
       </Panel>
 
       <Dialog
