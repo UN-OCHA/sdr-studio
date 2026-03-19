@@ -26,11 +26,12 @@ import { articlesApi, projectsApi } from "../api";
 import { useToaster } from "../hooks/useToaster";
 import type { Article, Project } from "../types";
 import { ArticleView } from "./ArticleView";
-import { ExtractionSettings } from "./project-settings/ExtractionSettings";
 import {
   MonitoringStation,
   type MonitoringStationRef,
 } from "./MonitoringStation";
+import { ExportSettings } from "./project-settings/ExportSettings";
+import { ExtractionSettings } from "./project-settings/ExtractionSettings";
 import { GeneralSettings } from "./project-settings/GeneralSettings";
 import { ModelLibrary } from "./project-settings/ModelLibrary";
 import { ProjectProfile } from "./project-settings/ProjectProfile";
@@ -83,7 +84,7 @@ export function ProjectDetail({
     "articles" | "schema" | "settings" | "monitoring"
   >("articles");
   const [settingsSection, setSettingsSection] = useState<
-    "profile" | "general" | "library" | "schema" | "monitoring"
+    "profile" | "general" | "library" | "schema" | "monitoring" | "export"
   >("profile");
 
   // Articles state
@@ -118,10 +119,14 @@ export function ProjectDetail({
   const [pendingConfig, setPendingConfig] = useState<
     Project["extraction_config"] | null
   >(null);
+  const [pendingExportConfig, setPendingExportConfig] = useState<
+    Project["export_config"] | null
+  >(null);
   const monitoringRef = useRef<MonitoringStationRef>(null);
 
   useEffect(() => {
     setPendingConfig(null);
+    setPendingExportConfig(null);
     setPendingProjectUpdates({});
   }, [project.id]);
 
@@ -280,23 +285,28 @@ export function ProjectDetail({
     }
   };
 
-  const handleSaveConfig = async (newConfig: Project["extraction_config"]) => {
+  const handleSaveConfig = async (
+    newConfig: Project["extraction_config"],
+    newExportConfig?: Project["export_config"],
+  ) => {
     try {
       setIsSaving(true);
       const updated = await projectsApi.update(project.id, {
         extraction_config: newConfig,
+        export_config: newExportConfig,
       });
       onUpdateProject(updated);
       setPendingConfig(null);
+      setPendingExportConfig(null);
       toaster?.show({
-        message: "Project schema updated successfully",
+        message: "Project configuration updated successfully",
         intent: Intent.SUCCESS,
         icon: "tick",
       });
     } catch (err) {
       console.error("Failed to save configuration:", err);
       toaster?.show({
-        message: "Failed to update project schema",
+        message: "Failed to update project configuration",
         intent: Intent.DANGER,
         icon: "error",
       });
@@ -428,7 +438,7 @@ export function ProjectDetail({
         className="flex flex-col bg-gray-50 border-r border-gray-200"
       >
         <div className="p-3 border-b border-gray-200 bg-white">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex flex-row items-center gap-1 mb-1">
             <Button icon="arrow-left" onClick={onBack} variant="minimal" />
             <Icon
               icon={project.icon as IconName}
@@ -439,13 +449,69 @@ export function ProjectDetail({
             <H4 title={project.name} className="mb-0! truncate">
               {project.name}
             </H4>
+            <Popover
+              className="ml-auto"
+              content={
+                <Menu>
+                  <MenuItem
+                    icon="document"
+                    text="Export as JSON"
+                    onClick={async () => {
+                      const { token } = await projectsApi.getExportToken();
+                      window.open(
+                        projectsApi.exportJsonUrl(project.id, token),
+                        "_blank",
+                      );
+                    }}
+                  />
+                  <MenuItem
+                    icon="th"
+                    text="Export as CSV"
+                    onClick={async () => {
+                      const { token } = await projectsApi.getExportToken();
+                      window.open(
+                        projectsApi.exportCsvUrl(project.id, token),
+                        "_blank",
+                      );
+                    }}
+                  />
+                  <MenuItem
+                    icon="print"
+                    text="Generate Report (MD)"
+                    onClick={async () => {
+                      const { token } = await projectsApi.getExportToken();
+                      window.open(
+                        projectsApi.exportReportUrl(project.id, token, "md"),
+                        "_blank",
+                      );
+                    }}
+                  />
+                </Menu>
+              }
+              position="bottom"
+            >
+              <Button
+                small
+                intent="primary"
+                variant="outlined"
+                icon="cloud-download"
+                title="Export Options"
+                text="Export"
+                endIcon="caret-down"
+              />
+            </Popover>
           </div>
           <Tabs
             id="ProjectSidebarTabs"
             selectedTabId={activeTab}
             onChange={(id) => setActiveTab(id as typeof activeTab)}
           >
-            <Tab id="articles" title="Articles" icon="document" />
+            <Tab
+              id="articles"
+              title="Articles"
+              icon="document"
+              tagContent={articles.length}
+            />
             <Tab id="settings" title="Settings" icon="cog" />
           </Tabs>
         </div>
@@ -550,19 +616,72 @@ export function ProjectDetail({
                           title={`Delete ${checkedArticleIds.size} Selected`}
                           onClick={handleBulkDelete}
                         />
-                        <Button
-                          small
-                          minimal
-                          icon="download"
-                          title="Export Selected"
-                          onClick={() => {
-                            const ids = Array.from(checkedArticleIds);
-                            window.open(
-                              projectsApi.exportJsonUrl(project.id, ids),
-                              "_blank",
-                            );
-                          }}
-                        />
+                        <Popover
+                          content={
+                            <Menu>
+                              <MenuItem
+                                icon="document"
+                                text="Export Selected as JSON"
+                                onClick={async () => {
+                                  const { token } =
+                                    await projectsApi.getExportToken();
+                                  const ids = Array.from(checkedArticleIds);
+                                  window.open(
+                                    projectsApi.exportJsonUrl(
+                                      project.id,
+                                      token,
+                                      ids,
+                                    ),
+                                    "_blank",
+                                  );
+                                }}
+                              />
+                              <MenuItem
+                                icon="th"
+                                text="Export Selected as CSV"
+                                onClick={async () => {
+                                  const { token } =
+                                    await projectsApi.getExportToken();
+                                  const ids = Array.from(checkedArticleIds);
+                                  window.open(
+                                    projectsApi.exportCsvUrl(
+                                      project.id,
+                                      token,
+                                      ids,
+                                    ),
+                                    "_blank",
+                                  );
+                                }}
+                              />
+                              <MenuItem
+                                icon="print"
+                                text="Generate Report (MD)"
+                                onClick={async () => {
+                                  const { token } =
+                                    await projectsApi.getExportToken();
+                                  const ids = Array.from(checkedArticleIds);
+                                  window.open(
+                                    projectsApi.exportReportUrl(
+                                      project.id,
+                                      token,
+                                      "md",
+                                      ids,
+                                    ),
+                                    "_blank",
+                                  );
+                                }}
+                              />
+                            </Menu>
+                          }
+                          position="bottom"
+                        >
+                          <Button
+                            size="small"
+                            variant="minimal"
+                            icon="download"
+                            title="Export Selected"
+                          />
+                        </Popover>
                       </>
                     ) : (
                       <>
@@ -581,40 +700,6 @@ export function ProjectDetail({
                           onClick={handleReprocessAll}
                           intent={isProcessing ? Intent.PRIMARY : Intent.NONE}
                         />
-                        <Popover
-                          content={
-                            <Menu>
-                              <MenuItem
-                                icon="document"
-                                text="Export as JSON"
-                                onClick={() =>
-                                  window.open(
-                                    projectsApi.exportJsonUrl(project.id),
-                                    "_blank",
-                                  )
-                                }
-                              />
-                              <MenuItem
-                                icon="th"
-                                text="Export as CSV"
-                                onClick={() =>
-                                  window.open(
-                                    projectsApi.exportCsvUrl(project.id),
-                                    "_blank",
-                                  )
-                                }
-                              />
-                            </Menu>
-                          }
-                          position="bottom"
-                        >
-                          <Button
-                            small
-                            minimal
-                            icon="download"
-                            title="Export Options"
-                          />
-                        </Popover>
                       </>
                     )}
                   </div>
@@ -729,7 +814,7 @@ export function ProjectDetail({
                 />
                 <MenuItem
                   icon="predictive-analysis"
-                  text="Intelligence Engine"
+                  text="Intelligence Settings"
                   active={settingsSection === "general"}
                   onClick={() => setSettingsSection("general")}
                 />
@@ -750,6 +835,12 @@ export function ProjectDetail({
                   text="Monitoring Station"
                   active={settingsSection === "monitoring"}
                   onClick={() => setSettingsSection("monitoring")}
+                />
+                <MenuItem
+                  icon="export"
+                  text="Export Configuration"
+                  active={settingsSection === "export"}
+                  onClick={() => setSettingsSection("export")}
                 />
               </Menu>
             </div>
@@ -809,12 +900,14 @@ export function ProjectDetail({
                     settingsSection === "profile"
                       ? "Project Profile"
                       : settingsSection === "general"
-                        ? "Intelligence Engine"
+                        ? "Intelligence Settings"
                         : settingsSection === "library"
                           ? "Model Library"
                           : settingsSection === "monitoring"
                             ? "Monitoring Station"
-                            : "Extraction Schema"
+                            : settingsSection === "export"
+                              ? "Export Configuration"
+                              : "Extraction Schema"
                   }
                   subtitle={
                     settingsSection === "profile"
@@ -825,7 +918,9 @@ export function ProjectDetail({
                           ? "Manage trained LoRA adapters."
                           : settingsSection === "monitoring"
                             ? "Automated article discovery."
-                            : "Define categories and structures to recognize."
+                            : settingsSection === "export"
+                              ? "Configure how data is formatted for export."
+                              : "Define categories and structures to recognize."
                   }
                   heading={H3}
                 />
@@ -853,21 +948,28 @@ export function ProjectDetail({
                             if (pendingConfig) {
                               handleSaveConfig(pendingConfig);
                             }
+                          } else if (settingsSection === "export") {
+                            if (pendingExportConfig) {
+                              handleSaveConfig(
+                                project.extraction_config,
+                                pendingExportConfig,
+                              );
+                            }
                           } else if (settingsSection === "profile") {
                             handleUpdateProjectDetails(pendingProjectUpdates);
                             setPendingProjectUpdates({});
                           }
                         }}
                         disabled={
-                          (settingsSection === "schema" ||
+                          ((settingsSection === "schema" ||
                             settingsSection === "general") &&
-                          !pendingConfig
+                            !pendingConfig) ||
+                          (settingsSection === "export" && !pendingExportConfig)
                         }
                       />
                     )}
                 </div>
               </div>
-
               {settingsSection === "profile" && (
                 <ProjectProfile
                   project={{ ...project, ...pendingProjectUpdates }}
@@ -910,6 +1012,16 @@ export function ProjectDetail({
 
               {settingsSection === "monitoring" && (
                 <MonitoringStation project={project} ref={monitoringRef} />
+              )}
+
+              {settingsSection === "export" && (
+                <ExportSettings
+                  projectId={project.id}
+                  config={pendingExportConfig || project.export_config}
+                  extractionConfig={project.extraction_config}
+                  onChange={setPendingExportConfig}
+                  hideHeader
+                />
               )}
             </div>
           )}

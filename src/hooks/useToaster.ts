@@ -1,11 +1,10 @@
 import { OverlayToaster, type Toaster, type Intent, type IconName, type MaybeElement } from "@blueprintjs/core";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 let toasterInstance: Toaster | null = null;
 
 export const getToaster = async () => {
   if (toasterInstance) return toasterInstance;
-  // Use .create() instead of .createAsync() as it's the new standard
   toasterInstance = await OverlayToaster.create({ position: "top" });
   return toasterInstance;
 };
@@ -19,16 +18,14 @@ export function useToaster() {
     }
   }, [instance]);
 
-  const showToaster = (message: string, intent: Intent = "none", icon?: IconName | MaybeElement) => {
+  const showToaster = useCallback((message: string, intent: Intent = "none", icon?: IconName | MaybeElement) => {
     if (instance) {
       instance.show({ message, intent, icon });
     } else {
-      // Fallback if toaster isn't ready, though it should be after the first effect
       console.warn("Toaster not ready yet:", message);
-      // We could also queue it or try to get it again
       getToaster().then(inst => inst.show({ message, intent, icon }));
     }
-  };
+  }, [instance]);
 
   return { showToaster, toaster: instance };
 }

@@ -31,6 +31,7 @@ class ProjectBase(SQLModel):
     icon: str = "briefcase"
     org_id: str = Field(default="public", index=True)
     extraction_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
+    export_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
     onboarding_completed: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -42,6 +43,7 @@ class ProjectTemplateBase(SQLModel):
     icon: str = "cube"
     org_id: str = Field(default="public", index=True)
     extraction_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
+    export_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProjectTemplate(ProjectTemplateBase, table=True):
@@ -55,12 +57,14 @@ class ProjectTemplateCreate(SQLModel):
     description: str = ""
     icon: Optional[str] = "cube"
     extraction_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
+    export_config: Optional[Dict[str, Any]] = None
 
 class ProjectTemplateUpdate(SQLModel):
     name: Optional[str] = None
     description: Optional[str] = None
     icon: Optional[str] = None
     extraction_config: Optional[Dict[str, Any]] = None
+    export_config: Optional[Dict[str, Any]] = None
 
 # -- Database Models --
 
@@ -142,12 +146,14 @@ class ProjectCreate(SQLModel):
     description: str = ""
     icon: Optional[str] = "briefcase"
     extraction_config: Optional[Dict[str, Any]] = None
+    export_config: Optional[Dict[str, Any]] = None
 
 class ProjectUpdate(SQLModel):
     name: Optional[str] = None
     description: Optional[str] = None
     icon: Optional[str] = None
     extraction_config: Optional[Dict[str, Any]] = None
+    export_config: Optional[Dict[str, Any]] = None
     onboarding_completed: Optional[bool] = None
 
 # -- Model Adapter (Library) Models --

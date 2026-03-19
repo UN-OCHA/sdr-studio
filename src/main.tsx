@@ -16,6 +16,7 @@ const providerConfig = {
   authorizationParams: {
     redirect_uri: window.location.origin,
     audience: audience,
+    scope: "openid profile email offline_access",
     ...(organization ? { organization } : {}),
   },
 };

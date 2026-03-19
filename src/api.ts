@@ -111,10 +111,34 @@ export const projectsApi = {
     apiFetch(`/projects/${id}`, {
       method: "DELETE",
     }),
-  exportJsonUrl: (projectId: string, articleIds?: string[]) =>
-    `${API_BASE_URL}/projects/${projectId}/export/json${articleIds ? `?article_ids=${articleIds.join(",")}` : ""}`,
-  exportCsvUrl: (projectId: string, articleIds?: string[]) =>
-    `${API_BASE_URL}/projects/${projectId}/export/csv${articleIds ? `?article_ids=${articleIds.join(",")}` : ""}`,
+  getExportToken: () => apiFetch("/export-token", { method: "POST" }),
+  exportJsonUrl: (projectId: string, token: string, articleIds?: string[]) => {
+    const query = new URLSearchParams();
+    if (articleIds) query.append("article_ids", articleIds.join(","));
+    query.append("token", token);
+    const qs = query.toString();
+    return `${API_BASE_URL}/projects/${projectId}/export/json${qs ? `?${qs}` : ""}`;
+  },
+  exportCsvUrl: (projectId: string, token: string, article_ids?: string[]) => {
+    const query = new URLSearchParams();
+    if (article_ids) query.append("article_ids", article_ids.join(","));
+    query.append("token", token);
+    const qs = query.toString();
+    return `${API_BASE_URL}/projects/${projectId}/export/csv${qs ? `?${qs}` : ""}`;
+  },
+  exportReportUrl: (projectId: string, token: string, format: "md" | "pdf", article_ids?: string[]) => {
+    const query = new URLSearchParams();
+    query.append("format", format);
+    if (article_ids) query.append("article_ids", article_ids.join(","));
+    query.append("token", token);
+    const qs = query.toString();
+    return `${API_BASE_URL}/projects/${projectId}/export/report?${qs}`;
+  },
+  getReportPreview: (projectId: string, reportConfig: any) =>
+    apiFetch(`/projects/${projectId}/export/report-preview`, {
+      method: "POST",
+      body: JSON.stringify(reportConfig),
+    }),
   listAdapters: (projectId: string) => apiFetch(`/projects/${projectId}/adapters`),
   trainAdapter: (projectId: string, data: TrainingRequest) =>
     apiFetch(`/projects/${projectId}/train`, {

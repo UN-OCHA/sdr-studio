@@ -41,6 +41,7 @@ function App() {
   const [activeView, setActiveView] = useState<"projects" | "templates">(
     "projects",
   );
+  const [isTokenReady, setIsTokenReady] = useState(false);
 
   const {
     projects,
@@ -55,20 +56,34 @@ function App() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      getAccessTokenSilently().then((t) => {
-        setAuthToken(t);
-        void fetchProjects();
-      });
+      const refresh = async () => {
+        try {
+          const t = await getAccessTokenSilently();
+          setAuthToken(t);
+          setIsTokenReady(true);
+        } catch (err: any) {
+          console.error("Token refresh failed:", err);
+          setAuthToken(null);
+          setIsTokenReady(true); // Release the spinner even on failure
+        }
+      };
+
+      void refresh();
+      // Refresh every 10 minutes to keep session alive
+      const interval = setInterval(() => void refresh(), 1000 * 60 * 10);
+      return () => clearInterval(interval);
     } else {
       setAuthToken(null);
+      setIsTokenReady(false);
     }
-  }, [isAuthenticated, getAccessTokenSilently, fetchProjects]);
+  }, [isAuthenticated, getAccessTokenSilently]);
 
+  // Only fetch projects once token is ready
   useEffect(() => {
-    if (user) {
-      console.log("Auth0 User Object:", user);
+    if (isTokenReady && isAuthenticated) {
+      void fetchProjects();
     }
-  }, [user]);
+  }, [isTokenReady, isAuthenticated, fetchProjects]);
 
   const currentProject = projects.find((p) => p.id === currentProjectId);
 
@@ -186,11 +201,11 @@ function App() {
                 position="bottom-right"
               >
                 <button className="flex items-center gap-2 hover:bg-gray-100 p-1 px-2 rounded-lg transition-colors group cursor-pointer border-none bg-transparent outline-none">
-                  <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-2 ring-white group-hover:bg-blue-900 transition-colors">
+                  <div className="w-7 h-7 rounded-full bg-blue-400 flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-2 ring-white group-hover:bg-blue-600 transition-colors">
                     {getInitials(user?.name)}
                   </div>
-                  <div className="flex flex-col items-start leading-none pr-1 gap-0.5">
-                    <span className="text-[11px] font-bold text-gray-700">
+                  <div className="flex flex-col items-start leading-none pr-1">
+                    <span className="text-xs font-bold text-gray-700">
                       {user?.name?.split(" ")[0]}
                     </span>
                     <span className="text-[9px] text-gray-400">
@@ -227,6 +242,10 @@ function App() {
                 />
               }
             />
+          </div>
+        ) : !isTokenReady ? (
+          <div className="flex h-full items-center justify-center">
+            <Spinner size={32} />
           </div>
         ) : currentProject ? (
           <ProjectDetail

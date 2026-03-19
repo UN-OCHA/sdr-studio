@@ -22,12 +22,19 @@ const EXTRACTION_MODELS: ModelOption[] = [
   {
     label: "GLiNER2 Base (v1)",
     value: "fastino/gliner2-base-v1",
-    description: "Optimized for speed and efficiency with high entity recognition quality.",
+    description:
+      "Optimized for speed and efficiency with high entity recognition quality.",
   },
   {
     label: "GLiNER2 Large (v1)",
     value: "fastino/gliner2-large-v1",
-    description: "Maximum accuracy for complex extraction tasks. Slower than base.",
+    description:
+      "Maximum accuracy for complex extraction tasks. Slower than base.",
+  },
+  {
+    label: "GLiNER Multi (v1)",
+    value: "fastino/gliner2-multi-v1",
+    description: "Multilingual model optimized for speed and efficiency.",
   },
 ];
 
@@ -35,12 +42,14 @@ const SUMMARY_MODELS: ModelOption[] = [
   {
     label: "DistilBART CNN (Fast)",
     value: "sshleifer/distilbart-cnn-12-6",
-    description: "Standard fast summarization model. Good for most news articles.",
+    description:
+      "Standard fast summarization model. Good for most news articles.",
   },
   {
     label: "BART Large CNN (Accurate)",
     value: "facebook/bart-large-cnn",
-    description: "Larger and slower model. Produces higher quality, more coherent summaries.",
+    description:
+      "Larger and slower model. Produces higher quality, more coherent summaries.",
   },
   {
     label: "T5 Small (Very Fast)",
@@ -54,16 +63,25 @@ type GeneralSettingsProps = {
   onUpdateConfig: (updates: Partial<Project["extraction_config"]>) => void;
 };
 
-export function GeneralSettings({ config, onUpdateConfig }: GeneralSettingsProps) {
+export function GeneralSettings({
+  config,
+  onUpdateConfig,
+}: GeneralSettingsProps) {
   const currentModel =
-    EXTRACTION_MODELS.find((m) => m.value === (config.model_id || "fastino/gliner2-base-v1")) ||
-    EXTRACTION_MODELS[0];
+    EXTRACTION_MODELS.find(
+      (m) => m.value === (config.model_id || "fastino/gliner2-base-v1"),
+    ) || EXTRACTION_MODELS[0];
 
   const currentSummaryModel =
-    SUMMARY_MODELS.find((m) => m.value === (config.summary_model_id || "sshleifer/distilbart-cnn-12-6")) ||
-    SUMMARY_MODELS[0];
+    SUMMARY_MODELS.find(
+      (m) =>
+        m.value ===
+        (config.summary_model_id || "sshleifer/distilbart-cnn-12-6"),
+    ) || SUMMARY_MODELS[0];
 
-  const cleaning = (config.cleaning as { use_local_model?: boolean }) || { use_local_model: false };
+  const cleaning = (config.cleaning as { use_local_model?: boolean }) || {
+    use_local_model: false,
+  };
 
   const updateCleaning = (updates: Partial<typeof cleaning>) => {
     onUpdateConfig({
@@ -71,20 +89,27 @@ export function GeneralSettings({ config, onUpdateConfig }: GeneralSettingsProps
     });
   };
 
-  const renderModel: ItemRenderer<ModelOption> = (model, { handleClick, handleFocus, modifiers }) => {
+  const renderModel: ItemRenderer<ModelOption> = (
+    model,
+    { handleClick, handleFocus, modifiers },
+  ) => {
     if (!modifiers.matchesPredicate) return null;
     return (
       <MenuItem
         active={modifiers.active}
         disabled={modifiers.disabled}
         key={model.value}
-        labelElement={<span className="text-[10px] text-gray-500">{model.value}</span>}
+        labelElement={
+          <span className="text-[10px] text-gray-500">{model.value}</span>
+        }
         onClick={handleClick}
         onFocus={handleFocus}
         text={
           <div>
             <div className="font-bold text-xs">{model.label}</div>
-            <div className="text-[10px] text-gray-500 leading-tight mt-0.5">{model.description}</div>
+            <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
+              {model.description}
+            </div>
           </div>
         }
         multiline
@@ -133,7 +158,9 @@ export function GeneralSettings({ config, onUpdateConfig }: GeneralSettingsProps
               <Select<ModelOption>
                 items={SUMMARY_MODELS}
                 itemRenderer={renderModel}
-                onItemSelect={(m) => onUpdateConfig({ summary_model_id: m.value })}
+                onItemSelect={(m) =>
+                  onUpdateConfig({ summary_model_id: m.value })
+                }
                 filterable={false}
                 popoverProps={{ minimal: true, matchTargetWidth: true }}
               >
@@ -161,24 +188,35 @@ export function GeneralSettings({ config, onUpdateConfig }: GeneralSettingsProps
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-bold text-sm text-gray-800">Model-based Noise Reduction</div>
-                <div className="text-xs text-gray-500">Identify and strip navigation, social bits, and banners.</div>
+                <div className="font-bold text-sm text-gray-800">
+                  Model-based Noise Reduction
+                </div>
+                <div className="text-xs text-gray-500">
+                  Identify and strip navigation, social bits, and banners.
+                </div>
               </div>
               <Switch
                 large
                 checked={cleaning.use_local_model}
-                onChange={(e) => updateCleaning({ use_local_model: e.currentTarget.checked })}
+                onChange={(e) =>
+                  updateCleaning({ use_local_model: e.currentTarget.checked })
+                }
                 innerLabelChecked="On"
                 innerLabel="Off"
               />
             </div>
 
             {cleaning.use_local_model && (
-              <Callout intent="primary" icon="info-sign" className="bg-blue-50/50 border-blue-100">
+              <Callout
+                intent="primary"
+                icon="info-sign"
+                className="bg-blue-50/50 border-blue-100"
+              >
                 <div className="text-[11px] leading-relaxed">
-                  This uses a local T5-based model to detect and prune <strong>Navigation</strong>,{" "}
-                  <strong>Social Media</strong>, and <strong>Cookies</strong> banners. It only affects the start of the
-                  article where most noise resides.
+                  This uses a local T5-based model to detect and prune{" "}
+                  <strong>Navigation</strong>, <strong>Social Media</strong>,
+                  and <strong>Cookies</strong> banners. It only affects the
+                  start of the article where most noise resides.
                 </div>
               </Callout>
             )}

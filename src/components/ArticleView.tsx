@@ -22,7 +22,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { articlesApi } from "../api";
 import type { Annotation, Article, Project } from "../types";
-import { Annotator } from "./Annotator";
+import { Annotator, getProceduralColor } from "./Annotator";
 
 type ArticleViewProps = {
   article: Article;
@@ -237,9 +237,9 @@ export function ArticleView({
         <div className="space-y-6 p-4">
           {structures.map((struct) => {
             const rawData = article.structured_data?.[struct.name];
-            const records = (Array.isArray(rawData)
-              ? rawData
-              : [rawData]) as Record<string, unknown>[];
+            const records = (
+              Array.isArray(rawData) ? rawData : [rawData]
+            ) as Record<string, unknown>[];
 
             if (!rawData) return null;
 
@@ -284,156 +284,164 @@ export function ArticleView({
                       />
                     </div>
                   ) : !rawData ? null : (
-                    records.map((data: Record<string, unknown>, idx: number) => (
-                      <div
-                        key={`${struct.name}-${idx}`}
-                        className="bg-white border rounded-lg overflow-hidden shadow-sm transition-all"
-                        style={{
-                          borderColor: isReviewMode ? "#0f9960" : "#e1e8ed",
-                          borderWidth: isReviewMode ? "4px" : "1px",
-                          boxShadow: isReviewMode
-                            ? "0 2px 8px rgba(15, 153, 96, 0.15)"
-                            : "none",
-                        }}
-                      >
+                    records.map(
+                      (data: Record<string, unknown>, idx: number) => (
                         <div
-                          className={`px-3 py-1.5 border-b flex items-center justify-between ${
-                            isReviewMode
-                              ? "bg-green-50/30 border-green-100"
-                              : "bg-gray-50 border-gray-200"
-                          }`}
+                          key={`${struct.name}-${idx}`}
+                          className="bg-white border rounded-lg overflow-hidden shadow-sm transition-all"
+                          style={{
+                            borderColor: isReviewMode ? "#0f9960" : "#e1e8ed",
+                            borderWidth: isReviewMode ? "4px" : "1px",
+                            boxShadow: isReviewMode
+                              ? "0 2px 8px rgba(15, 153, 96, 0.15)"
+                              : "none",
+                          }}
                         >
-                          <span
-                            className={`text-[10px] font-bold uppercase ${
-                              isReviewMode ? "text-green-700" : "text-gray-500"
+                          <div
+                            className={`px-3 py-1.5 border-b flex items-center justify-between ${
+                              isReviewMode
+                                ? "bg-green-50/30 border-green-100"
+                                : "bg-gray-50 border-gray-200"
                             }`}
                           >
-                            Record #{idx + 1}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            {isReviewMode && (
-                              <Button
-                                small
-                                minimal
-                                icon="trash"
-                                intent={Intent.DANGER}
-                                onClick={() =>
-                                  handleDeleteRecord(struct.name, idx)
-                                }
-                                title="Delete this record"
-                              />
-                            )}
-                            {data && !isReviewMode && (
-                              <Icon
-                                icon="tick-circle"
-                                intent={Intent.SUCCESS}
-                                size={12}
-                              />
-                            )}
+                            <span
+                              className={`text-[10px] font-bold uppercase ${
+                                isReviewMode
+                                  ? "text-green-700"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              Record #{idx + 1}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {isReviewMode && (
+                                <Button
+                                  small
+                                  minimal
+                                  icon="trash"
+                                  intent={Intent.DANGER}
+                                  onClick={() =>
+                                    handleDeleteRecord(struct.name, idx)
+                                  }
+                                  title="Delete this record"
+                                />
+                              )}
+                              {data && !isReviewMode && (
+                                <Icon
+                                  icon="tick-circle"
+                                  intent={Intent.SUCCESS}
+                                  size={12}
+                                />
+                              )}
+                            </div>
+                          </div>
+                          <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                            {struct.fields.map((field) => {
+                              const rawVal = data?.[field.name];
+                              const val =
+                                rawVal &&
+                                typeof rawVal === "object" &&
+                                "text" in rawVal
+                                  ? (rawVal as { text: string }).text
+                                  : rawVal;
+
+                              return (
+                                <div
+                                  key={field.name}
+                                  className="flex flex-col p-1 rounded transition-colors"
+                                  style={{
+                                    background: isReviewMode
+                                      ? "rgba(15, 153, 96, 0.05)"
+                                      : "transparent",
+                                    boxShadow: isReviewMode
+                                      ? "inset 0 0 0 1px rgba(15, 153, 96, 0.15)"
+                                      : "none",
+                                  }}
+                                >
+                                  <span className="text-[10px] font-medium text-gray-400 mb-0.5">
+                                    {field.name}
+                                  </span>
+                                  <div className="text-sm">
+                                    {isReviewMode ? (
+                                      field.choices ? (
+                                        <Popover
+                                          content={
+                                            <Menu>
+                                              {field.choices.map(
+                                                (c: string) => (
+                                                  <MenuItem
+                                                    key={c}
+                                                    text={c}
+                                                    active={val === c}
+                                                    onClick={() =>
+                                                      handleUpdateField(
+                                                        struct.name,
+                                                        field.name,
+                                                        c,
+                                                        idx,
+                                                      )
+                                                    }
+                                                  />
+                                                ),
+                                              )}
+                                            </Menu>
+                                          }
+                                          position="bottom"
+                                        >
+                                          <Button
+                                            rightIcon="caret-down"
+                                            minimal
+                                            small
+                                            text={String(val || "Select...")}
+                                          />
+                                        </Popover>
+                                      ) : (
+                                        <InputGroup
+                                          asyncControl
+                                          small
+                                          fill
+                                          placeholder="Empty"
+                                          value={String(val || "")}
+                                          onChange={(e) =>
+                                            handleUpdateField(
+                                              struct.name,
+                                              field.name,
+                                              e.target.value,
+                                              idx,
+                                            )
+                                          }
+                                        />
+                                      )
+                                    ) : val !== undefined && val !== null ? (
+                                      <span className="text-gray-900 font-medium">
+                                        {field.dtype === "list" &&
+                                        Array.isArray(val) ? (
+                                          <div className="flex flex-wrap gap-1 mt-1">
+                                            {val.map(
+                                              (v: unknown, i: number) => (
+                                                <Tag key={i} minimal round>
+                                                  {String(v)}
+                                                </Tag>
+                                              ),
+                                            )}
+                                          </div>
+                                        ) : (
+                                          String(val)
+                                        )}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-300 italic text-xs">
+                                        Empty
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
-                        <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-                          {struct.fields.map((field) => {
-                            const rawVal = data?.[field.name];
-                            const val =
-                              rawVal &&
-                              typeof rawVal === "object" &&
-                              "text" in rawVal
-                                ? (rawVal as { text: string }).text
-                                : rawVal;
-
-                            return (
-                              <div
-                                key={field.name}
-                                className="flex flex-col p-1 rounded transition-colors"
-                                style={{
-                                  background: isReviewMode
-                                    ? "rgba(15, 153, 96, 0.05)"
-                                    : "transparent",
-                                  boxShadow: isReviewMode
-                                    ? "inset 0 0 0 1px rgba(15, 153, 96, 0.15)"
-                                    : "none",
-                                }}
-                              >
-                                <span className="text-[10px] font-medium text-gray-400 mb-0.5">
-                                  {field.name}
-                                </span>
-                                <div className="text-sm">
-                                  {isReviewMode ? (
-                                    field.choices ? (
-                                      <Popover
-                                        content={
-                                          <Menu>
-                                            {field.choices.map((c: string) => (
-                                              <MenuItem
-                                                key={c}
-                                                text={c}
-                                                active={val === c}
-                                                onClick={() =>
-                                                  handleUpdateField(
-                                                    struct.name,
-                                                    field.name,
-                                                    c,
-                                                    idx,
-                                                  )
-                                                }
-                                              />
-                                            ))}
-                                          </Menu>
-                                        }
-                                        position="bottom"
-                                      >
-                                        <Button
-                                          rightIcon="caret-down"
-                                          minimal
-                                          small
-                                          text={String(val || "Select...")}
-                                        />
-                                      </Popover>
-                                    ) : (
-                                      <InputGroup
-                                        asyncControl
-                                        small
-                                        fill
-                                        placeholder="Empty"
-                                        value={String(val || "")}
-                                        onChange={(e) =>
-                                          handleUpdateField(
-                                            struct.name,
-                                            field.name,
-                                            e.target.value,
-                                            idx,
-                                          )
-                                        }
-                                      />
-                                    )
-                                  ) : val !== undefined && val !== null ? (
-                                    <span className="text-gray-900 font-medium">
-                                      {field.dtype === "list" &&
-                                      Array.isArray(val) ? (
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                          {val.map((v: unknown, i: number) => (
-                                            <Tag key={i} minimal round>
-                                              {String(v)}
-                                            </Tag>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        String(val)
-                                      )}
-                                    </span>
-                                  ) : (
-                                    <span className="text-gray-300 italic text-xs">
-                                      Empty
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))
+                      ),
+                    )
                   )}
                 </div>
               </div>
@@ -593,9 +601,14 @@ export function ArticleView({
                                               ? [String(value)]
                                               : [];
                                           const next = current.includes(choice)
-                                            ? current.filter((c) => c !== choice)
+                                            ? current.filter(
+                                                (c) => c !== choice,
+                                              )
                                             : [...current, choice];
-                                          handleUpdateClassification(name, next);
+                                          handleUpdateClassification(
+                                            name,
+                                            next,
+                                          );
                                         } else {
                                           handleUpdateClassification(
                                             name,
@@ -821,7 +834,12 @@ export function ArticleView({
 
                       return (
                         <div key={label} className="space-y-2">
-                          <h6 className="text-xs font-bold uppercase text-gray-400 tracking-wider">
+                          <h6
+                            className="text-xs font-bold uppercase tracking-wider"
+                            style={{
+                              color: getProceduralColor(label, labels).solid,
+                            }}
+                          >
                             {label}
                           </h6>
                           <div className="flex flex-wrap gap-2">

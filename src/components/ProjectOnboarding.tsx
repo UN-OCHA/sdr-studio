@@ -92,14 +92,16 @@ export function ProjectOnboarding({
                   <Icon icon="predictive-analysis" size={20} />
                 </div>
                 <EntityTitle
-                  title="Step 1: Intelligence Engine"
+                  title="Step 1: Intelligence Settings"
                   subtitle="Choose the base model and sensitivity."
                   heading={H5}
                 />
               </div>
               <GeneralSettings
                 config={config}
-                onUpdateConfig={(updates) => setConfig({ ...config, ...updates })}
+                onUpdateConfig={(updates) =>
+                  setConfig({ ...config, ...updates })
+                }
               />
             </div>
           )}

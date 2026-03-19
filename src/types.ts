@@ -1,3 +1,43 @@
+export type ExportField = {
+  key: string;
+  label: string;
+  source: "article" | "structured_data" | "annotations";
+};
+
+export type ReportSection = {
+  id: string;
+  title: string;
+  type: "metadata" | "summary" | "entities" | "structured_data" | "custom_text" | "article_list";
+  enabled: boolean;
+  config?: {
+    text?: string; // For custom_text
+    fields?: string[]; // For metadata/structured_data filtering
+    entity_labels?: string[]; // For entities filtering
+    show_labels?: boolean;
+    compact?: boolean;
+  };
+};
+
+export type ReportGrouping = {
+  enabled: boolean;
+  field: string; // e.g., "classification.Crisis Type"
+  show_empty?: boolean;
+};
+
+export type ReportConfig = {
+  include_toc: boolean;
+  include_description?: boolean;
+  header_text?: string;
+  footer_text?: string;
+  grouping?: ReportGrouping;
+  sections: ReportSection[];
+};
+
+export type ExportConfig = {
+  fields: ExportField[];
+  report?: ReportConfig;
+};
+
 export type Project = {
   id: string;
   name: string;
@@ -39,6 +79,7 @@ export type Project = {
     active_adapter_id?: string;
     active_adapter_path?: string;
   };
+  export_config: ExportConfig;
   onboarding_completed: boolean;
   created_at: string;
 };
@@ -48,6 +89,7 @@ export type ProjectCreate = {
   description: string;
   icon?: string;
   extraction_config?: Project["extraction_config"];
+  export_config?: ExportConfig;
 };
 
 export type ProjectUpdate = {
@@ -55,6 +97,7 @@ export type ProjectUpdate = {
   description?: string;
   icon?: string;
   extraction_config?: Project["extraction_config"];
+  export_config?: ExportConfig;
   onboarding_completed?: boolean;
 };
 
@@ -64,6 +107,7 @@ export type ProjectTemplate = {
   description: string;
   icon: string;
   extraction_config: Project["extraction_config"];
+  export_config: ExportConfig;
   org_id: string;
   created_at: string;
 };
@@ -73,6 +117,7 @@ export type ProjectTemplateCreate = {
   description: string;
   icon?: string;
   extraction_config?: Project["extraction_config"];
+  export_config?: ExportConfig;
 };
 
 export type ProjectTemplateUpdate = {
@@ -80,6 +125,7 @@ export type ProjectTemplateUpdate = {
   description?: string;
   icon?: string;
   extraction_config?: Project["extraction_config"];
+  export_config?: ExportConfig;
 };
 
 export type Article = {

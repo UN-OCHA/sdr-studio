@@ -23,6 +23,7 @@ import { useToaster } from "../hooks/useToaster";
 import type { ProjectTemplate, ProjectTemplateCreate } from "../types";
 import { IconPicker } from "./IconPicker";
 import { ExtractionSettings } from "./project-settings/ExtractionSettings";
+import { ExportSettings } from "./project-settings/ExportSettings";
 
 export function TemplateManager() {
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
@@ -36,6 +37,7 @@ export function TemplateManager() {
     description: "",
     icon: "cube",
     extraction_config: {},
+    export_config: { fields: [] },
   });
   const { showToaster } = useToaster();
 
@@ -54,13 +56,17 @@ export function TemplateManager() {
     fetchTemplates();
   }, [fetchTemplates]);
 
-  const handleSave = async (config?: ProjectTemplate["extraction_config"]) => {
+  const handleSave = async (
+    config?: ProjectTemplate["extraction_config"],
+    export_config?: ProjectTemplate["export_config"],
+  ) => {
     if (!formData.name) return;
     setIsSaving(true);
     try {
       const payload = {
         ...formData,
         extraction_config: config || formData.extraction_config,
+        export_config: export_config || formData.export_config,
       };
 
       if (editingTemplate && editingTemplate.id !== "new") {
@@ -96,6 +102,7 @@ export function TemplateManager() {
       description: "",
       icon: "cube",
       extraction_config: { entities: {} },
+      export_config: { fields: [] },
     });
     setEditingTemplate({ 
       id: "new",
@@ -103,6 +110,7 @@ export function TemplateManager() {
       description: "",
       icon: "cube",
       extraction_config: { entities: {} },
+      export_config: { fields: [] },
       org_id: "",
       created_at: new Date().toISOString()
     } as ProjectTemplate);
@@ -115,6 +123,7 @@ export function TemplateManager() {
       description: template.description,
       icon: template.icon,
       extraction_config: template.extraction_config,
+      export_config: template.export_config || { fields: [] },
     });
   };
 
@@ -192,6 +201,12 @@ export function TemplateManager() {
             config={formData.extraction_config || { entities: {} }}
             onSave={(config) => handleSave(config)}
             isSaving={isSaving}
+          />
+
+          <ExportSettings
+            config={formData.export_config || { fields: [] }}
+            extractionConfig={formData.extraction_config || {}}
+            onChange={(export_config) => setFormData({ ...formData, export_config })}
           />
         </div>
       </div>

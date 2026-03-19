@@ -112,7 +112,7 @@ export function Dashboard({
       <div className="flex justify-between items-center mb-6">
         <EntityTitle
           title="Projects"
-          subtitle="Manage your disaster monitoring and analysis projects."
+          subtitle="Manage your monitoring and analysis projects."
           heading={H3}
         />
         <Button

@@ -31,13 +31,14 @@ type AnnotatorProps = {
     | string[]
     | Record<
         string,
-        string | { description: string; threshold?: number; dtype?: "str" | "list" }
+        | string
+        | { description: string; threshold?: number; dtype?: "str" | "list" }
       >;
   onChange?: (annotations: Annotation[]) => void;
   isEditable?: boolean;
 };
 
-function getProceduralColor(label: string, labelsArray: string[]) {
+export function getProceduralColor(label: string, labelsArray: string[]) {
   const index = labelsArray.indexOf(label);
   let hue;
 

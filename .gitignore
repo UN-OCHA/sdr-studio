@@ -26,6 +26,6 @@ dist-ssr
 sdr_studio.db
 .env
 tutorial/*
-backend/__pycache__/*
+**/__pycache__/*
 sdr_deploy_key
 sdr_deploy_key.pub
