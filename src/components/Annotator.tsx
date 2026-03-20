@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getProceduralColor } from "../colorUtils";
 import { type Annotation } from "../types";
 
 type PendingSelection = {
@@ -38,33 +39,6 @@ type AnnotatorProps = {
   onChange?: (annotations: Annotation[]) => void;
   isEditable?: boolean;
 };
-
-// Internal cache for colors to avoid re-hashing
-const colorCache: Record<string, { solid: string, light: string }> = {};
-
-export function getProceduralColor(label: string, labelsArray?: string[]) {
-  if (colorCache[label]) return colorCache[label];
-
-  const index = labelsArray ? labelsArray.indexOf(label) : -1;
-  let hue;
-
-  if (index !== -1) {
-    hue = (index * 137.508) % 360;
-  } else {
-    let hash = 0;
-    for (let i = 0; i < label.length; i++) {
-      hash = label.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    hue = Math.abs(hash * 137.508) % 360;
-  }
-
-  const color = {
-    solid: `hsl(${hue}, 80%, 35%)`,
-    light: `hsla(${hue}, 80%, 35%, 0.15)`,
-  };
-  colorCache[label] = color;
-  return color;
-}
 
 function snapToWordBoundary(fullText: string, start: number, end: number) {
   let snapStart = start;
@@ -330,7 +304,7 @@ export function Annotator({
     articleId,
   ]);
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     if (!isEditable || !containerRef.current) return;
 
     const selection = window.getSelection();
@@ -356,7 +330,7 @@ export function Annotator({
     }
 
     setPendingSelection(snapped);
-  };
+  }, [isEditable, clearSelection, text, activeModeLabel, processNewAnnotation]);
 
   const renderAnnotatedText = () => {
     if (!text) return null;

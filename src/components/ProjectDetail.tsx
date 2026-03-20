@@ -60,7 +60,7 @@ export function ProjectDetail({
     [],
   );
 
-  const handleTogglePin = (article: Article) => {
+  const handleTogglePin = useCallback((article: Article) => {
     setPinnedIds((prev) => {
       if (prev.includes(article.id)) {
         return prev.filter((id) => id !== article.id);
@@ -68,7 +68,7 @@ export function ProjectDetail({
         return [...prev, article.id];
       }
     });
-  };
+  }, [setPinnedIds]);
 
   const handleClearPinned = () => {
     setPinnedIds([]);
@@ -233,6 +233,25 @@ export function ProjectDetail({
     };
   }, [project.id, fetchArticles]);
 
+  const handleToggleCheck = useCallback((id: string) => {
+    setCheckedArticleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggleCheckAll = useCallback(() => {
+    setCheckedArticleIds((prev) => {
+      if (prev.size === articles.length) {
+        return new Set();
+      } else {
+        return new Set(articles.map((a) => a.id));
+      }
+    });
+  }, [articles]);
+
   // If onboarding is not completed, show the onboarding view
   if (!project.onboarding_completed) {
     return (
@@ -358,21 +377,6 @@ export function ProjectDetail({
       void fetchArticles(false);
     } catch (err) {
       console.error("Failed to delete articles:", err);
-    }
-  };
-
-  const handleToggleCheck = (id: string) => {
-    const next = new Set(checkedArticleIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setCheckedArticleIds(next);
-  };
-
-  const handleToggleCheckAll = () => {
-    if (checkedArticleIds.size === articles.length) {
-      setCheckedArticleIds(new Set());
-    } else {
-      setCheckedArticleIds(new Set(articles.map((a) => a.id)));
     }
   };
 

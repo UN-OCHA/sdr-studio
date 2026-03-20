@@ -10,30 +10,21 @@ type OrgSettingsProps = {
   initialSection?: SettingsSection;
 };
 
+const SECTION_TITLES: Partial<Record<SettingsSection, string>> = {
+  "org-profile": "Organization Profile",
+  "org-members": "Member Management",
+};
+
+const SECTION_SUBTITLES: Partial<Record<SettingsSection, string>> = {
+  "org-profile": "Basic info and branding for your organization.",
+  "org-members": "Manage team members and their access levels.",
+};
+
 export function OrgSettings({ onBack, initialSection = "org-members" }: OrgSettingsProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
 
-  const getTitle = () => {
-    switch (activeSection) {
-      case "org-profile":
-        return "Organization Profile";
-      case "org-members":
-        return "Member Management";
-      default:
-        return "Organization Settings";
-    }
-  };
-
-  const getSubtitle = () => {
-    switch (activeSection) {
-      case "org-profile":
-        return "Basic info and branding for your organization.";
-      case "org-members":
-        return "Manage team members and their access levels.";
-      default:
-        return "";
-    }
-  };
+  const title = SECTION_TITLES[activeSection] || "Organization Settings";
+  const subtitle = SECTION_SUBTITLES[activeSection] || "";
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-white dark:bg-bp-dark-bg">
@@ -88,11 +79,11 @@ export function OrgSettings({ onBack, initialSection = "org-members" }: OrgSetti
         <Panel className="bg-white dark:bg-bp-dark-bg flex flex-col overflow-hidden">
           <div className="grow overflow-y-auto p-6">
             <div className="mx-auto">
-              {activeSection === "org-members" && <MemberManager title={getTitle()} subtitle={getSubtitle()} />}
+              {activeSection === "org-members" && <MemberManager title={title} subtitle={subtitle} />}
               {activeSection !== "org-members" && (
                 <>
                   <div className="mb-6">
-                    <EntityTitle title={getTitle()} subtitle={getSubtitle()} heading={H5} />
+                    <EntityTitle title={title} subtitle={subtitle} heading={H5} />
                   </div>
                   {activeSection === "org-profile" && <OrgProfile />}
                 </>

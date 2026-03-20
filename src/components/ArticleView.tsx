@@ -20,11 +20,12 @@ import {
   Tag,
   Tooltip,
 } from "@blueprintjs/core";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import TimeAgo from "react-timeago";
 import { articlesApi } from "../api";
 import type { Annotation, Article, Project } from "../types";
-import { Annotator, getProceduralColor } from "./Annotator";
+import { Annotator } from "./Annotator";
+import { getProceduralColor } from "../colorUtils";
 
 type ArticleViewProps = {
   article: Article;
@@ -64,12 +65,15 @@ export function ArticleView({
     content: false,
   });
 
-  const toggleCollapse = (key: string) => {
+  const toggleCollapse = useCallback((key: string) => {
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  }, []);
 
   const classifications = extractionConfig?.classifications || {};
-  const structures = extractionConfig?.structures || [];
+  const structures = useMemo(
+    () => extractionConfig?.structures || [],
+    [extractionConfig?.structures],
+  );
 
   // Track review mode exit to auto-save reviewed status
   useEffect(() => {
@@ -98,7 +102,7 @@ export function ArticleView({
     }
   }, [article.id, article.status, article.annotations, onUpdate]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!confirm("Are you sure you want to delete this article?")) return;
     try {
       setIsDeleting(true);
@@ -109,17 +113,9 @@ export function ArticleView({
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [article.id, onDelete]);
 
-  const handleProcess = async () => {
-    if (article.reviewed) {
-      setIsReprocessAlertOpen(true);
-    } else {
-      await executeProcess();
-    }
-  };
-
-  const executeProcess = async () => {
+  const executeProcess = useCallback(async () => {
     try {
       setIsProcessing(true);
       setIsReprocessAlertOpen(false);
@@ -129,7 +125,15 @@ export function ArticleView({
       console.error("Failed to process article:", error);
       setIsProcessing(false);
     }
-  };
+  }, [article.id, onRefresh]);
+
+  const handleProcess = useCallback(async () => {
+    if (article.reviewed) {
+      setIsReprocessAlertOpen(true);
+    } else {
+      await executeProcess();
+    }
+  }, [article.reviewed, executeProcess]);
 
   // Polling for processing updates
   useEffect(() => {
@@ -154,7 +158,7 @@ export function ArticleView({
     };
   }, [article.status, isProcessing, article.id, onUpdate]);
 
-  const handleAnnotationChange = async (newAnnotations: Annotation[]) => {
+  const handleAnnotationChange = useCallback(async (newAnnotations: Annotation[]) => {
     try {
       await articlesApi.updateAnnotations(article.id, newAnnotations);
       setHasChanges(true);
@@ -162,9 +166,9 @@ export function ArticleView({
     } catch (error) {
       console.error("Failed to update annotations:", error);
     }
-  };
+  }, [article, onUpdate]);
 
-  const updateStructuredData = async (newData: Record<string, unknown>) => {
+  const updateStructuredData = useCallback(async (newData: Record<string, unknown>) => {
     try {
       const updated = await articlesApi.update(article.id, {
         structured_data: newData,
@@ -174,7 +178,7 @@ export function ArticleView({
     } catch (error) {
       console.error("Failed to update structured data:", error);
     }
-  };
+  }, [article, onUpdate]);
 
   const handleUpdateClassification = (
     name: string,
@@ -184,7 +188,7 @@ export function ArticleView({
     void updateStructuredData(next);
   };
 
-  const handleUpdateField = (
+  const handleUpdateField = useCallback((
     structName: string,
     fieldName: string,
     value: unknown,
@@ -205,9 +209,9 @@ export function ArticleView({
       [structName]: Array.isArray(rawData) ? records : records[0],
     };
     void updateStructuredData(nextData);
-  };
+  }, [article.structured_data, updateStructuredData]);
 
-  const handleAddRecord = (structName: string) => {
+  const handleAddRecord = useCallback((structName: string) => {
     const rawData = article.structured_data?.[structName];
     const records = Array.isArray(rawData) ? [...rawData] : [rawData || {}];
 
@@ -219,9 +223,9 @@ export function ArticleView({
       [structName]: Array.isArray(rawData) ? records : records[0],
     };
     void updateStructuredData(nextData);
-  };
+  }, [article.structured_data, updateStructuredData]);
 
-  const handleDeleteRecord = (structName: string, index: number) => {
+  const handleDeleteRecord = useCallback((structName: string, index: number) => {
     const rawData = article.structured_data?.[structName];
     if (!Array.isArray(rawData)) {
       // If it's not an array, just clear it
@@ -231,7 +235,7 @@ export function ArticleView({
       return;
     }
 
-    const nextRecords = rawData.filter((_, i) => i !== index);
+    const nextRecords = rawData.filter((_val, i) => i !== index);
     const nextData = {
       ...article.structured_data,
       [structName]: nextRecords.length > 0 ? nextRecords : undefined,
@@ -239,7 +243,7 @@ export function ArticleView({
     if (!nextData[structName]) delete nextData[structName];
 
     void updateStructuredData(nextData);
-  };
+  }, [article.structured_data, updateStructuredData]);
 
   const handleUpdateRelation = (
     relType: string,
@@ -590,6 +594,9 @@ export function ArticleView({
     isReviewMode,
     collapsed.structured,
     toggleCollapse,
+    handleAddRecord,
+    handleDeleteRecord,
+    handleUpdateField,
   ]);
 
   return (
@@ -944,7 +951,7 @@ export function ArticleView({
                   );
 
                   const activeRelations = Object.entries(relations).filter(
-                    ([_, instances]) => instances.length > 0,
+                    ([, instances]) => instances.length > 0,
                   );
 
                   if (activeRelations.length === 0 && !isReviewMode)

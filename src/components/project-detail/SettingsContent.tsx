@@ -1,5 +1,5 @@
 import { Button, EntityTitle, H3, Intent } from "@blueprintjs/core";
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 import type { Project, ProjectStats, SettingsSection } from "../../types";
 import type { MonitoringStationRef } from "../MonitoringStation";
 import { MonitoringStation } from "../MonitoringStation";
@@ -31,6 +31,30 @@ type SettingsContentProps = {
   onPendingProjectUpdatesChange: (updates: Partial<Project>) => void;
 };
 
+const SECTION_TITLES: Partial<Record<SettingsSection, string>> = {
+  profile: "Project Profile",
+  general: "Intelligence Engine",
+  library: "Model Library",
+  monitoring: "Monitoring Station",
+  export: "Export Configuration",
+  entities: "Entity Labels",
+  relations: "Relations",
+  classifications: "Classifications",
+  api: "External API Access",
+};
+
+const SECTION_SUBTITLES: Partial<Record<SettingsSection, string>> = {
+  profile: "Identity and basic information.",
+  general: "Model and sensitivity parameters.",
+  library: "Manage trained LoRA adapters.",
+  monitoring: "Automated article discovery.",
+  export: "Configure how data is formatted for export.",
+  api: "Manage API keys for external report integration.",
+  entities: "Identify specific spans of text like locations, dates, or names.",
+  relations: "Extract relationships between recognized entities (e.g. 'victim_of').",
+  classifications: "Categorize the overall document into predefined buckets.",
+};
+
 export function SettingsContent({
   project,
   settingsSection,
@@ -47,57 +71,10 @@ export function SettingsContent({
 }: SettingsContentProps) {
   const monitoringRef = useRef<MonitoringStationRef>(null);
 
-  const getTitle = () => {
-    switch (settingsSection) {
-      case "profile":
-        return "Project Profile";
-      case "general":
-        return "Intelligence Engine";
-      case "library":
-        return "Model Library";
-      case "monitoring":
-        return "Monitoring Station";
-      case "export":
-        return "Export Configuration";
-      case "entities":
-        return "Entity Labels";
-      case "relations":
-        return "Relations";
-      case "classifications":
-        return "Classifications";
-      case "api":
-        return "External API Access";
-      default:
-        return "Structured Objects";
-    }
-  };
+  const title = SECTION_TITLES[settingsSection] || "Structured Objects";
+  const subtitle = SECTION_SUBTITLES[settingsSection] || "Define complex JSON structures for deep data extraction.";
 
-  const getSubtitle = () => {
-    switch (settingsSection) {
-      case "profile":
-        return "Identity and basic information.";
-      case "general":
-        return "Model and sensitivity parameters.";
-      case "library":
-        return "Manage trained LoRA adapters.";
-      case "monitoring":
-        return "Automated article discovery.";
-      case "export":
-        return "Configure how data is formatted for export.";
-      case "api":
-        return "Manage API keys for external report integration.";
-      case "entities":
-        return "Identify specific spans of text like locations, dates, or names.";
-      case "relations":
-        return "Extract relationships between recognized entities (e.g. 'victim_of').";
-      case "classifications":
-        return "Categorize the overall document into predefined buckets.";
-      default:
-        return "Define complex JSON structures for deep data extraction.";
-    }
-  };
-
-  const canSave = () => {
+  const canSave = useCallback(() => {
     if (
       [
         "entities",
@@ -116,9 +93,9 @@ export function SettingsContent({
       return Object.keys(pendingProjectUpdates).length > 0;
     }
     return false;
-  };
+  }, [settingsSection, pendingConfig, pendingExportConfig, pendingProjectUpdates]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (
       [
         "entities",
@@ -139,12 +116,21 @@ export function SettingsContent({
       onUpdateProjectDetails(pendingProjectUpdates);
       onPendingProjectUpdatesChange({});
     }
-  };
+  }, [
+    settingsSection,
+    pendingConfig,
+    pendingExportConfig,
+    pendingProjectUpdates,
+    project.extraction_config,
+    onSaveConfig,
+    onUpdateProjectDetails,
+    onPendingProjectUpdatesChange,
+  ]);
 
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-6">
-        <EntityTitle title={getTitle()} subtitle={getSubtitle()} heading={H3} />
+        <EntityTitle title={title} subtitle={subtitle} heading={H3} />
         <div className="flex gap-2">
           {settingsSection === "monitoring" && (
             <Button

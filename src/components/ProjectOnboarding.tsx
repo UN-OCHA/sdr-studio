@@ -11,7 +11,7 @@ import {
   SectionCard,
   TextArea,
 } from "@blueprintjs/core";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { projectsApi } from "../api";
 import type { Project } from "../types";
 import { ExtractionSettings } from "./project-settings/ExtractionSettings";
@@ -33,10 +33,10 @@ export function ProjectOnboarding({
   const [urls, setUrls] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleNext = () => setStep(step + 1);
-  const handleBack = () => setStep(step - 1);
+  const handleNext = useCallback(() => setStep((prev) => prev + 1), []);
+  const handleBack = useCallback(() => setStep((prev) => prev - 1), []);
 
-  const handleFinish = async () => {
+  const handleFinish = useCallback(async () => {
     try {
       setIsSaving(true);
       // Save final config and mark onboarding as complete
@@ -60,7 +60,7 @@ export function ProjectOnboarding({
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [project.id, config, urls, onImport, onComplete]);
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
@@ -100,7 +100,7 @@ export function ProjectOnboarding({
               <GeneralSettings
                 config={config}
                 onUpdateConfig={(updates) =>
-                  setConfig({ ...config, ...updates })
+                  setConfig((prev) => ({ ...prev, ...updates }))
                 }
               />
             </div>

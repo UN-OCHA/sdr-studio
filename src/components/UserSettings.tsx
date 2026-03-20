@@ -1,5 +1,5 @@
 import { Button, Callout, EntityTitle, H5, Icon, Menu, MenuItem, Section, SectionCard, Intent } from "@blueprintjs/core";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import type { SettingsSection } from "../types";
 import { UserSessions } from "./user-settings/UserSessions";
@@ -12,12 +12,24 @@ type UserSettingsProps = {
   initialSection?: SettingsSection;
 };
 
+const SECTION_TITLES: Partial<Record<SettingsSection, string>> = {
+  "user-profile": "Personal Profile",
+  "user-security": "Account Security",
+  "user-sessions": "Active Sessions",
+};
+
+const SECTION_SUBTITLES: Partial<Record<SettingsSection, string>> = {
+  "user-profile": "Manage your display name and preferences.",
+  "user-security": "Update your password and MFA settings.",
+  "user-sessions": "Monitor and manage your active device logins.",
+};
+
 export function UserSettings({ onBack, initialSection = "user-profile" }: UserSettingsProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   const [isResetting, setIsResetting] = useState(false);
   const { showToaster } = useToaster();
 
-  const handlePasswordReset = async () => {
+  const handlePasswordReset = useCallback(async () => {
     setIsResetting(true);
     try {
         await usersApi.requestPasswordReset();
@@ -27,33 +39,10 @@ export function UserSettings({ onBack, initialSection = "user-profile" }: UserSe
     } finally {
         setIsResetting(false);
     }
-  };
+  }, [showToaster]);
 
-  const getTitle = () => {
-    switch (activeSection) {
-      case "user-profile":
-        return "Personal Profile";
-      case "user-security":
-        return "Account Security";
-      case "user-sessions":
-        return "Active Sessions";
-      default:
-        return "User Settings";
-    }
-  };
-
-  const getSubtitle = () => {
-    switch (activeSection) {
-      case "user-profile":
-        return "Manage your display name and preferences.";
-      case "user-security":
-        return "Update your password and MFA settings.";
-      case "user-sessions":
-        return "Monitor and manage your active device logins.";
-      default:
-        return "";
-    }
-  };
+  const title = SECTION_TITLES[activeSection] || "User Settings";
+  const subtitle = SECTION_SUBTITLES[activeSection] || "";
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-white dark:bg-bp-dark-bg">
@@ -125,7 +114,7 @@ export function UserSettings({ onBack, initialSection = "user-profile" }: UserSe
               {activeSection === "user-profile" && (
                 <>
                   <div className="mb-6">
-                    <EntityTitle title={getTitle()} subtitle={getSubtitle()} heading={H5} />
+                    <EntityTitle title={title} subtitle={subtitle} heading={H5} />
                   </div>
                   <UserProfile />
                 </>
@@ -134,7 +123,7 @@ export function UserSettings({ onBack, initialSection = "user-profile" }: UserSe
               {activeSection === "user-sessions" && (
                 <>
                   <div className="mb-6">
-                    <EntityTitle title={getTitle()} subtitle={getSubtitle()} heading={H5} />
+                    <EntityTitle title={title} subtitle={subtitle} heading={H5} />
                   </div>
                   <UserSessions />
                 </>
@@ -143,7 +132,7 @@ export function UserSettings({ onBack, initialSection = "user-profile" }: UserSe
               {activeSection === "user-security" && (
                 <>
                   <div className="mb-6">
-                    <EntityTitle title={getTitle()} subtitle={getSubtitle()} heading={H5} />
+                    <EntityTitle title={title} subtitle={subtitle} heading={H5} />
                   </div>
                   <Section title="Authentication" icon="shield">
                       <SectionCard className="space-y-4">
