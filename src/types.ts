@@ -62,7 +62,13 @@ export type Project = {
     entities?: Record<
       string,
       | string
-      | { description: string; threshold?: number; dtype?: "str" | "list" }
+      | {
+          description: string;
+          threshold?: number;
+          dtype?: "str" | "list";
+          is_location?: boolean;
+          is_date?: boolean;
+        }
     >;
     classifications?: Record<
       string,
@@ -124,7 +130,39 @@ export type SettingsSection =
   | "structures"
   | "monitoring"
   | "export"
-  | "api";
+  | "api"
+  | "org-profile"
+  | "org-members"
+  | "org-sso"
+  | "user-profile"
+  | "user-security"
+  | "user-sessions";
+
+export type Member = {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string;
+  status: "active" | "invited" | "blocked";
+  last_login?: string;
+  joined_at?: string;
+};
+
+export type Invitation = {
+  id: string;
+  email: string;
+  inviter_name: string;
+  created_at: string;
+  expires_at: string;
+};
+
+export type Organization = {
+  id: string;
+  name: string;
+  display_name: string;
+  logo_url?: string;
+  created_at: string;
+};
 
 export type ProjectTemplate = {
   id: string;
@@ -173,6 +211,13 @@ export type Article = {
   reviewed: boolean;
   error_message?: string;
   structured_data: Record<string, unknown>;
+  locations?: {
+    name: string;
+    latitude: number;
+    longitude: number;
+    raw: any;
+  }[];
+  event_date?: string;
   processing_step: string;
   created_at: string;
   annotations: Annotation[];

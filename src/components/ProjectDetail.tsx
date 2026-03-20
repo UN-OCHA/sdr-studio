@@ -11,14 +11,15 @@ import { articlesApi, projectsApi } from "../api";
 import { useToaster } from "../hooks/useToaster";
 import type { Article, Project, ProjectStats, SettingsSection } from "../types";
 import { ArticleView } from "./ArticleView";
+import { CoverageView } from "./CoverageView";
 import { ProjectHome } from "./ProjectHome";
 import { ProjectOnboarding } from "./ProjectOnboarding";
 import { ArticleSidebar } from "./project-detail/ArticleSidebar";
+import { ImportFeedDialog } from "./project-detail/ImportFeedDialog";
 import { ProjectHomeHeader } from "./project-detail/ProjectHomeHeader";
 import { SettingsContent } from "./project-detail/SettingsContent";
 import { SettingsSidebar } from "./project-detail/SettingsSidebar";
 import { SidebarExportDock } from "./project-detail/SidebarExportDock";
-import { SidebarHeader } from "./project-detail/SidebarHeader";
 
 type ProjectDetailProps = {
   project: Project;
@@ -33,9 +34,9 @@ export function ProjectDetail({
   onUpdateProject,
   onBack,
 }: ProjectDetailProps) {
-  const [activeTab, setActiveTab] = useState<"home" | "articles" | "settings">(
-    "home",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "home" | "articles" | "settings" | "coverage"
+  >("home");
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection>("profile");
 
@@ -62,6 +63,7 @@ export function ProjectDetail({
 
   const { toaster } = useToaster();
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isFeedImportDialogOpen, setIsFeedImportDialogOpen] = useState(false);
   const [urlsToImport, setUrlsToImport] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [stats, setStats] = useState<ProjectStats | null>(null);
@@ -310,102 +312,104 @@ export function ProjectDetail({
   const entityLabels = Object.keys(project.extraction_config?.entities || {});
 
   return (
-    <PanelGroup direction="horizontal" className="h-full overflow-hidden">
-      {activeTab !== "home" && (
-        <>
-          <Panel
-            defaultSize={25}
-            minSize={15}
-            maxSize={40}
-            className="flex flex-col bg-gray-50 border-r border-gray-200"
-          >
-            <SidebarHeader
-              project={project}
-              activeTab={activeTab}
-              articlesCount={articles.length}
-              onBack={onBack}
-              onTabChange={setActiveTab}
-            />
-            <div className="grow overflow-y-clip">
-              {activeTab === "articles" ? (
-                <ArticleSidebar
-                  project={project}
-                  articles={articles}
-                  totalCount={totalCount}
-                  stats={stats}
-                  isLoading={isLoading}
-                  selectedArticleId={selectedArticleId}
-                  checkedArticleIds={checkedArticleIds}
-                  search={search}
-                  statusFilter={statusFilter}
-                  sortBy={sortBy}
-                  sortOrder={sortOrder}
-                  onSearchChange={setSearch}
-                  onStatusFilterChange={setStatusFilter}
-                  onSortByChange={setSortBy}
-                  onSortOrderToggle={() =>
-                    setSortOrder(sortOrder === "asc" ? "desc" : "asc")
-                  }
-                  onArticleSelect={setSelectedArticleId}
-                  onToggleCheck={handleToggleCheck}
-                  onToggleCheckAll={handleToggleCheckAll}
-                  onBulkDelete={handleBulkDelete}
-                  onRefresh={() => void fetchArticles(false)}
-                  onReprocessAll={handleReprocessAll}
-                  onRetryArticle={handleRetryArticle}
-                  onLoadMore={() => void fetchArticles(true)}
-                  onOpenImportDialog={() => setIsImportDialogOpen(true)}
-                />
-              ) : (
-                <SettingsSidebar
-                  activeSection={settingsSection}
-                  onChangeSection={setSettingsSection}
-                />
-              )}
-            </div>
-            <SidebarExportDock project={project} />
-          </Panel>
-          <PanelResizeHandle className="w-1.5 bg-gray-100 hover:bg-blue-200 transition-colors border-x border-gray-200 flex items-center justify-center group cursor-col-resize">
-            <div className="w-0.5 h-8 bg-gray-300 group-hover:bg-blue-400 rounded-full" />
-          </PanelResizeHandle>
-        </>
-      )}
+    <div className="flex flex-col h-full overflow-hidden">
+      <ProjectHomeHeader
+        project={project}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        articlesCount={articles.length}
+        onBack={onBack}
+      />
 
-      {/* Main Content */}
-      <Panel className="bg-white flex flex-col overflow-hidden">
-        {activeTab === "home" ? (
+      <PanelGroup
+        key={
+          activeTab === "home" || activeTab === "coverage"
+            ? "no-sidebar"
+            : "with-sidebar"
+        }
+        direction="horizontal"
+        className="grow overflow-hidden"
+      >
+        {activeTab !== "home" && activeTab !== "coverage" && (
           <>
-            <ProjectHomeHeader
-              project={project}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              articlesCount={articles.length}
-            />
-            <div className="grow overflow-y-auto">
+            <Panel
+              defaultSize={28}
+              minSize={28}
+              maxSize={50}
+              className="flex flex-col bg-gray-50 border-r border-gray-200"
+            >
+              <div className="grow overflow-y-clip">
+                {activeTab === "articles" ? (
+                  <ArticleSidebar
+                    project={project}
+                    articles={articles}
+                    totalCount={totalCount}
+                    stats={stats}
+                    isLoading={isLoading}
+                    selectedArticleId={selectedArticleId}
+                    checkedArticleIds={checkedArticleIds}
+                    search={search}
+                    statusFilter={statusFilter}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSearchChange={setSearch}
+                    onStatusFilterChange={setStatusFilter}
+                    onSortByChange={setSortBy}
+                    onSortOrderToggle={() =>
+                      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+                    }
+                    onArticleSelect={setSelectedArticleId}
+                    onToggleCheck={handleToggleCheck}
+                    onToggleCheckAll={handleToggleCheckAll}
+                    onBulkDelete={handleBulkDelete}
+                    onRefresh={() => void fetchArticles(false)}
+                    onReprocessAll={handleReprocessAll}
+                    onRetryArticle={handleRetryArticle}
+                    onLoadMore={() => void fetchArticles(true)}
+                    onOpenUrlImportDialog={() => setIsImportDialogOpen(true)}
+                    onOpenFeedImportDialog={() => setIsFeedImportDialogOpen(true)}
+                  />
+                ) : (
+                  <SettingsSidebar
+                    activeSection={settingsSection}
+                    onChangeSection={setSettingsSection}
+                  />
+                )}
+              </div>
+              <SidebarExportDock project={project} />
+            </Panel>
+            <PanelResizeHandle className="w-1.5 bg-gray-100 hover:bg-blue-200 transition-colors border-x border-gray-200 flex items-center justify-center group cursor-col-resize">
+              <div className="w-0.5 h-8 bg-gray-300 group-hover:bg-blue-400 rounded-full" />
+            </PanelResizeHandle>
+          </>
+        )}
+
+        {/* Main Content */}
+        <Panel className="bg-white flex flex-col overflow-hidden">
+          <div className="grow overflow-y-auto min-h-0">
+            {activeTab === "home" ? (
               <ProjectHome
                 project={project}
                 onTabChange={(_tab) => {
-                                  if (_tab === "monitoring") {
-                                    setActiveTab("settings");
-                                    setSettingsSection("monitoring");
-                                  } else if (_tab === "schema") {
-                                    setActiveTab("settings");
-                                    setSettingsSection("entities");
-                                  } else if (_tab === "profile") {
-                                    setActiveTab("settings");
-                                    setSettingsSection("profile");
-                                  } else if (_tab === "general") {
-                                    setActiveTab("settings");
-                                    setSettingsSection("general");
-                                  } else {
-                                    setActiveTab(_tab as any);
-                                  }
-                                }}              />
-            </div>
-          </>
-        ) : activeTab === "articles" ? (
-          selectedArticle ? (
-            <div className="grow overflow-y-auto">
+                  if (_tab === "monitoring") {
+                    setActiveTab("settings");
+                    setSettingsSection("monitoring");
+                  } else if (_tab === "schema") {
+                    setActiveTab("settings");
+                    setSettingsSection("entities");
+                  } else if (_tab === "profile") {
+                    setActiveTab("settings");
+                    setSettingsSection("profile");
+                  } else if (_tab === "general") {
+                    setActiveTab("settings");
+                    setSettingsSection("general");
+                  } else {
+                    setActiveTab(_tab as any);
+                  }
+                }}
+              />
+            ) : activeTab === "articles" ? (
+              selectedArticle ? (
                 <ArticleView
                   article={selectedArticle}
                   labels={entityLabels}
@@ -421,45 +425,50 @@ export function ProjectDetail({
                     void fetchArticles(false);
                   }}
                 />
-            </div>
-          ) : (
-            <div className="p-12">
-              <NonIdealState
-                icon="document"
-                title="No Article Selected"
-                description="Select an article from the sidebar to view its content and extracted entities."
-                action={
-                  articles.length === 0 &&
-                  !search &&
-                  statusFilter === "all" ? (
-                    <Button
-                      intent={Intent.PRIMARY}
-                      text="Import URLs"
-                      onClick={() => setIsImportDialogOpen(true)}
-                    />
-                  ) : undefined
-                }
+              ) : (
+                <div className="p-12">
+                  <NonIdealState
+                    icon="document"
+                    title="No Article Selected"
+                    description="Select an article from the sidebar to view its content and extracted entities."
+                    action={
+                      articles.length === 0 &&
+                      !search &&
+                      statusFilter === "all" ? (
+                        <Button
+                          intent={Intent.PRIMARY}
+                          text="Import URLs"
+                          onClick={() => setIsImportDialogOpen(true)}
+                        />
+                      ) : undefined
+                    }
+                  />
+                </div>
+              )
+            ) : activeTab === "coverage" ? (
+              <div className="h-full overflow-hidden">
+                <CoverageView project={project} />
+              </div>
+            ) : (
+              <SettingsContent
+                project={project}
+                stats={stats}
+                settingsSection={settingsSection}
+                isSaving={isSaving}
+                pendingConfig={pendingConfig}
+                pendingExportConfig={pendingExportConfig}
+                pendingProjectUpdates={pendingProjectUpdates}
+                onSaveConfig={handleSaveConfig}
+                onUpdateProjectDetails={handleUpdateProjectDetails}
+                onProjectUpdate={onUpdateProject}
+                onPendingConfigChange={setPendingConfig}
+                onPendingExportConfigChange={setPendingExportConfig}
+                onPendingProjectUpdatesChange={setPendingProjectUpdates}
               />
-            </div>
-          )
-        ) : (
-          <SettingsContent
-            project={project}
-            stats={stats}
-            settingsSection={settingsSection}
-            isSaving={isSaving}
-            pendingConfig={pendingConfig}
-            pendingExportConfig={pendingExportConfig}
-            pendingProjectUpdates={pendingProjectUpdates}
-            onSaveConfig={handleSaveConfig}
-            onUpdateProjectDetails={handleUpdateProjectDetails}
-            onProjectUpdate={onUpdateProject}
-            onPendingConfigChange={setPendingConfig}
-            onPendingExportConfigChange={setPendingExportConfig}
-            onPendingProjectUpdatesChange={setPendingProjectUpdates}
-          />
-        )}
-      </Panel>
+            )}
+          </div>
+        </Panel>
+      </PanelGroup>
 
       <Dialog
         isOpen={isImportDialogOpen}
@@ -491,6 +500,13 @@ export function ProjectDetail({
           </div>
         </div>
       </Dialog>
-    </PanelGroup>
+
+      <ImportFeedDialog
+        project={project}
+        isOpen={isFeedImportDialogOpen}
+        onClose={() => setIsFeedImportDialogOpen(false)}
+        onRefresh={() => void fetchArticles(false)}
+      />
+    </div>
   );
 }

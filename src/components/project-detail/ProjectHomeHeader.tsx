@@ -1,6 +1,7 @@
 import {
+  Button,
   EntityTitle,
-  H4,
+  H5,
   Icon,
   Tab,
   Tabs,
@@ -10,9 +11,10 @@ import type { Project } from "../../types";
 
 type ProjectHomeHeaderProps = {
   project: Project;
-  activeTab: "home" | "articles" | "settings";
-  onTabChange: (tab: "home" | "articles" | "settings") => void;
+  activeTab: "home" | "articles" | "settings" | "coverage";
+  onTabChange: (tab: "home" | "articles" | "settings" | "coverage") => void;
   articlesCount: number;
+  onBack: () => void;
 };
 
 export function ProjectHomeHeader({
@@ -20,19 +22,22 @@ export function ProjectHomeHeader({
   activeTab,
   onTabChange,
   articlesCount,
+  onBack,
 }: ProjectHomeHeaderProps) {
   return (
-    <div className="p-3 border-b border-gray-200 bg-white flex items-center justify-between">
-      <div className="flex items-center gap-2">
+    <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between shadow-sm z-10 shrink-0">
+      <div className="flex items-center gap-1">
+        <Button icon="arrow-left" onClick={onBack} variant="minimal" small />
         <Icon
           icon={project.icon as IconName}
-          size={20}
-          className="text-gray-500"
+          size={18}
+          className="text-gray-500 ml-1"
         />
         <EntityTitle
           title={project.name}
           subtitle={project.description}
-          heading={H4}
+          heading={H5}
+          className="ml-1"
         />
       </div>
       <Tabs
@@ -48,6 +53,7 @@ export function ProjectHomeHeader({
           icon="document"
           tagContent={articlesCount}
         />
+        <Tab id="coverage" title="Coverage" icon="map" />
         <Tab id="settings" title="Settings" icon="cog" />
       </Tabs>
     </div>

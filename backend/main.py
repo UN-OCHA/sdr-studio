@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import create_db_and_tables
-from routers import auth, templates, projects, articles, sources, adapters
+from routers import auth, templates, projects, articles, sources, adapters, orgs, users
 from tasks.polling_tasks import poller_loop
 from threading import Thread
 
@@ -23,6 +23,8 @@ app.include_router(projects.router)
 app.include_router(articles.router)
 app.include_router(sources.router)
 app.include_router(adapters.router)
+app.include_router(orgs.router)
+app.include_router(users.router)
 
 @app.on_event("startup")
 def on_startup():

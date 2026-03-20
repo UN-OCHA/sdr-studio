@@ -18,6 +18,8 @@ import { projectsApi, setAuthToken } from "./api";
 import { Dashboard } from "./components/Dashboard";
 import { ProjectDetail } from "./components/ProjectDetail";
 import { TemplateManager } from "./components/TemplateManager";
+import { OrgSettings } from "./components/OrgSettings";
+import { UserSettings } from "./components/UserSettings";
 import { useStore } from "./store";
 import type { Project, ProjectCreate } from "./types";
 
@@ -38,9 +40,9 @@ function App() {
     getAccessTokenSilently,
   } = useAuth0();
 
-  const [activeView, setActiveView] = useState<"projects" | "templates">(
-    "projects",
-  );
+  const [activeView, setActiveView] = useState<
+    "projects" | "templates" | "org-settings" | "user-settings"
+  >("projects");
   const [isTokenReady, setIsTokenReady] = useState(false);
 
   const {
@@ -179,11 +181,21 @@ function App() {
                       </span>
                     </div>
                     <MenuDivider />
-                    <MenuItem icon="user" text="Profile Settings" disabled />
+                    <MenuItem
+                      icon="user"
+                      text="Profile Settings"
+                      onClick={() => {
+                        setCurrentProjectId(null);
+                        setActiveView("user-settings");
+                      }}
+                    />
                     <MenuItem
                       icon="cog"
                       text="Organization Settings"
-                      disabled
+                      onClick={() => {
+                        setCurrentProjectId(null);
+                        setActiveView("org-settings");
+                      }}
                     />
                     <MenuDivider />
                     <MenuItem
@@ -261,6 +273,10 @@ function App() {
           <div className="p-6 h-full overflow-y-auto">
             <TemplateManager />
           </div>
+        ) : activeView === "org-settings" ? (
+          <OrgSettings onBack={() => setActiveView("projects")} />
+        ) : activeView === "user-settings" ? (
+          <UserSettings onBack={() => setActiveView("projects")} />
         ) : (
           <div className="p-6 h-full overflow-y-auto">
             <Dashboard

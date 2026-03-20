@@ -220,15 +220,13 @@ export function IntelligencePipeline({
   }, [project, sources]);
 
   return (
-    <div style={{ height: "300px" }}>
+    <div style={{ height: "250px" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
         proOptions={{ hideAttribution: true }}
-        panOnDrag={false}
-        zoomOnScroll={false}
       >
         <Background />
       </ReactFlow>

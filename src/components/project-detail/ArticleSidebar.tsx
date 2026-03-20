@@ -12,6 +12,7 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import { Select, type ItemRenderer } from "@blueprintjs/select";
+import TimeAgo from "react-timeago";
 import { projectsApi } from "../../api";
 import type { Article, Project, ProjectStats } from "../../types";
 
@@ -61,7 +62,8 @@ type ArticleSidebarProps = {
   onReprocessAll: () => void;
   onRetryArticle: (id: string) => void;
   onLoadMore: () => void;
-  onOpenImportDialog: () => void;
+  onOpenUrlImportDialog: () => void;
+  onOpenFeedImportDialog: () => void;
 };
 
 export function ArticleSidebar({
@@ -88,7 +90,8 @@ export function ArticleSidebar({
   onReprocessAll,
   onRetryArticle,
   onLoadMore,
-  onOpenImportDialog,
+  onOpenUrlImportDialog,
+  onOpenFeedImportDialog,
 }: ArticleSidebarProps) {
   const isProcessing = stats && (stats.pending > 0 || stats.processing > 0);
 
@@ -174,14 +177,34 @@ export function ArticleSidebar({
             className="grow"
             small
           />
-          <Button
-            small
-            intent={Intent.PRIMARY}
-            icon="plus"
-            title="Import Articles"
-            text="Import"
-            onClick={onOpenImportDialog}
-          />
+          <Popover
+            minimal
+            placement="auto-start"
+            content={
+              <Menu>
+                <MenuItem
+                  icon="link"
+                  text="From URLs"
+                  onClick={onOpenUrlImportDialog}
+                />
+                <MenuItem
+                  icon="feed"
+                  text="From feeds"
+                  onClick={onOpenFeedImportDialog}
+                />
+              </Menu>
+            }
+            position="bottom-right"
+          >
+            <Button
+              small
+              intent={Intent.PRIMARY}
+              icon="plus"
+              title="Import Articles"
+              text="Import"
+              rightIcon="caret-down"
+            />
+          </Popover>
         </div>
 
         <div className="flex justify-between items-center">
@@ -366,7 +389,7 @@ export function ArticleSidebar({
               {articles.map((article) => (
                 <div
                   key={article.id}
-                  className={`flex items-center px-2 py-1 hover:bg-gray-100 border-b border-gray-200 w-full min-w-0 group cursor-pointer ${
+                  className={`flex items-start px-2 py-2 hover:bg-gray-100 border-b border-gray-200 w-full min-w-0 group cursor-pointer ${
                     selectedArticleId === article.id ? "bg-blue-50/50" : ""
                   }`}
                   onClick={() => onArticleSelect(article.id)}
@@ -377,35 +400,43 @@ export function ArticleSidebar({
                       e.stopPropagation();
                       onToggleCheck(article.id);
                     }}
-                    className="mb-0! shrink-0 mr-2"
+                    className="mt-1! shrink-0 mr-2"
                   />
 
-                  <div className="flex-1 min-w-0 flex items-center justify-between">
-                    <div
-                      className="truncate pr-2 text-sm font-medium flex items-center gap-2"
-                      title={article.title || article.url}
-                    >
-                      <span className="truncate">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <div
+                        className="truncate text-sm font-bold flex-1"
+                        title={article.title || article.url}
+                      >
                         {article.title || article.url}
-                      </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {article.status === "error" && (
+                          <Button
+                            size="small"
+                            variant="minimal"
+                            icon="refresh"
+                            intent={Intent.PRIMARY}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRetryArticle(article.id);
+                            }}
+                            title="Retry"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          />
+                        )}
+                        {getStatusIcon(article)}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0 ml-auto">
-                      {article.status === "error" && (
-                        <Button
-                          size="small"
-                          variant="minimal"
-                          icon="refresh"
-                          intent={Intent.PRIMARY}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRetryArticle(article.id);
-                          }}
-                          title="Retry"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        />
-                      )}
-                      {getStatusIcon(article)}
+                    <div className="text-[11px] text-gray-500 line-clamp-1 mb-1 italic">
+                      {article.summary || "No summary available"}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-medium">
+                      <Icon icon="calendar" size={10} />
+                      <TimeAgo date={article.created_at} />
                     </div>
                   </div>
                 </div>

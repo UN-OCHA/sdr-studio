@@ -12,6 +12,8 @@ class AnnotationBase(SQLModel):
     confidence: Optional[float] = Field(default=None)
     org_id: str = Field(default="public", index=True)
 
+from sqlalchemy import Column
+...
 class ArticleBase(SQLModel):
     url: str
     title: str = ""
@@ -21,7 +23,9 @@ class ArticleBase(SQLModel):
     processing_step: Optional[str] = None # e.g. "Downloading", "Cleaning", "Summarizing", etc.
     reviewed: bool = Field(default=False)
     error_message: Optional[str] = None
-    structured_data: Optional[Dict[str, Any]] = Field(default={}, sa_type=JSON)
+    structured_data: Optional[Dict[str, Any]] = Field(default={}, sa_column=Column(JSON))
+    locations: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
+    event_date: Optional[datetime] = None
     org_id: str = Field(default="public", index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -30,8 +34,8 @@ class ProjectBase(SQLModel):
     description: str = ""
     icon: str = "briefcase"
     org_id: str = Field(default="public", index=True)
-    extraction_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
-    export_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
+    extraction_config: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    export_config: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     onboarding_completed: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -42,8 +46,8 @@ class ProjectTemplateBase(SQLModel):
     description: str = ""
     icon: str = "cube"
     org_id: str = Field(default="public", index=True)
-    extraction_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
-    export_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
+    extraction_config: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    export_config: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProjectTemplate(ProjectTemplateBase, table=True):
@@ -56,7 +60,7 @@ class ProjectTemplateCreate(SQLModel):
     name: str
     description: str = ""
     icon: Optional[str] = "cube"
-    extraction_config: Dict[str, Any] = Field(default={}, sa_type=JSON)
+    extraction_config: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     export_config: Optional[Dict[str, Any]] = None
 
 class ProjectTemplateUpdate(SQLModel):
@@ -95,7 +99,7 @@ class SourceBase(SQLModel):
     url: str
     type: str = "rss"  # rss, exa, brave, twitter, scrape
     active: bool = True
-    config: Dict[str, Any] = Field(default={}, sa_type=JSON)
+    config: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     polling_interval: int = Field(default=15) # In minutes
     last_polled: Optional[datetime] = None
     org_id: str = Field(default="public", index=True)
@@ -220,6 +224,11 @@ class TrainingRequest(SQLModel):
 class ArticleImport(SQLModel):
     urls: List[str]
 
+class DiscoveryRequest(SQLModel):
+    url: str
+    type: str = "rss"  # rss, exa, brave
+    config: Optional[Dict[str, Any]] = Field(default={})
+
 class ArticleUpdate(SQLModel):
     title: Optional[str] = None
     summary: Optional[str] = None
@@ -228,3 +237,27 @@ class ArticleUpdate(SQLModel):
 
 class AnnotationUpdate(SQLModel):
     annotations: List[AnnotationBase]
+
+# -- Auth0-linked Models (Non-DB) --
+
+class Member(SQLModel):
+    id: str
+    name: str
+    email: str
+    picture: Optional[str] = None
+    status: str # active, invited, blocked
+    last_login: Optional[datetime] = None
+    joined_at: Optional[datetime] = None
+
+class Organization(SQLModel):
+    id: str
+    name: str
+    display_name: str
+    logo_url: Optional[str] = None
+    created_at: datetime
+
+class MemberInvite(SQLModel):
+    email: str
+
+class MemberUpdate(SQLModel):
+    status: str

@@ -9,6 +9,9 @@ import type {
   ApiKeyCreate,
   SourceCreate,
   SourceUpdate,
+  Member,
+  Organization,
+  Invitation,
 } from "./types";
 
 const API_BASE_URL = "/api";
@@ -95,6 +98,8 @@ export const projectsApi = {
     const queryString = query.toString();
     return apiFetch(`/projects/${projectId}/articles${queryString ? `?${queryString}` : ""}`);
   },
+  listArticlesWithLocations: (projectId: string) =>
+    apiFetch(`/projects/${projectId}/articles/locations`),
   bulkDeleteArticles: (projectId: string, articleIds: string[]) =>
     apiFetch(`/projects/${projectId}/articles/bulk-delete`, {
       method: "POST",
@@ -104,6 +109,11 @@ export const projectsApi = {
     apiFetch(`/projects/${projectId}/import`, {
       method: "POST",
       body: JSON.stringify({ urls }),
+    }),
+  discoverArticles: (projectId: string, data: { type: string; url: string; config?: any }) =>
+    apiFetch(`/projects/${projectId}/discover`, {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
   reprocess: (id: string) =>
     apiFetch(`/projects/${id}/reprocess`, {
@@ -171,6 +181,47 @@ export const projectsApi = {
     const base = window.location.origin;
     return `${base}${API_BASE_URL}/projects/external/export?project_id=${projectId}&format=${format}`;
   }
+};
+
+export const orgsApi = {
+  getCurrent: (): Promise<Organization> => apiFetch("/orgs/current"),
+  listMembers: (): Promise<Member[]> => apiFetch("/orgs/members"),
+  inviteMember: (email: string) =>
+    apiFetch("/orgs/members/invite", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  updateMember: (member_id: string, status: string) =>
+    apiFetch(`/orgs/members/${member_id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  removeMember: (memberId: string) =>
+    apiFetch(`/orgs/members/${memberId}`, {
+      method: "DELETE",
+    }),
+  listInvitations: (): Promise<Invitation[]> => apiFetch("/orgs/invitations"),
+  resendInvitation: (invitationId: string) =>
+    apiFetch(`/orgs/invitations/${invitationId}/resend`, {
+      method: "POST",
+    }),
+  revokeInvitation: (invitationId: string) =>
+    apiFetch(`/orgs/invitations/${invitationId}`, {
+      method: "DELETE",
+    }),
+};
+
+export const usersApi = {
+  getMe: () => apiFetch("/users/me"),
+  listSessions: () => apiFetch("/users/me/sessions"),
+  revokeSession: (sessionId: string) =>
+    apiFetch(`/users/me/sessions/${sessionId}`, {
+      method: "DELETE",
+    }),
+  requestPasswordReset: () =>
+    apiFetch("/users/me/password-reset", {
+      method: "POST",
+    }),
 };
 
 export const sourcesApi = {

@@ -24,15 +24,23 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Rebuild and restart containers
+            # Generate backend/.env from secrets
+            echo "AUTH0_DOMAIN=${{ secrets.VITE_AUTH0_DOMAIN }}" > backend/.env
+            echo "AUTH0_AUDIENCE=${{ secrets.VITE_AUTH0_AUDIENCE }}" >> backend/.env
+            echo "AUTH0_ORG_ID_CLAIM=${{ secrets.VITE_AUTH0_ORG_ID_CLAIM }}" >> backend/.env
+            echo "AUTH0_MANAGEMENT_CLIENT_ID=${{ secrets.AUTH0_MANAGEMENT_CLIENT_ID }}" >> backend/.env
+            echo "AUTH0_MANAGEMENT_CLIENT_SECRET=${{ secrets.AUTH0_MANAGEMENT_CLIENT_SECRET }}" >> backend/.env
+            echo "AUTH0_CLIENT_ID=${{ secrets.VITE_AUTH0_CLIENT_ID }}" >> backend/.env
+            echo "APP_SECRET=${{ secrets.APP_SECRET }}" >> backend/.env
 
-            # Pass secrets to docker-compose build args
+            # Rebuild and restart containers
+            # Pass secrets to docker-compose build args for frontend
             export VITE_AUTH0_DOMAIN=${{ secrets.VITE_AUTH0_DOMAIN }}
             export VITE_AUTH0_CLIENT_ID=${{ secrets.VITE_AUTH0_CLIENT_ID }}
             export VITE_AUTH0_AUDIENCE=${{ secrets.VITE_AUTH0_AUDIENCE }}
             export VITE_AUTH0_ORG_ID_CLAIM=${{ secrets.VITE_AUTH0_ORG_ID_CLAIM }}
+            export VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }}
 
-            # Force a fresh build of the frontend to ensure relative paths are baked in
             docker compose stop frontend
             docker rmi sdr-studio-frontend || true
             
@@ -40,6 +48,7 @@ jobs:
               --build-arg VITE_AUTH0_DOMAIN=${{ secrets.VITE_AUTH0_DOMAIN }} \
               --build-arg VITE_AUTH0_CLIENT_ID=${{ secrets.VITE_AUTH0_CLIENT_ID }} \
               --build-arg VITE_AUTH0_AUDIENCE=${{ secrets.VITE_AUTH0_AUDIENCE }} \
-              --build-arg VITE_AUTH0_ORG_ID_CLAIM=${{ secrets.VITE_AUTH0_ORG_ID_CLAIM }}
+              --build-arg VITE_AUTH0_ORG_ID_CLAIM=${{ secrets.VITE_AUTH0_ORG_ID_CLAIM }} \
+              --build-arg VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }}
             
             docker compose up -d

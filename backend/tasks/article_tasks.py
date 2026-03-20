@@ -140,6 +140,72 @@ def process_article_task(article_id: UUID):
                     session.add(ann)
                     count += 1
             article.structured_data = {k: v for k, v in results.items() if k != "entities"}
+
+            # --- Geocoding Step ---
+            article.processing_step = "Geocoding locations..."
+            session.add(article)
+            session.commit()
+            
+            from utils.geo_utils import geocode_locations
+            
+            # --- Geocoding Step ---
+            article.processing_step = "Geocoding locations..."
+            session.add(article)
+            session.commit()
+            
+            location_label = None
+            if 'entities' in config and isinstance(config['entities'], dict):
+                for label, entity_def in config['entities'].items():
+                    if isinstance(entity_def, dict) and entity_def.get('is_location', False):
+                        location_label = label
+                        break
+            
+            # Fallback for common location labels if not explicitly marked
+            if not location_label:
+                common_location_labels = ["Location", "LOC", "GPE", "Place"]
+                for label in entity_groups.keys():
+                    if any(c.lower() == label.lower() for c in common_location_labels):
+                        location_label = label
+                        break
+            
+            if location_label and location_label in entity_groups:
+                # In GLiNER2 result, ent has 'text'
+                location_names = [ent['text'] for ent in entity_groups[location_label] if 'text' in ent]
+                if location_names:
+                    print(f"Found {len(location_names)} locations to geocode for article {article_id}")
+                    geocoded_results = geocode_locations(location_names)
+                    article.locations = geocoded_results
+                else:
+                    print(f"No text found in entities for label {location_label} for article {article_id}")
+            else:
+                print(f"No location label found or no entities for article {article_id}. Label: {location_label}")
+            
+            # --- Date Parsing Step ---
+            date_label = None
+            if 'entities' in config and isinstance(config['entities'], dict):
+                for label, entity_def in config['entities'].items():
+                    if isinstance(entity_def, dict) and entity_def.get('is_date', False):
+                        date_label = label
+                        break
+            
+            # Fallback for common date labels if not explicitly marked
+            if not date_label:
+                common_date_labels = ["Date", "Time", "DateTime", "Temporal"]
+                for label in entity_groups.keys():
+                    if any(c.lower() == label.lower() for c in common_date_labels):
+                        date_label = label
+                        break
+            
+            if date_label and date_label in entity_groups:
+                date_texts = [ent['text'] for ent in entity_groups[date_label] if 'text' in ent]
+                if date_texts:
+                    import dateparser
+                    # Try to parse the first date found
+                    parsed_date = dateparser.parse(date_texts[0], settings={'PREFER_DATES_FROM': 'past'})
+                    if parsed_date:
+                        article.event_date = parsed_date
+                        print(f"Parsed event date for article {article_id}: {parsed_date}")
+
             article.status = "completed"
             article.processing_step = None
         except Exception as e:

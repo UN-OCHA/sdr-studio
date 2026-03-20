@@ -5,10 +5,11 @@ from sqlmodel import Session, select, func, or_, desc, asc, delete
 from database import get_session
 from auth import get_current_org_id
 from models import (
-    Project, Article, ArticleRead, ArticleUpdate, ArticleImport, 
+    Project, Article, ArticleRead, ArticleUpdate, ArticleImport, DiscoveryRequest,
     ArticleReadWithAnnotations, ArticleListResponse, Annotation, AnnotationUpdate
 )
 from tasks.article_tasks import import_articles_logic, process_article_task
+from tasks.discovery_tasks import run_one_off_discovery
 
 router = APIRouter(tags=["articles"])
 
@@ -81,6 +82,17 @@ def import_articles(project_id: UUID, data: ArticleImport, background_tasks: Bac
     if count is None:
         raise HTTPException(status_code=404, detail="Project not found or access denied")
     return {"message": f"Imported {count} articles and processing started"}
+
+@router.post("/api/projects/{project_id}/discover")
+def discover_articles(project_id: UUID, data: DiscoveryRequest, background_tasks: BackgroundTasks, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    # Check if project exists and user has access
+    project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found or access denied")
+    
+    # Run discovery in foreground for immediate feedback
+    count = run_one_off_discovery(project_id, data.type, data.url, data.config or {}, org_id)
+    return {"message": f"Discovery finished. Found {count} new articles.", "count": count}
 
 @router.get("/api/articles/{article_id}", response_model=ArticleReadWithAnnotations)
 def get_article(article_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):

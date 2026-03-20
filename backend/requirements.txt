@@ -17,4 +17,6 @@ accelerate
 python-jose[cryptography]
 python-dotenv
 feedparser
+geopy
+dateparser
 # Add any other specific libraries mentioned by the user if needed

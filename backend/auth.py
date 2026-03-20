@@ -115,6 +115,32 @@ def get_current_org_id(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+def get_current_user_id(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> str:
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    auth_token = credentials.credentials
+    try:
+        jwks = get_jwks()
+        unverified_header = jwt.get_unverified_header(auth_token)
+        rsa_key = {}
+        for key in jwks["keys"]:
+            if key["kid"] == unverified_header["kid"]:
+                rsa_key = {"kty": key["kty"], "kid": key["kid"], "use": key["use"], "n": key["n"], "e": key["e"]}
+        
+        if rsa_key:
+            payload = jwt.decode(auth_token, rsa_key, algorithms=["RS256"], audience=AUTH0_AUDIENCE, issuer=f"https://{AUTH0_DOMAIN}/")
+            return payload.get("sub")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid token: {str(e)}")
+    return None
+
 def get_org_id_from_api_key(
     api_key: str = Security(api_key_header)
 ) -> dict:

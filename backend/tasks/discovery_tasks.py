@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from uuid import UUID
 from sqlmodel import Session, select
 from curl_cffi import requests
+import feedparser
 from database import engine
 from models import Source, Article, Project
 from tasks.article_tasks import import_articles_logic
@@ -88,6 +89,45 @@ def discover_brave(query: str, config: Dict[str, Any], limit: int = 10) -> List[
     except Exception as e:
         print(f"Brave search error: {e}")
         return []
+
+def discover_rss(url: str) -> List[str]:
+    """Search for links using RSS feed."""
+    try:
+        feed = feedparser.parse(url)
+        return [entry.link for entry in feed.entries]
+    except Exception as e:
+        print(f"RSS fetch error: {e}")
+        return []
+
+def run_one_off_discovery(project_id: UUID, type: str, query_or_url: str, config: Dict[str, Any], org_id: str):
+    """Run discovery manually (one-off) and import articles."""
+    with Session(engine) as session:
+        print(f"Manual discovery: {query_or_url} ({type})")
+        
+        limit = config.get("limit", 10)
+        urls = []
+        if type == "exa":
+            urls = discover_exa(query_or_url, config, limit)
+        elif type == "brave":
+            urls = discover_brave(query_or_url, config, limit)
+        elif type == "rss":
+            urls = discover_rss(query_or_url)
+            
+        if not urls:
+            return 0
+            
+        new_urls = []
+        for url in urls:
+            existing = session.exec(
+                select(Article).where(Article.project_id == project_id).where(Article.url == url)
+            ).first()
+            if not existing:
+                new_urls.append(url)
+                
+        if new_urls:
+            print(f"Manual discovery found {len(new_urls)} new articles")
+            import_articles_logic(project_id, new_urls, org_id, session, None)
+        return len(new_urls)
 
 def discover_from_source(source_id: UUID):
     """Run discovery for a specific source and import new articles."""

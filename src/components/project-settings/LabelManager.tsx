@@ -10,6 +10,8 @@ import {
   TextArea,
   HTMLSelect,
   NumericInput,
+  Checkbox,
+  Tag,
 } from "@blueprintjs/core";
 import { useState, useImperativeHandle, forwardRef } from "react";
 import type { Project } from "../../types";
@@ -29,6 +31,8 @@ export const LabelManager = forwardRef(({ labels, onChange }: LabelManagerProps,
   const [description, setDescription] = useState("");
   const [threshold, setThreshold] = useState<number>(0.3);
   const [dtype, setDtype] = useState<"str" | "list">("list");
+  const [isLocation, setIsLocation] = useState(false);
+  const [isDate, setIsDate] = useState(false);
 
   useImperativeHandle(ref, () => ({
     openAdd: () => {
@@ -37,6 +41,8 @@ export const LabelManager = forwardRef(({ labels, onChange }: LabelManagerProps,
       setDescription("");
       setThreshold(0.3);
       setDtype("list");
+      setIsLocation(false);
+      setIsDate(false);
       setIsDialogOpen(true);
     },
   }));
@@ -49,10 +55,14 @@ export const LabelManager = forwardRef(({ labels, onChange }: LabelManagerProps,
       setDescription(config);
       setThreshold(0.3);
       setDtype("list");
+      setIsLocation(false);
+      setIsDate(false);
     } else {
       setDescription(config.description);
       setThreshold(config.threshold || 0.3);
       setDtype(config.dtype || "list");
+      setIsLocation(!!config.is_location);
+      setIsDate(!!config.is_date);
     }
     setIsDialogOpen(true);
   };
@@ -69,6 +79,8 @@ export const LabelManager = forwardRef(({ labels, onChange }: LabelManagerProps,
       description: description.trim() || `Description for ${name}`,
       threshold,
       dtype,
+      is_location: isLocation,
+      is_date: isDate,
     };
 
     onChange(next);
@@ -90,6 +102,8 @@ export const LabelManager = forwardRef(({ labels, onChange }: LabelManagerProps,
         const desc = typeof config === "string" ? config : config.description;
         const t = typeof config === "string" ? 0.3 : config.threshold || 0.3;
         const d = typeof config === "string" ? "list" : config.dtype || "list";
+        const isLoc = typeof config === "string" ? false : !!config.is_location;
+        const isD = typeof config === "string" ? false : !!config.is_date;
 
         return (
           <Card
@@ -97,7 +111,21 @@ export const LabelManager = forwardRef(({ labels, onChange }: LabelManagerProps,
             className="p-3 border-none shadow-none flex items-center justify-between"
           >
             <EntityTitle
-              title={label}
+              title={
+                <div className="flex items-center gap-2">
+                  <span>{label}</span>
+                  {isLoc && (
+                    <Tag minimal intent={Intent.PRIMARY} round icon="map-marker">
+                      Location
+                    </Tag>
+                  )}
+                  {isD && (
+                    <Tag minimal intent={Intent.WARNING} round icon="calendar">
+                      Date
+                    </Tag>
+                  )}
+                </div>
+              }
               icon={d === "str" ? "selection" : "layers"}
               subtitle={
                 <div className="flex flex-col">
@@ -173,6 +201,19 @@ export const LabelManager = forwardRef(({ labels, onChange }: LabelManagerProps,
               onValueChange={(v) => setThreshold(v)}
             />
           </FormGroup>
+
+          <div className="flex gap-6 pt-2">
+            <Checkbox
+              label="Is Location"
+              checked={isLocation}
+              onChange={(e) => setIsLocation(e.currentTarget.checked)}
+            />
+            <Checkbox
+              label="Is Date/Time"
+              checked={isDate}
+              onChange={(e) => setIsDate(e.currentTarget.checked)}
+            />
+          </div>
 
           <FormGroup label="Description / Model Hints">
             <TextArea

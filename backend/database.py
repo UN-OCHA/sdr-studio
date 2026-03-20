@@ -1,7 +1,11 @@
 from sqlmodel import Session, create_engine, SQLModel
 from pathlib import Path
 
-sqlite_file_name = "sdr_studio.db"
+# Ensure the data directory exists
+data_dir = Path("data")
+data_dir.mkdir(exist_ok=True)
+
+sqlite_file_name = data_dir / "sdr_studio.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 
 connect_args = {"check_same_thread": False}
