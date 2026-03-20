@@ -9,7 +9,7 @@ import {
   Tag,
   Tooltip,
 } from "@blueprintjs/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Annotation } from "../types";
 
 type PendingSelection = {
@@ -39,8 +39,13 @@ type AnnotatorProps = {
   isEditable?: boolean;
 };
 
-export function getProceduralColor(label: string, labelsArray: string[]) {
-  const index = labelsArray.indexOf(label);
+// Internal cache for colors to avoid re-hashing
+const colorCache: Record<string, { solid: string, light: string }> = {};
+
+export function getProceduralColor(label: string, labelsArray?: string[]) {
+  if (colorCache[label]) return colorCache[label];
+
+  const index = labelsArray ? labelsArray.indexOf(label) : -1;
   let hue;
 
   if (index !== -1) {
@@ -53,10 +58,12 @@ export function getProceduralColor(label: string, labelsArray: string[]) {
     hue = Math.abs(hash * 137.508) % 360;
   }
 
-  return {
+  const color = {
     solid: `hsl(${hue}, 80%, 35%)`,
     light: `hsla(${hue}, 80%, 35%, 0.15)`,
   };
+  colorCache[label] = color;
+  return color;
 }
 
 function snapToWordBoundary(fullText: string, start: number, end: number) {
@@ -144,17 +151,15 @@ export function Annotator({
   ]);
   const [historyStep, setHistoryStep] = useState(0);
 
-  // Sync internal state with props when they change
+  // Reset internal state when article changes or initialAnnotations is updated
   useEffect(() => {
-    queueMicrotask(() => {
-      setAnnotations(initialAnnotations || []);
-    });
-  }, [initialAnnotations]);
+    setAnnotations(initialAnnotations || []);
+    setHistory([initialAnnotations || []]);
+    setHistoryStep(0);
+  }, [initialAnnotations, articleId]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      setAvailableLabels(getLabelList(initialLabels));
-    });
+    setAvailableLabels(getLabelList(initialLabels));
   }, [initialLabels, getLabelList]);
 
   const updateAnnotations = useCallback(
@@ -162,7 +167,6 @@ export function Annotator({
       setAnnotations((prev) => {
         const next = updater(prev);
 
-        // Use functional updates for history to avoid dependency on history state
         setHistory((h) => {
           const newHistory = h.slice(0, historyStep + 1);
           newHistory.push(next);

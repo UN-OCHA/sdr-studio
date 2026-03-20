@@ -49,6 +49,14 @@ const SOURCE_TYPES: SourceTypeOption[] = [
   },
 ];
 
+const SOURCE_LABELS: Record<string, string> = {
+  rss: "Feed URL",
+  exa: "Search Query",
+  brave: "Search Query",
+};
+
+const SOURCE_TYPE_MAP = Object.fromEntries(SOURCE_TYPES.map(s => [s.value, s]));
+
 export function ImportFeedDialog({
   project,
   isOpen,
@@ -94,7 +102,7 @@ export function ImportFeedDialog({
   };
 
   const updateConfig = (key: string, value: any) => {
-    setConfig({ ...config, [key]: value });
+    setConfig((prev: any) => ({ ...prev, [key]: value }));
   };
 
   const renderSourceType: ItemRenderer<SourceTypeOption> = (
@@ -122,20 +130,9 @@ export function ImportFeedDialog({
     );
   };
 
-  const currentSourceType =
-    SOURCE_TYPES.find((s) => s.value === type) || SOURCE_TYPES[0];
+  const currentSourceType = SOURCE_TYPE_MAP[type] || SOURCE_TYPES[0];
 
-  const getSourceLabel = (t: string) => {
-    switch (t) {
-      case "rss":
-        return "Feed URL";
-      case "exa":
-      case "brave":
-        return "Search Query";
-      default:
-        return "URL";
-    }
-  };
+  const sourceLabel = SOURCE_LABELS[type] || "URL";
 
   return (
     <Dialog
@@ -169,7 +166,7 @@ export function ImportFeedDialog({
             </FormGroup>
           </div>
           <div className="md:col-span-2">
-            <FormGroup label={getSourceLabel(type)} labelInfo="(required)">
+            <FormGroup label={sourceLabel} labelInfo="(required)">
               <InputGroup
                 placeholder={
                   type === "rss"

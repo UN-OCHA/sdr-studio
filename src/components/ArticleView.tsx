@@ -19,7 +19,7 @@ import {
   Tag,
   Tooltip,
 } from "@blueprintjs/core";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import TimeAgo from "react-timeago";
 import { articlesApi } from "../api";
 import type { Annotation, Article, Project } from "../types";
@@ -270,7 +270,7 @@ export function ArticleView({
     return String(val);
   };
 
-  const structuredAnalysis: React.ReactNode = (() => {
+  const structuredAnalysis = useMemo(() => {
     if (!structures || structures.length === 0) return null;
 
     // Check if there is actually any structured data for the structures we have defined
@@ -506,7 +506,7 @@ export function ArticleView({
         </div>
       </Section>
     );
-  })();
+  }, [structures, article.structured_data, isReviewMode, collapsed.structured, toggleCollapse]);
 
   return (
     <div className="relative animate-[fade-in_0.3s_ease] @container">

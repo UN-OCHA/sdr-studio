@@ -209,12 +209,9 @@ def create_project(project_data: ProjectCreate, org_id: str = Depends(get_curren
 def update_project(project_id: UUID, data: ProjectUpdate, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
     project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
     if not project: raise HTTPException(status_code=404, detail="Project not found or access denied")
-    if data.name is not None: project.name = data.name
-    if data.description is not None: project.description = data.description
-    if data.icon is not None: project.icon = data.icon
-    if data.extraction_config is not None: project.extraction_config = data.extraction_config
-    if data.onboarding_completed is not None: project.onboarding_completed = data.onboarding_completed
-    if data.export_config is not None: project.export_config = data.export_config
+    
+    project.sqlmodel_update(data.dict(exclude_unset=True))
+    
     session.add(project)
     session.commit()
     session.refresh(project)

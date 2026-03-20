@@ -112,14 +112,7 @@ def update_article(article_id: UUID, data: ArticleUpdate, org_id: str = Depends(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found or access denied")
     
-    if data.title is not None:
-        article.title = data.title
-    if data.summary is not None:
-        article.summary = data.summary
-    if data.reviewed is not None:
-        article.reviewed = data.reviewed
-    if data.structured_data is not None:
-        article.structured_data = data.structured_data
+    article.sqlmodel_update(data.dict(exclude_unset=True))
         
     session.add(article)
     session.commit()

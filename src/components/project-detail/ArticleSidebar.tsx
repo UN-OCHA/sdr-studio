@@ -38,6 +38,14 @@ const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
   { label: "Error", value: "error" },
 ];
 
+const SORT_LABELS: Record<string, string> = Object.fromEntries(
+  SORT_OPTIONS.map((o) => [o.value, o.label]),
+);
+
+const STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  STATUS_FILTER_OPTIONS.map((o) => [o.value, o.label]),
+);
+
 type ArticleSidebarProps = {
   project: Project;
   articles: Article[];
@@ -129,11 +137,8 @@ export function ArticleSidebar({
     );
   };
 
-  const currentSortLabel =
-    SORT_OPTIONS.find((o) => o.value === sortBy)?.label || "Sort By";
-  const currentStatusLabel =
-    STATUS_FILTER_OPTIONS.find((o) => o.value === statusFilter)?.label ||
-    "Filter Status";
+  const currentSortLabel = SORT_LABELS[sortBy] || "Sort By";
+  const currentStatusLabel = STATUS_LABELS[statusFilter] || "Filter Status";
 
   const getStatusIcon = (article: Article) => {
     if (article.reviewed) {

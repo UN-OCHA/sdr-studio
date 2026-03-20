@@ -85,11 +85,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   setCurrentArticleId: (id) => set({ currentArticleId: id }),
 
-  toggleDarkMode: () => {
-    const nextMode = !get().isDarkMode;
-    set({ isDarkMode: nextMode });
+  toggleDarkMode: () => set((state) => {
+    const nextMode = !state.isDarkMode;
     localStorage.setItem("sdr_dark_mode", String(nextMode));
-  },
+    return { isDarkMode: nextMode };
+  }),
 
   updateProject: (project) => set((state) => ({
     projects: state.projects.map((p: Project) => p.id === project.id ? project : p)

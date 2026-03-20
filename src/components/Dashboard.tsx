@@ -16,7 +16,7 @@ import {
   type IconName,
 } from "@blueprintjs/core";
 import { Select, type ItemRenderer } from "@blueprintjs/select";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import TimeAgo from "react-timeago";
 import { templatesApi } from "../api";
 import type { Project, ProjectCreate, ProjectTemplate } from "../types";
@@ -59,13 +59,11 @@ export function Dashboard({
   const handleCreate = () => {
     if (!newProject.name) return;
 
-    const template = templates.find((t) => t.id === selectedTemplateId);
-
     onCreateProject({
       name: newProject.name,
       description: newProject.description,
-      icon: template?.icon || newProject.icon,
-      extraction_config: template?.extraction_config,
+      icon: selectedTemplate?.icon || newProject.icon,
+      extraction_config: selectedTemplate?.extraction_config,
     });
     setIsDialogOpen(false);
     setNewProject({ name: "", description: "", icon: "briefcase" });
@@ -97,15 +95,17 @@ export function Dashboard({
     );
   };
 
-  const selectedTemplate =
-    selectedTemplateId === "none"
-      ? {
-          id: "none",
-          name: "Blank (No Template)",
-          icon: "blank",
-          description: "Start from scratch.",
-        }
-      : templates.find((t) => t.id === selectedTemplateId);
+  const selectedTemplate = useMemo(() => {
+    if (selectedTemplateId === "none") {
+      return {
+        id: "none",
+        name: "Blank (No Template)",
+        icon: "blank",
+        description: "Start from scratch.",
+      };
+    }
+    return templates.find((t) => t.id === selectedTemplateId);
+  }, [selectedTemplateId, templates]);
 
   return (
     <div className="mx-auto h-full">
@@ -248,14 +248,14 @@ export function Dashboard({
               placeholder="E.g. Gezani Cyclone 2026"
               value={newProject.name}
               onChange={(e) =>
-                setNewProject({ ...newProject, name: e.target.value })
+                setNewProject((prev) => ({ ...prev, name: e.target.value }))
               }
             />
           </FormGroup>
           <FormGroup label="Project Icon">
             <IconPicker
               selectedIcon={newProject.icon}
-              onSelect={(icon) => setNewProject({ ...newProject, icon })}
+              onSelect={(icon) => setNewProject((prev) => ({ ...prev, icon }))}
             />
           </FormGroup>
           <FormGroup label="Description" labelFor="description">
@@ -265,7 +265,10 @@ export function Dashboard({
               placeholder="Describe the purpose of this project..."
               value={newProject.description}
               onChange={(e) =>
-                setNewProject({ ...newProject, description: e.target.value })
+                setNewProject((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
               }
             />
           </FormGroup>

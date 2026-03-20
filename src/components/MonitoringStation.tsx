@@ -64,6 +64,18 @@ const SOURCE_TYPES: SourceTypeOption[] = [
   },
 ];
 
+const TYPE_INTENTS: Record<string, Intent> = {
+  rss: Intent.NONE,
+  exa: Intent.PRIMARY,
+  brave: Intent.SUCCESS,
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  rss: "Feed URL",
+  exa: "Search Query",
+  brave: "Search Query",
+};
+
 export const MonitoringStation = forwardRef<
   MonitoringStationRef,
   MonitoringStationProps
@@ -176,36 +188,11 @@ export const MonitoringStation = forwardRef<
     );
   }
 
-  const getTypeIntent = (type: string) => {
-    switch (type) {
-      case "rss":
-        return Intent.NONE;
-      case "exa":
-        return Intent.PRIMARY;
-      case "brave":
-        return Intent.SUCCESS;
-      default:
-        return Intent.NONE;
-    }
-  };
-
-  const getSourceLabel = (type: string) => {
-    switch (type) {
-      case "rss":
-        return "Feed URL";
-      case "exa":
-      case "brave":
-        return "Search Query";
-      default:
-        return "URL";
-    }
-  };
-
   const updateConfig = (key: string, value: any) => {
-    setNewSource({
-      ...newSource,
-      config: { ...newSource.config, [key]: value },
-    });
+    setNewSource((prev) => ({
+      ...prev,
+      config: { ...prev.config, [key]: value },
+    }));
   };
 
   const formatInterval = (mins: number) => {
@@ -288,7 +275,7 @@ export const MonitoringStation = forwardRef<
                 <tr key={source.id}>
                   <td className="font-medium">{source.name}</td>
                   <td>
-                    <Tag minimal intent={getTypeIntent(source.type)}>
+                    <Tag minimal intent={TYPE_INTENTS[source.type] || Intent.NONE}>
                       {source.type.toUpperCase()}
                     </Tag>
                   </td>
@@ -348,8 +335,9 @@ export const MonitoringStation = forwardRef<
                   items={SOURCE_TYPES}
                   itemRenderer={renderSourceType}
                   onItemSelect={(item) =>
-                    setNewSource({ ...newSource, type: item.value, config: {} })
+                    setNewSource((prev) => ({ ...prev, type: item.value, config: {} }))
                   }
+
                   filterable={false}
                   popoverProps={{ minimal: true, matchTargetWidth: true }}
                 >
@@ -398,7 +386,7 @@ export const MonitoringStation = forwardRef<
           </div>
 
           <FormGroup
-            label={getSourceLabel(newSource.type)}
+            label={SOURCE_LABELS[newSource.type] || "URL"}
             labelInfo="(required)"
           >
             <InputGroup
@@ -409,7 +397,7 @@ export const MonitoringStation = forwardRef<
               }
               value={newSource.url}
               onChange={(e) =>
-                setNewSource({ ...newSource, url: e.target.value })
+                setNewSource((prev) => ({ ...prev, url: e.target.value }))
               }
             />
           </FormGroup>

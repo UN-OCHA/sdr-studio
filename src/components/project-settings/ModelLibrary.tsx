@@ -336,7 +336,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
               fill
               value={trainingParams.name}
               onChange={(e) =>
-                setTrainingParams({ ...trainingParams, name: e.target.value })
+                setTrainingParams((prev) => ({ ...prev, name: e.target.value }))
               }
             />
           </FormGroup>
@@ -347,10 +347,10 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
               autoResize
               value={trainingParams.description}
               onChange={(e) =>
-                setTrainingParams({
-                  ...trainingParams,
+                setTrainingParams((prev) => ({
+                  ...prev,
                   description: e.target.value,
-                })
+                }))
               }
             />
           </FormGroup>
@@ -363,7 +363,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
                 max={50}
                 value={trainingParams.epochs}
                 onValueChange={(v) =>
-                  setTrainingParams({ ...trainingParams, epochs: v })
+                  setTrainingParams((prev) => ({ ...prev, epochs: v }))
                 }
               />
             </FormGroup>
@@ -378,11 +378,11 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
                 stepSize={4}
                 value={trainingParams.lora_rank}
                 onValueChange={(v) =>
-                  setTrainingParams({
-                    ...trainingParams,
+                  setTrainingParams((prev) => ({
+                    ...prev,
                     lora_rank: v,
                     lora_alpha: v * 2,
-                  })
+                  }))
                 }
               />
             </FormGroup>
@@ -412,7 +412,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
                     minorStepSize={0.0000001}
                     value={trainingParams.encoder_lr}
                     onValueChange={(v) =>
-                      setTrainingParams({ ...trainingParams, encoder_lr: v })
+                      setTrainingParams((prev) => ({ ...prev, encoder_lr: v }))
                     }
                   />
                 </FormGroup>
@@ -423,7 +423,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
                     minorStepSize={0.00001}
                     value={trainingParams.task_lr}
                     onValueChange={(v) =>
-                      setTrainingParams({ ...trainingParams, task_lr: v })
+                      setTrainingParams((prev) => ({ ...prev, task_lr: v }))
                     }
                   />
                 </FormGroup>
@@ -438,7 +438,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
                     stepSize={0.05}
                     value={trainingParams.warmup_ratio}
                     onValueChange={(v) =>
-                      setTrainingParams({ ...trainingParams, warmup_ratio: v })
+                      setTrainingParams((prev) => ({ ...prev, warmup_ratio: v }))
                     }
                   />
                 </FormGroup>
@@ -449,7 +449,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
                     stepSize={0.005}
                     value={trainingParams.weight_decay}
                     onValueChange={(v) =>
-                      setTrainingParams({ ...trainingParams, weight_decay: v })
+                      setTrainingParams((prev) => ({ ...prev, weight_decay: v }))
                     }
                   />
                 </FormGroup>
@@ -459,10 +459,10 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
                 label="Enable Early Stopping"
                 checked={trainingParams.use_early_stopping}
                 onChange={(e) =>
-                  setTrainingParams({
-                    ...trainingParams,
+                  setTrainingParams((prev) => ({
+                    ...prev,
                     use_early_stopping: e.currentTarget.checked,
-                  })
+                  }))
                 }
               />
             </div>

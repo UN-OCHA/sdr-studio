@@ -20,19 +20,11 @@ const nodeDefaults = {
   type: "custom",
 };
 
-const getIconForSource = (type: string) => {
-  switch (type) {
-    case "rss":
-      return "rss";
-    case "exa":
-      return "search";
-    case "brave":
-      return "search";
-    case "manual":
-      return "upload";
-    default:
-      return "inbox";
-  }
+const SOURCE_ICONS: Record<string, string> = {
+  rss: "rss",
+  exa: "search",
+  brave: "search",
+  manual: "upload",
 };
 
 export function IntelligencePipeline({
@@ -61,7 +53,7 @@ export function IntelligencePipeline({
         data: {
           label: source.name,
           subtitle: source.type,
-          icon: getIconForSource(source.type),
+          icon: SOURCE_ICONS[source.type] || "inbox",
         },
         position: { x: 0, y: sourceStartY + i * ySpacing },
         ...nodeDefaults,

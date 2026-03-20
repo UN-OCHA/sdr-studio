@@ -35,6 +35,51 @@ def get_jwks():
             return None
     return _jwks_cache
 
+def _decode_token(token: str) -> dict:
+    """Helper to decode and verify Auth0 RS256 token."""
+    try:
+        jwks = get_jwks()
+        if not jwks:
+            raise HTTPException(status_code=500, detail="Could not retrieve JWKS")
+            
+        unverified_header = jwt.get_unverified_header(token)
+        rsa_key = {}
+        for key in jwks["keys"]:
+            if key["kid"] == unverified_header["kid"]:
+                rsa_key = {
+                    "kty": key["kty"],
+                    "kid": key["kid"],
+                    "use": key["use"],
+                    "n": key["n"],
+                    "e": key["e"]
+                }
+        
+        if not rsa_key:
+            # Maybe JWKS is stale? Clear and try once more
+            global _jwks_cache
+            _jwks_cache = None
+            jwks = get_jwks()
+            for key in jwks["keys"]:
+                if key["kid"] == unverified_header["kid"]:
+                    rsa_key = {k: key[k] for k in ["kty", "kid", "use", "n", "e"]}
+            
+            if not rsa_key:
+                raise HTTPException(status_code=401, detail="Invalid token header (kid not found)")
+
+        return jwt.decode(
+            token,
+            rsa_key,
+            algorithms=["RS256"],
+            audience=AUTH0_AUDIENCE,
+            issuer=f"https://{AUTH0_DOMAIN}/"
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.JWTClaimsError:
+        raise HTTPException(status_code=401, detail="Incorrect claims, please check the audience and issuer")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Unable to parse authentication token: {str(e)}")
+
 def create_export_token(org_id: str) -> str:
     from datetime import datetime, timedelta, timezone
     expire = datetime.now(timezone.utc) + timedelta(seconds=60)
@@ -58,52 +103,11 @@ def get_current_org_id(
 ) -> str:
     # Prefer Bearer token from header
     if credentials:
-        auth_token = credentials.credentials
-        try:
-            # Fetch JWKS (cached)
-            jwks = get_jwks()
-            if not jwks:
-                raise Exception("Could not retrieve JWKS from Auth0")
-            
-            unverified_header = jwt.get_unverified_header(auth_token)
-            rsa_key = {}
-            for key in jwks["keys"]:
-                if key["kid"] == unverified_header["kid"]:
-                    rsa_key = {
-                        "kty": key["kty"],
-                        "kid": key["kid"],
-                        "use": key["use"],
-                        "n": key["n"],
-                        "e": key["e"]
-                    }
-            
-            if rsa_key:
-                payload = jwt.decode(
-                    auth_token,
-                    rsa_key,
-                    algorithms=["RS256"],
-                    audience=AUTH0_AUDIENCE,
-                    issuer=f"https://{AUTH0_DOMAIN}/"
-                )
-                
-                # Extract org_id from custom claim or fallback to 'public' for now
-                org_id = payload.get(ORG_ID_CLAIM)
-                if not org_id:
-                    # Fallback to 'sub' if no org_id claim exists (as a safety measure)
-                    org_id = payload.get("sub", "public")
-                
-                return org_id
-        except Exception as e:
-            # Clear cache on error to allow retry on next request
-            global _jwks_cache
-            _jwks_cache = None
-            
-            print(f"Auth error (Bearer): {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid authentication credentials: {str(e)}",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        payload = _decode_token(credentials.credentials)
+        org_id = payload.get(ORG_ID_CLAIM)
+        if not org_id:
+            org_id = payload.get("sub", "public")
+        return org_id
 
     # Fallback to short-lived 'token' query parameter (for exports)
     if token:
@@ -125,21 +129,8 @@ def get_current_user_id(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    auth_token = credentials.credentials
-    try:
-        jwks = get_jwks()
-        unverified_header = jwt.get_unverified_header(auth_token)
-        rsa_key = {}
-        for key in jwks["keys"]:
-            if key["kid"] == unverified_header["kid"]:
-                rsa_key = {"kty": key["kty"], "kid": key["kid"], "use": key["use"], "n": key["n"], "e": key["e"]}
-        
-        if rsa_key:
-            payload = jwt.decode(auth_token, rsa_key, algorithms=["RS256"], audience=AUTH0_AUDIENCE, issuer=f"https://{AUTH0_DOMAIN}/")
-            return payload.get("sub")
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid token: {str(e)}")
-    return None
+    payload = _decode_token(credentials.credentials)
+    return payload.get("sub")
 
 def get_org_id_from_api_key(
     api_key: str = Security(api_key_header)

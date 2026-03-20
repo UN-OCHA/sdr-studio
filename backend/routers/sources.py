@@ -39,8 +39,7 @@ def update_source(source_id: UUID, source_update: SourceUpdate, org_id: str = De
     if not source:
         raise HTTPException(status_code=404, detail="Source not found or access denied")
     
-    for key, value in source_update.model_dump(exclude_unset=True).items():
-        setattr(source, key, value)
+    source.sqlmodel_update(source_update.dict(exclude_unset=True))
     
     session.add(source)
     session.commit()

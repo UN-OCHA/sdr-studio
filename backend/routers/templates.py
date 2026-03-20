@@ -90,9 +90,7 @@ def update_template(template_id: UUID, data: ProjectTemplateUpdate, org_id: str 
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
     
-    values = data.model_dump(exclude_unset=True)
-    for k, v in values.items():
-        setattr(template, k, v)
+    template.sqlmodel_update(data.dict(exclude_unset=True))
     
     session.add(template)
     session.commit()

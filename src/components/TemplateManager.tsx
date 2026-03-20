@@ -174,7 +174,7 @@ export function TemplateManager() {
                   placeholder="e.g. Natural Disaster"
                   value={formData.name}
                   onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
                   }
                 />
               </FormGroup>
@@ -184,14 +184,14 @@ export function TemplateManager() {
                   placeholder="What is this template for?"
                   value={formData.description}
                   onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
+                    setFormData((prev) => ({ ...prev, description: e.target.value }))
                   }
                 />
               </FormGroup>
               <FormGroup label="Icon">
                 <IconPicker
                   selectedIcon={formData.icon || "cube"}
-                  onSelect={(icon) => setFormData({ ...formData, icon })}
+                  onSelect={(icon) => setFormData((prev) => ({ ...prev, icon }))}
                 />
               </FormGroup>
             </SectionCard>
@@ -206,7 +206,7 @@ export function TemplateManager() {
           <ExportSettings
             config={formData.export_config || { fields: [] }}
             extractionConfig={formData.extraction_config || {}}
-            onChange={(export_config) => setFormData({ ...formData, export_config })}
+            onChange={(export_config) => setFormData((prev) => ({ ...prev, export_config }))}
           />
         </div>
       </div>
