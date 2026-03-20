@@ -5,9 +5,10 @@ import {
   NonIdealState,
   TextArea,
 } from "@blueprintjs/core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { articlesApi, projectsApi } from "../api";
+import { useLocalStorage } from "../hooks/useStorage";
 import { useToaster } from "../hooks/useToaster";
 import type { Article, Project, ProjectStats, SettingsSection } from "../types";
 import { ArticleView } from "./ArticleView";
@@ -52,6 +53,42 @@ export function ProjectDetail({
   const [checkedArticleIds, setCheckedArticleIds] = useState<Set<string>>(
     new Set(),
   );
+
+  // Pin state (persistent per project)
+  const [pinnedIds, setPinnedIds] = useLocalStorage<string[]>(
+    `pinned_articles_${project.id}`,
+    [],
+  );
+
+  const handleTogglePin = (article: Article) => {
+    setPinnedIds((prev) => {
+      if (prev.includes(article.id)) {
+        return prev.filter((id) => id !== article.id);
+      } else {
+        return [...prev, article.id];
+      }
+    });
+  };
+
+  const handleClearPinned = () => {
+    setPinnedIds([]);
+  };
+
+  const pinnedArticles = useMemo(() => {
+    return articles
+      .filter((a) => pinnedIds.includes(a.id))
+      .sort(
+        (a, b) => pinnedIds.indexOf(a.id) - pinnedIds.indexOf(b.id),
+      );
+  }, [articles, pinnedIds]);
+
+  // Enhanced articles with pinned status
+  const articlesWithPinned = useMemo(() => {
+    return articles.map((a) => ({
+      ...a,
+      pinned: pinnedIds.includes(a.id),
+    }));
+  }, [articles, pinnedIds]);
 
   // Filter/Sort/Pagination state
   const [search, setSearch] = useState("");
@@ -128,6 +165,36 @@ export function ProjectDetail({
   useEffect(() => {
     void fetchArticles(false);
   }, [fetchArticles, search, statusFilter, sortBy, sortOrder]);
+
+  // Keyboard navigation for articles
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input/textarea
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if (activeTab !== "articles" || articles.length === 0) return;
+
+      const currentIndex = articles.findIndex((a) => a.id === selectedArticleId);
+
+      if (e.key === "ArrowLeft") {
+        if (currentIndex > 0) {
+          setSelectedArticleId(articles[currentIndex - 1].id);
+        }
+      } else if (e.key === "ArrowRight") {
+        if (currentIndex < articles.length - 1) {
+          setSelectedArticleId(articles[currentIndex + 1].id);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeTab, articles, selectedArticleId]);
 
   // Poll for stats if there are items processing
   useEffect(() => {
@@ -342,7 +409,7 @@ export function ProjectDetail({
                 {activeTab === "articles" ? (
                   <ArticleSidebar
                     project={project}
-                    articles={articles}
+                    articles={articlesWithPinned}
                     totalCount={totalCount}
                     stats={stats}
                     isLoading={isLoading}
@@ -370,6 +437,9 @@ export function ProjectDetail({
                     onOpenFeedImportDialog={() =>
                       setIsFeedImportDialogOpen(true)
                     }
+                    pinnedArticles={pinnedArticles}
+                    onTogglePin={handleTogglePin}
+                    onClearPinned={handleClearPinned}
                   />
                 ) : (
                   <SettingsSidebar
@@ -413,7 +483,10 @@ export function ProjectDetail({
             ) : activeTab === "articles" ? (
               selectedArticle ? (
                 <ArticleView
-                  article={selectedArticle}
+                  article={{
+                    ...selectedArticle,
+                    pinned: pinnedIds.includes(selectedArticle.id),
+                  }}
                   labels={entityLabels}
                   extractionConfig={project.extraction_config}
                   onUpdate={(updated) => {
@@ -426,6 +499,7 @@ export function ProjectDetail({
                     setSelectedArticleId(null);
                     void fetchArticles(false);
                   }}
+                  onTogglePin={handleTogglePin}
                 />
               ) : (
                 <div className="p-12">

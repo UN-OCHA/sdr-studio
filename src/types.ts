@@ -221,6 +221,7 @@ export type Article = {
   processing_step: string;
   created_at: string;
   annotations: Annotation[];
+  pinned?: boolean;
 };
 
 export type ArticleUpdate = {

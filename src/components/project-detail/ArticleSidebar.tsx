@@ -72,6 +72,9 @@ type ArticleSidebarProps = {
   onLoadMore: () => void;
   onOpenUrlImportDialog: () => void;
   onOpenFeedImportDialog: () => void;
+  pinnedArticles: Article[];
+  onTogglePin: (article: Article) => void;
+  onClearPinned: () => void;
 };
 
 export function ArticleSidebar({
@@ -100,6 +103,9 @@ export function ArticleSidebar({
   onLoadMore,
   onOpenUrlImportDialog,
   onOpenFeedImportDialog,
+  pinnedArticles,
+  onTogglePin,
+  onClearPinned,
 }: ArticleSidebarProps) {
   const isProcessing = stats && (stats.pending > 0 || stats.processing > 0);
 
@@ -395,7 +401,9 @@ export function ArticleSidebar({
                 <div
                   key={article.id}
                   className={`flex items-start px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-bp-dark-border w-full min-w-0 group cursor-pointer ${
-                    selectedArticleId === article.id ? "bg-blue-50/50 dark:bg-blue-900/20" : ""
+                    selectedArticleId === article.id
+                      ? "bg-blue-50/50 dark:bg-blue-900/20"
+                      : ""
                   }`}
                   onClick={() => onArticleSelect(article.id)}
                 >
@@ -460,6 +468,108 @@ export function ArticleSidebar({
           </>
         )}
       </div>
+
+      {/* Pinned Articles Section */}
+      {pinnedArticles.length > 0 && (
+        <div className="border-t-2 border-blue-500 bg-blue-50/30 dark:bg-blue-900/10 flex flex-col max-h-64 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+          <div className="px-3 py-2 flex items-center justify-between border-b border-blue-100 dark:border-blue-900/30">
+            <div className="flex items-center gap-2">
+              <Icon icon="star" intent={Intent.PRIMARY} size={14} />
+              <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-400">
+                Report ({pinnedArticles.length})
+              </span>
+            </div>
+            <div className="flex gap-1">
+              <Popover
+                content={
+                  <Menu>
+                    <MenuItem
+                      icon="document"
+                      text="Export Pinned as JSON"
+                      onClick={async () => {
+                        const { token } = await projectsApi.getExportToken();
+                        const ids = pinnedArticles.map((a) => a.id);
+                        window.open(
+                          projectsApi.exportJsonUrl(project.id, token, ids),
+                          "_blank",
+                        );
+                      }}
+                    />
+                    <MenuItem
+                      icon="th"
+                      text="Export Pinned as CSV"
+                      onClick={async () => {
+                        const { token } = await projectsApi.getExportToken();
+                        const ids = pinnedArticles.map((a) => a.id);
+                        window.open(
+                          projectsApi.exportCsvUrl(project.id, token, ids),
+                          "_blank",
+                        );
+                      }}
+                    />
+                    <MenuItem
+                      icon="print"
+                      text="Generate Report for Pinned (MD)"
+                      onClick={async () => {
+                        const { token } = await projectsApi.getExportToken();
+                        const ids = pinnedArticles.map((a) => a.id);
+                        window.open(
+                          projectsApi.exportReportUrl(
+                            project.id,
+                            token,
+                            "md",
+                            ids,
+                          ),
+                          "_blank",
+                        );
+                      }}
+                    />
+                  </Menu>
+                }
+                position="top-right"
+              >
+                <Button
+                  small
+                  minimal
+                  intent={Intent.PRIMARY}
+                  icon="download"
+                  text="Export"
+                />
+              </Popover>
+              <Button
+                small
+                minimal
+                icon="cross"
+                onClick={onClearPinned}
+                title="Clear all pinned"
+              />
+            </div>
+          </div>
+          <div className="grow overflow-y-auto px-1 py-1">
+            {pinnedArticles.map((article) => (
+              <div
+                key={article.id}
+                className="flex items-center justify-between p-1.5 hover:bg-white dark:hover:bg-bp-dark-bg rounded transition-colors group cursor-pointer"
+                onClick={() => onArticleSelect(article.id)}
+              >
+                <span className="text-[11px] font-medium truncate flex-1 pr-2">
+                  {article.title || article.url}
+                </span>
+                <Button
+                  small
+                  minimal
+                  icon="small-cross"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTogglePin(article);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

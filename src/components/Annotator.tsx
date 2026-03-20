@@ -9,7 +9,7 @@ import {
   Tag,
   Tooltip,
 } from "@blueprintjs/core";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type Annotation } from "../types";
 
 type PendingSelection = {

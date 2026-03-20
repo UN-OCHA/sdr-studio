@@ -102,6 +102,7 @@ export function Dashboard({
         name: "Blank (No Template)",
         icon: "blank",
         description: "Start from scratch.",
+        extraction_config: undefined,
       };
     }
     return templates.find((t) => t.id === selectedTemplateId);

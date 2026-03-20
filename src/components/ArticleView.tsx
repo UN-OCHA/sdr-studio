@@ -2,6 +2,7 @@ import {
   Alert,
   Button,
   Callout,
+  Classes,
   EntityTitle,
   H3,
   H4,
@@ -19,7 +20,7 @@ import {
   Tag,
   Tooltip,
 } from "@blueprintjs/core";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import TimeAgo from "react-timeago";
 import { articlesApi } from "../api";
 import type { Annotation, Article, Project } from "../types";
@@ -32,6 +33,7 @@ type ArticleViewProps = {
   onUpdate: (article: Article) => void;
   onRefresh: () => void;
   onDelete: () => void;
+  onTogglePin?: (article: Article) => void;
 };
 
 export function ArticleView({
@@ -41,6 +43,7 @@ export function ArticleView({
   onUpdate,
   onRefresh,
   onDelete,
+  onTogglePin,
 }: ArticleViewProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -236,6 +239,81 @@ export function ArticleView({
     if (!nextData[structName]) delete nextData[structName];
 
     void updateStructuredData(nextData);
+  };
+
+  const handleUpdateRelation = (
+    relType: string,
+    index: number,
+    field: "head" | "tail",
+    value: string,
+  ) => {
+    const nextRelations = {
+      ...(article.structured_data?.relation_extraction || {}),
+    } as Record<string, any[]>;
+    const instances = [...(nextRelations[relType] || [])];
+    const current = { ...(instances[index] || {}) };
+
+    if (typeof current[field] === "object") {
+      current[field] = { ...current[field], text: value };
+    } else {
+      current[field] = { text: value };
+    }
+
+    instances[index] = current;
+    nextRelations[relType] = instances;
+
+    void updateStructuredData({
+      ...article.structured_data,
+      relation_extraction: nextRelations,
+    });
+  };
+
+  const handleDeleteRelationInstance = (relType: string, index: number) => {
+    const nextRelations = {
+      ...(article.structured_data?.relation_extraction || {}),
+    } as Record<string, any[]>;
+    const instances = (nextRelations[relType] || []).filter(
+      (_, i) => i !== index,
+    );
+
+    if (instances.length > 0) {
+      nextRelations[relType] = instances;
+    } else {
+      delete nextRelations[relType];
+    }
+
+    void updateStructuredData({
+      ...article.structured_data,
+      relation_extraction: nextRelations,
+    });
+  };
+
+  const handleAddRelationInstance = (relType: string) => {
+    const nextRelations = {
+      ...(article.structured_data?.relation_extraction || {}),
+    } as Record<string, any[]>;
+    const instances = [...(nextRelations[relType] || [])];
+
+    instances.push({
+      head: { text: "" },
+      tail: { text: "" },
+    });
+
+    nextRelations[relType] = instances;
+
+    void updateStructuredData({
+      ...article.structured_data,
+      relation_extraction: nextRelations,
+    });
+  };
+
+  const getDisplayText = (val: unknown): string => {
+    if (val === null || val === undefined) return "";
+    if (typeof val === "object" && val !== null && !Array.isArray(val)) {
+      const obj = val as Record<string, unknown>;
+      return String(obj.label || obj.text || "");
+    }
+    return String(val);
   };
 
   const renderValueWithConfidence = (val: unknown) => {
@@ -506,7 +584,13 @@ export function ArticleView({
         </div>
       </Section>
     );
-  }, [structures, article.structured_data, isReviewMode, collapsed.structured, toggleCollapse]);
+  }, [
+    structures,
+    article.structured_data,
+    isReviewMode,
+    collapsed.structured,
+    toggleCollapse,
+  ]);
 
   return (
     <div className="relative animate-[fade-in_0.3s_ease] @container">
@@ -736,8 +820,10 @@ export function ArticleView({
                                     fill
                                     text={
                                       Array.isArray(value)
-                                        ? value.join(", ") || "Select..."
-                                        : String(value || "Select...")
+                                        ? value
+                                            .map(getDisplayText)
+                                            .join(", ") || "Select..."
+                                        : getDisplayText(value) || "Select..."
                                     }
                                     intent={
                                       value ? Intent.PRIMARY : Intent.NONE
@@ -776,11 +862,7 @@ export function ArticleView({
 
                 {/* Structured Data Section */}
                 {structuredAnalysis && (
-                  <div
-                    className="flex flex-col"
-                  >
-                    {structuredAnalysis}
-                  </div>
+                  <div className="flex flex-col">{structuredAnalysis}</div>
                 )}
 
                 {/* Fallback for unknown keys in structured_data */}
@@ -842,89 +924,202 @@ export function ArticleView({
 
               {/* Right Column: Relations */}
               <div className="@xl:col-span-1 flex flex-col gap-6">
-                {article.structured_data?.relation_extraction &&
-                Object.keys(article.structured_data.relation_extraction)
-                  .length > 0 ? (
-                  <Section
-                    title="Relations"
-                    icon="link"
-                    collapsible
-                    collapseProps={{
-                      isOpen: !collapsed.relations,
-                      onToggle: () => toggleCollapse("relations"),
-                    }}
-                    className="flex flex-col"                  >
-                    <div className="p-4 space-y-6 h-full bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
-                      {Object.entries(
-                        article.structured_data.relation_extraction as Record<
-                          string,
-                          {
-                            head: { text: string; confidence?: number };
-                            tail: { text: string; confidence?: number };
-                          }[]
-                        >,
-                      ).map(([relType, instances]) => (
-                        <div key={relType} className="space-y-3">
-                          <h6 className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">
-                            {relType}
-                          </h6>
-                          <div className="space-y-2">
-                            {instances.map((inst, idx) => (
-                              <div
-                                key={idx}
-                                className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-bp-dark-surface border border-gray-100 dark:border-bp-dark-border rounded text-sm group hover:border-blue-200 transition-colors"
-                              >
-                                <div className="flex flex-col">
-                                  <span className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">
-                                    SOURCE
-                                  </span>
-                                  <span className="font-medium text-gray-900 dark:text-white">
-                                    {renderValueWithConfidence(inst.head)}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Icon
-                                    icon="arrow-down"
-                                    className="text-gray-300 group-hover:text-blue-400 transition-colors"
-                                    size={12}
-                                  />
-                                  <span className="text-[9px] font-bold text-blue-500 uppercase tracking-tighter">
-                                    {relType}
-                                  </span>
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">
-                                    TARGET
-                                  </span>
-                                  <span className="font-medium text-gray-900 dark:text-white">
-                                    {renderValueWithConfidence(inst.tail)}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
+                {(() => {
+                  const relations = (article.structured_data
+                    ?.relation_extraction || {}) as Record<
+                    string,
+                    {
+                      head: { text: string; confidence?: number };
+                      tail: { text: string; confidence?: number };
+                    }[]
+                  >;
+
+                  // Get predefined relation types from config, plus any existing ones
+                  const definedRelTypes = Object.keys(
+                    extractionConfig?.relations || {},
+                  );
+                  const existingRelTypes = Object.keys(relations);
+                  const allRelTypes = Array.from(
+                    new Set([...definedRelTypes, ...existingRelTypes]),
+                  );
+
+                  const activeRelations = Object.entries(relations).filter(
+                    ([_, instances]) => instances.length > 0,
+                  );
+
+                  if (activeRelations.length === 0 && !isReviewMode)
+                    return null;
+
+                  return (
+                    <Section
+                      title="Relations"
+                      icon="link"
+                      collapsible
+                      collapseProps={{
+                        isOpen: !collapsed.relations,
+                        onToggle: () => toggleCollapse("relations"),
+                      }}
+                      className="flex flex-col"
+                      rightElement={
+                        isReviewMode && allRelTypes.length > 0 ? (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Popover
+                              content={
+                                <Menu>
+                                  <li className={Classes.MENU_HEADER}>
+                                    <h6 className={Classes.HEADING}>
+                                      Add Relation Instance
+                                    </h6>
+                                  </li>
+                                  {allRelTypes.map((type) => (
+                                    <MenuItem
+                                      key={type}
+                                      text={type}
+                                      icon="plus"
+                                      onClick={() =>
+                                        handleAddRelationInstance(type)
+                                      }
+                                    />
+                                  ))}
+                                </Menu>
+                              }
+                              position="bottom"
+                            >
+                              <Button
+                                small
+                                minimal
+                                icon="plus"
+                                text="Add"
+                              />
+                            </Popover>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </Section>
-                ) : (
-                  <Section
-                    title="Relations"
-                    icon="link"
-                    collapsible
-                    collapseProps={{
-                      isOpen: !collapsed.relations,
-                      onToggle: () => toggleCollapse("relations"),
-                    }}
-                    className="flex flex-col"                  >
-                    <NonIdealState
-                      icon="graph"
-                      title="No Relations"
-                      description="No semantic relations were extracted for this article."
-                      className="p-12 h-full bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border"
-                    />
-                  </Section>
-                )}
+                        ) : undefined
+                      }
+                    >
+                      <div className="p-4 space-y-6 h-full bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
+                        {activeRelations.length === 0 && (
+                          <NonIdealState
+                            icon="graph"
+                            title="No Relations"
+                            description="No semantic relations were extracted for this article."
+                            className="p-4"
+                          />
+                        )}
+                        {activeRelations.map(([relType, instances]) => (
+                          <div key={relType} className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h6 className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">
+                                {relType}
+                              </h6>
+                              {isReviewMode && (
+                                <Button
+                                  small
+                                  minimal
+                                  icon="plus"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAddRelationInstance(relType);
+                                  }}
+                                  title={`Add ${relType} instance`}
+                                />
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              {instances.map((inst, idx) => (
+                                <div
+                                  key={idx}
+                                  className="relative flex flex-col gap-2 p-3 bg-gray-50 dark:bg-bp-dark-surface border border-gray-100 dark:border-bp-dark-border rounded text-sm group hover:border-blue-200 transition-colors"
+                                  style={{
+                                    borderColor: isReviewMode
+                                      ? "#0f9960"
+                                      : undefined,
+                                    borderWidth: isReviewMode ? "2px" : "1px",
+                                  }}
+                                >
+                                  {isReviewMode && (
+                                    <Button
+                                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      small
+                                      minimal
+                                      icon="trash"
+                                      intent={Intent.DANGER}
+                                      onClick={() =>
+                                        handleDeleteRelationInstance(
+                                          relType,
+                                          idx,
+                                        )
+                                      }
+                                    />
+                                  )}
+                                  <div className="flex flex-col">
+                                    <span className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">
+                                      SOURCE
+                                    </span>
+                                    {isReviewMode ? (
+                                      <InputGroup
+                                        small
+                                        fill
+                                        placeholder="Source text..."
+                                        value={getDisplayText(inst.head)}
+                                        onChange={(e) =>
+                                          handleUpdateRelation(
+                                            relType,
+                                            idx,
+                                            "head",
+                                            e.target.value,
+                                          )
+                                        }
+                                      />
+                                    ) : (
+                                      <span className="font-medium text-gray-900 dark:text-white">
+                                        {renderValueWithConfidence(inst.head)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Icon
+                                      icon="arrow-down"
+                                      className="text-gray-300 group-hover:text-blue-400 transition-colors"
+                                      size={12}
+                                    />
+                                    <span className="text-[9px] font-bold text-blue-500 uppercase tracking-tighter">
+                                      {relType}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">
+                                      TARGET
+                                    </span>
+                                    {isReviewMode ? (
+                                      <InputGroup
+                                        small
+                                        fill
+                                        placeholder="Target text..."
+                                        value={getDisplayText(inst.tail)}
+                                        onChange={(e) =>
+                                          handleUpdateRelation(
+                                            relType,
+                                            idx,
+                                            "tail",
+                                            e.target.value,
+                                          )
+                                        }
+                                      />
+                                    ) : (
+                                      <span className="font-medium text-gray-900 dark:text-white">
+                                        {renderValueWithConfidence(inst.tail)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Section>
+                  );
+                })()}
               </div>
             </div>
 
@@ -937,7 +1132,10 @@ export function ArticleView({
                 onToggle: () => toggleCollapse("content"),
               }}
               rightElement={
-                <div className="flex items-center gap-4">
+                <div 
+                  className="flex items-center gap-4" 
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Tabs
                     id="ArticleContentViewTabs"
                     selectedTabId={activeContentTab}
@@ -1064,6 +1262,16 @@ export function ArticleView({
                 onClick={() => setIsReviewMode(!isReviewMode)}
                 intent="success"
                 className={`font-bold ${!isReviewMode ? "bg-white dark:bg-bp-dark-bg text-[#0f9960]" : ""}`}
+                size="small"
+              />
+              <Button
+                icon={article.pinned ? "star" : "star-empty"}
+                text={article.pinned ? "Pinned to Report" : "Pin to Report"}
+                active={article.pinned}
+                onClick={() => onTogglePin?.(article)}
+                intent={article.pinned ? Intent.PRIMARY : Intent.NONE}
+                className="font-bold"
+                size="small"
               />
               {isReviewMode && (
                 <div className="flex text-green-800 items-center gap-2 font-medium text-xs">
@@ -1074,6 +1282,19 @@ export function ArticleView({
             </div>
 
             <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 border-r border-gray-200 dark:border-bp-dark-border pr-4 mr-1">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">
+                  NAVIGATE
+                </span>
+                <div className="flex gap-1">
+                  <Tag minimal className="font-mono font-bold text-[10px] px-1.5 min-w-0">
+                    <Icon icon="arrow-left" size={10} />
+                  </Tag>
+                  <Tag minimal className="font-mono font-bold text-[10px] px-1.5 min-w-0">
+                    <Icon icon="arrow-right" size={10} />
+                  </Tag>
+                </div>
+              </div>
               <div className="flex flex-col items-end">
                 <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-tighter leading-none mb-1">
                   ARTICLE STATUS
