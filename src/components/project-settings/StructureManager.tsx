@@ -124,12 +124,12 @@ export const StructureManager = forwardRef(({
             icon="code"
             subtitle={
               <div className="flex flex-col">
-                <span className="text-gray-500 font-bold uppercase tracking-tighter text-[9px] mb-0.5">
+                <span className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-tighter text-[9px] mb-0.5">
                   JSON Object • {s.fields.length} fields
                 </span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {s.fields.slice(0, 6).map(f => (
-                    <span key={f.name} className="text-[10px] text-gray-500 bg-gray-100 px-1 rounded">{f.name}</span>
+                    <span key={f.name} className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-bp-dark-header px-1 rounded">{f.name}</span>
                   ))}
                   {s.fields.length > 6 && <span className="text-[10px] text-gray-400">+{s.fields.length - 6} more</span>}
                 </div>
@@ -164,7 +164,7 @@ export const StructureManager = forwardRef(({
         </Card>
       ))}
       {structures.length === 0 && (
-        <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded text-gray-400 text-xs italic">
+        <div className="text-center py-10 bg-gray-50 dark:bg-bp-dark-surface border border-dashed border-gray-200 dark:border-bp-dark-border rounded text-gray-400 text-xs italic">
           No structured objects defined yet.
         </div>
       )}
@@ -185,7 +185,7 @@ export const StructureManager = forwardRef(({
           </FormGroup>
         </div>
         <Divider className="m-0" />
-        <div className="p-3 bg-gray-50 flex justify-end gap-2 rounded-b">
+        <div className="p-3 bg-gray-50 dark:bg-bp-dark-surface flex justify-end gap-2 rounded-b">
           <Button text="Cancel" onClick={() => setIsAddDialogOpen(false)} minimal />
           <Button
             intent={Intent.PRIMARY}
@@ -208,24 +208,24 @@ export const StructureManager = forwardRef(({
         <div className="p-0 max-h-[70vh] overflow-y-auto">
           {editingIdx !== null && (
             <HTMLTable className="w-full" striped bordered={false}>
-              <thead className="sticky top-0 bg-white z-10 shadow-sm">
+              <thead className="sticky top-0 bg-white dark:bg-bp-dark-bg z-10 shadow-sm">
                 <tr>
-                  <th className="p-3 text-[10px] uppercase text-gray-500 font-bold border-b border-gray-200">
+                  <th className="p-3 text-[10px] uppercase text-gray-500 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-bp-dark-border">
                     Field Name
                   </th>
-                  <th className="w-24 p-3 text-[10px] uppercase text-gray-500 font-bold border-b border-gray-200">
+                  <th className="w-24 p-3 text-[10px] uppercase text-gray-500 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-bp-dark-border">
                     Type
                   </th>
-                  <th className="w-24 p-3 text-[10px] uppercase text-gray-500 font-bold border-b border-gray-200">
+                  <th className="w-24 p-3 text-[10px] uppercase text-gray-500 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-bp-dark-border">
                     Threshold
                   </th>
-                  <th className="w-40 p-3 text-[10px] uppercase text-gray-500 font-bold border-b border-gray-200">
+                  <th className="w-40 p-3 text-[10px] uppercase text-gray-500 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-bp-dark-border">
                     Regex Validator
                   </th>
-                  <th className="p-3 text-[10px] uppercase text-gray-500 font-bold border-b border-gray-200">
+                  <th className="p-3 text-[10px] uppercase text-gray-500 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-bp-dark-border">
                     Extraction Hints
                   </th>
-                  <th className="w-12 p-3 border-b border-gray-200"></th>
+                  <th className="w-12 p-3 border-b border-gray-200 dark:border-bp-dark-border"></th>
                 </tr>
               </thead>
               <tbody>
@@ -314,7 +314,7 @@ export const StructureManager = forwardRef(({
                   </tr>
                 ))}
                 <tr>
-                  <td colSpan={6} className="p-3 bg-gray-50">
+                  <td colSpan={6} className="p-3 bg-gray-50 dark:bg-bp-dark-surface">
                     <Button
                       icon="plus"
                       text="Add Field"
@@ -330,7 +330,7 @@ export const StructureManager = forwardRef(({
           )}
         </div>
         <Divider className="m-0" />
-        <div className="p-3 bg-gray-100 flex justify-end gap-2 rounded-b">
+        <div className="p-3 bg-gray-100 dark:bg-bp-dark-header flex justify-end gap-2 rounded-b">
           <Button text="Done" intent={Intent.PRIMARY} onClick={() => setEditingIdx(null)} />
         </div>
       </Dialog>

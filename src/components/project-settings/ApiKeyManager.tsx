@@ -81,7 +81,7 @@ export function ApiKeyManager({ project }: ApiKeyManagerProps) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Spinner />
-        <p className="mt-4 text-gray-500">Loading API keys...</p>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading API keys...</p>
       </div>
     );
   }
@@ -153,10 +153,10 @@ export function ApiKeyManager({ project }: ApiKeyManagerProps) {
                         />
                       </div>
                     </td>
-                    <td className="text-xs text-gray-500">
+                    <td className="text-xs text-gray-500 dark:text-gray-400">
                       {k.last_used ? new Date(k.last_used).toLocaleString() : "Never"}
                     </td>
-                    <td className="text-xs text-gray-500">
+                    <td className="text-xs text-gray-500 dark:text-gray-400">
                       {new Date(k.created_at).toLocaleDateString()}
                     </td>
                     <td className="text-right">
@@ -179,7 +179,7 @@ export function ApiKeyManager({ project }: ApiKeyManagerProps) {
       {keys.length > 0 && (
         <Section title="External Export URLs" icon="link">
           <SectionCard className="space-y-4">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Use these URLs to integrate your data into external applications. All requests must include a valid <Code>X-API-Key</Code> header.
             </p>
             <div className="space-y-2">
@@ -191,7 +191,7 @@ export function ApiKeyManager({ project }: ApiKeyManagerProps) {
               ].map((fmt) => {
                 const url = projectsApi.externalExportUrl(project.id, "REPLACE_WITH_KEY", fmt.format);
                 return (
-                  <div key={fmt.format} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-100">
+                  <div key={fmt.format} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-bp-dark-surface rounded border border-gray-100 dark:border-bp-dark-border">
                     <div className="flex items-center gap-2">
                       <Icon icon={fmt.icon as any} size={14} className="text-gray-400" />
                       <span className="text-xs font-bold">{fmt.label}</span>

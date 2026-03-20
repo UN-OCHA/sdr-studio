@@ -99,14 +99,14 @@ export function GeneralSettings({
         disabled={modifiers.disabled}
         key={model.value}
         labelElement={
-          <span className="text-[10px] text-gray-500">{model.value}</span>
+          <span className="text-[10px] text-gray-500 dark:text-gray-400">{model.value}</span>
         }
         onClick={handleClick}
         onFocus={handleFocus}
         text={
           <div>
             <div className="font-bold text-xs">{model.label}</div>
-            <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
+            <div className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">
               {model.description}
             </div>
           </div>
@@ -183,10 +183,10 @@ export function GeneralSettings({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-bold text-sm text-gray-800">
+                <div className="font-bold text-sm text-gray-800 dark:text-gray-100">
                   Model-based Noise Reduction
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-gray-500 dark:text-gray-400">
                   Identify and strip navigation, social bits, and banners.
                 </div>
               </div>
@@ -205,7 +205,7 @@ export function GeneralSettings({
               <Callout
                 intent="primary"
                 icon="info-sign"
-                className="bg-blue-50/50 border-blue-100"
+                className="bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/50"
               >
                 <div className="text-[11px] leading-relaxed">
                   This uses a local T5-based model to detect and prune{" "}

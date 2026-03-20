@@ -11,12 +11,14 @@ interface AppState {
   isLoadingArticles: boolean;
   errorProjects: string | null;
   errorArticles: string | null;
+  isDarkMode: boolean;
 
   // Actions
   fetchProjects: () => Promise<void>;
   setCurrentProjectId: (id: string | null) => void;
   fetchArticles: (projectId: string) => Promise<void>;
   setCurrentArticleId: (id: string | null) => void;
+  toggleDarkMode: () => void;
   
   // Helpers to update local state without full refetch
   updateProject: (project: Project) => void;
@@ -34,6 +36,7 @@ export const useStore = create<AppState>((set, get) => ({
   isLoadingArticles: false,
   errorProjects: null,
   errorArticles: null,
+  isDarkMode: localStorage.getItem("sdr_dark_mode") === "true",
 
   fetchProjects: async () => {
     set({ isLoadingProjects: true, errorProjects: null });
@@ -81,6 +84,12 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setCurrentArticleId: (id) => set({ currentArticleId: id }),
+
+  toggleDarkMode: () => {
+    const nextMode = !get().isDarkMode;
+    set({ isDarkMode: nextMode });
+    localStorage.setItem("sdr_dark_mode", String(nextMode));
+  },
 
   updateProject: (project) => set((state) => ({
     projects: state.projects.map((p: Project) => p.id === project.id ? project : p)

@@ -129,7 +129,7 @@ export const LabelManager = forwardRef(({ labels, onChange }: LabelManagerProps,
               icon={d === "str" ? "selection" : "layers"}
               subtitle={
                 <div className="flex flex-col">
-                  <span className="text-gray-500 font-bold uppercase tracking-tighter text-[9px] mb-0.5">
+                  <span className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-tighter text-[9px] mb-0.5">
                     {d === "str" ? "Single Best Span" : "Multiple Spans"} • Confidence ≥ {t}
                   </span>
                   <span className="line-clamp-1 text-[11px] text-gray-600">{desc}</span>
@@ -157,7 +157,7 @@ export const LabelManager = forwardRef(({ labels, onChange }: LabelManagerProps,
         );
       })}
       {entries.length === 0 && (
-        <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded text-gray-400 text-xs italic">
+        <div className="text-center py-10 bg-gray-50 dark:bg-bp-dark-surface border border-dashed border-gray-200 dark:border-bp-dark-border rounded text-gray-400 text-xs italic">
           No entity labels defined yet.
         </div>
       )}
@@ -228,7 +228,7 @@ export const LabelManager = forwardRef(({ labels, onChange }: LabelManagerProps,
         </div>
 
         <Divider className="m-0" />
-        <div className="p-3 bg-gray-50 flex justify-end gap-2 rounded-b">
+        <div className="p-3 bg-gray-50 dark:bg-bp-dark-surface flex justify-end gap-2 rounded-b">
           <Button text="Cancel" onClick={() => setIsDialogOpen(false)} minimal />
           <Button
             intent={Intent.PRIMARY}

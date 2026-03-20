@@ -25,13 +25,13 @@ export function ProjectHomeHeader({
   onBack,
 }: ProjectHomeHeaderProps) {
   return (
-    <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between shadow-sm z-10 shrink-0">
+    <div className="px-3 py-2 border-b border-gray-200 dark:border-bp-dark-border bg-gray-50 dark:bg-bp-dark-surface flex items-center justify-between shadow-sm z-10 shrink-0">
       <div className="flex items-center gap-1">
         <Button icon="arrow-left" onClick={onBack} variant="minimal" small />
         <Icon
           icon={project.icon as IconName}
           size={18}
-          className="text-gray-500 ml-1"
+          className="text-gray-500 dark:text-gray-400 ml-1"
         />
         <EntityTitle
           title={project.name}

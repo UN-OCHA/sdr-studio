@@ -171,7 +171,7 @@ export const MonitoringStation = forwardRef<
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Spinner size={50} />
-        <p className="mt-4 text-gray-500">Loading monitoring sources...</p>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading monitoring sources...</p>
       </div>
     );
   }
@@ -229,7 +229,7 @@ export const MonitoringStation = forwardRef<
         text={
           <div>
             <div className="font-bold text-xs">{item.label}</div>
-            <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
+            <div className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">
               {item.description}
             </div>
           </div>
@@ -254,7 +254,7 @@ export const MonitoringStation = forwardRef<
       {sources.length === 0 ? (
         <Card
           elevation={Elevation.ZERO}
-          className="p-12 border-dashed border-2 border-gray-200 flex flex-col items-center"
+          className="p-12 border-dashed border-2 border-gray-200 dark:border-bp-dark-border flex flex-col items-center"
         >
           <NonIdealState
             icon="feed"
@@ -303,7 +303,7 @@ export const MonitoringStation = forwardRef<
                       className="mb-0"
                     />
                   </td>
-                  <td className="text-xs text-gray-500">
+                  <td className="text-xs text-gray-500 dark:text-gray-400">
                     {source.last_polled
                       ? new Date(source.last_polled).toLocaleString()
                       : "Never"}
@@ -431,7 +431,7 @@ export const MonitoringStation = forwardRef<
               <Collapse isOpen={showAdvanced}>
                 <Card
                   elevation={Elevation.ZERO}
-                  className="bg-gray-50 mt-2 space-y-3 border border-gray-200"
+                  className="bg-gray-50 dark:bg-bp-dark-surface mt-2 space-y-3 border border-gray-200 dark:border-bp-dark-border"
                 >
                   <div className="grid grid-cols-2 gap-4">
                     <FormGroup label="Result Limit" className="mb-0">

@@ -133,8 +133,8 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
           elevation={!activeAdapterId ? Elevation.TWO : Elevation.ZERO}
           className={`flex flex-col border-2 relative ${
             !activeAdapterId
-              ? "border-blue-500 bg-blue-50/30 shadow-md"
-              : "border-gray-200"
+              ? "border-blue-500 bg-blue-50/30 dark:bg-blue-900/20 shadow-md"
+              : "border-gray-200 dark:border-bp-dark-border"
           }`}
         >
           {!activeAdapterId && (
@@ -146,13 +146,13 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
           )}
           <div className="flex items-start gap-3 mb-3">
             <div
-              className={`p-2 rounded ${!activeAdapterId ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-400"}`}
+              className={`p-2 rounded ${!activeAdapterId ? "bg-blue-500 text-white" : "bg-gray-100 dark:bg-bp-dark-header text-gray-400"}`}
             >
               <Icon icon="cube" size={20} />
             </div>
             <div>
               <H5 className="mb-0">Base Engine</H5>
-              <p className="text-[10px] font-mono text-gray-500">
+              <p className="text-[10px] font-mono text-gray-500 dark:text-gray-400">
                 {project.extraction_config.model_id?.split("/").pop()}
               </p>
             </div>
@@ -182,8 +182,8 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
             }
             className={`flex flex-col border-2 relative ${
               activeAdapterId === adapter.id
-                ? "border-green-500 bg-green-50/30 shadow-md"
-                : "border-gray-200"
+                ? "border-green-500 dark:border-green-600 bg-green-50/30 dark:bg-green-900/20 shadow-md"
+                : "border-gray-200 dark:border-bp-dark-border"
             }`}
           >
             {activeAdapterId === adapter.id && (
@@ -195,7 +195,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
             )}
             <div className="flex items-start gap-3 mb-3">
               <div
-                className={`p-2 rounded ${activeAdapterId === adapter.id ? "bg-green-500 text-white" : "bg-gray-100 text-gray-400"}`}
+                className={`p-2 rounded ${activeAdapterId === adapter.id ? "bg-green-500 text-white" : "bg-gray-100 dark:bg-bp-dark-header text-gray-400"}`}
               >
                 <Icon icon="box" size={20} />
               </div>
@@ -228,7 +228,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
             <div className="flex-1">
               {adapter.status === "training" ? (
                 <div className="py-4">
-                  <p className="text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-tight">
+                  <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-tight">
                     Fine-tuning in progress...
                   </p>
                   <ProgressBar intent={Intent.PRIMARY} className="h-2" />
@@ -277,13 +277,13 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
         {/* Add New Card */}
         <Card
           elevation={Elevation.ZERO}
-          className="flex flex-col border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-50 hover:border-blue-400 transition-colors cursor-pointer items-center justify-center p-8 group"
+          className="flex flex-col border-2 border-dashed border-gray-300 dark:border-[#5e6064] bg-gray-50/50 dark:bg-bp-dark-surface/50 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-blue-400 transition-colors cursor-pointer items-center justify-center p-8 group"
           onClick={() => setIsTrainDialogOpen(true)}
         >
-          <div className="p-4 rounded-full bg-white border border-gray-200 group-hover:border-blue-200 group-hover:text-blue-500 text-gray-400 mb-2 transition-colors shadow-sm">
+          <div className="p-4 rounded-full bg-white dark:bg-bp-dark-bg border border-gray-200 dark:border-bp-dark-border group-hover:border-blue-200 group-hover:text-blue-500 text-gray-400 mb-2 transition-colors shadow-sm">
             <Icon icon="plus" size={24} />
           </div>
-          <span className="text-sm font-bold text-gray-500 group-hover:text-blue-600">
+          <span className="text-sm font-bold text-gray-500 dark:text-gray-400 group-hover:text-blue-600">
             Train New Adapter
           </span>
           <span className="text-[10px] text-gray-400 mt-1">
@@ -391,7 +391,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
           <Divider />
 
           <div className="flex justify-between items-center">
-            <H5 className="mb-0 text-xs text-gray-500 uppercase">
+            <H5 className="mb-0 text-xs text-gray-500 dark:text-gray-400 uppercase">
               Advanced Settings
             </H5>
             <Switch
@@ -468,7 +468,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
             </div>
           )}
         </div>
-        <div className="p-3 bg-gray-50 border-t border-gray-200 flex justify-end gap-2 rounded-b">
+        <div className="p-3 bg-gray-50 dark:bg-bp-dark-surface border-t border-gray-200 dark:border-bp-dark-border flex justify-end gap-2 rounded-b">
           <Button
             text="Cancel"
             onClick={() => setIsTrainDialogOpen(false)}

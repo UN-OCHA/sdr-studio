@@ -8,7 +8,7 @@ type SidebarExportDockProps = {
 
 export function SidebarExportDock({ project }: SidebarExportDockProps) {
   return (
-    <div className="p-1.5 border-t border-gray-200 bg-white">
+    <div className="p-1.5 border-t border-gray-200 dark:border-bp-dark-border bg-white dark:bg-bp-dark-bg">
       <Popover
         minimal
         content={

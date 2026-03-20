@@ -10,7 +10,7 @@ export function ModelSettings({ threshold, onChange }: ModelSettingsProps) {
     <Section title="Model Configuration" icon="predictive-analysis">
       <SectionCard>
         <H5>GLiNER2 Engine</H5>
-        <p className="text-xs text-gray-500 mb-4">Fine-tune the extraction sensitivity.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Fine-tune the extraction sensitivity.</p>
         <FormGroup
           label="Confidence Threshold"
           labelInfo="(0.0 - 1.0)"

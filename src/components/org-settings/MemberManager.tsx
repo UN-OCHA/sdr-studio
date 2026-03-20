@@ -4,11 +4,9 @@ import {
   EntityTitle,
   FormGroup,
   HTMLTable,
-  H3,
   H5,
   InputGroup,
   Intent,
-  Section,
   SectionCard,
   Spinner,
   Tab,
@@ -108,7 +106,7 @@ export function MemberManager({ title, subtitle }: MemberManagerProps) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Spinner />
-        <p className="mt-4 text-gray-500 text-sm">Loading team members...</p>
+        <p className="mt-4 text-gray-500 dark:text-gray-400 text-sm">Loading team members...</p>
       </div>
     );
   }
@@ -157,7 +155,7 @@ export function MemberManager({ title, subtitle }: MemberManagerProps) {
                     />
                   </td>
                   <td className="text-xs">{m.email}</td>
-                  <td className="text-xs text-gray-500">
+                  <td className="text-xs text-gray-500 dark:text-gray-400">
                     {m.last_login ? new Date(m.last_login).toLocaleString() : "Never"}
                   </td>
                   <td className="text-right">
@@ -199,7 +197,7 @@ export function MemberManager({ title, subtitle }: MemberManagerProps) {
                     </div>
                   </td>
                   <td className="text-xs">{i.inviter_name}</td>
-                  <td className="text-xs text-gray-500">
+                  <td className="text-xs text-gray-500 dark:text-gray-400">
                     {new Date(i.expires_at).toLocaleDateString()}
                   </td>
                   <td className="text-right">
@@ -228,7 +226,7 @@ export function MemberManager({ title, subtitle }: MemberManagerProps) {
               ))}
               {invitations.length === 0 && (
                 <tr>
-                    <td colSpan={4} className="text-center p-8 text-gray-500 italic">
+                    <td colSpan={4} className="text-center p-8 text-gray-500 dark:text-gray-400 italic">
                         No pending invitations.
                     </td>
                 </tr>

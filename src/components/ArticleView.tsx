@@ -51,6 +51,20 @@ export function ArticleView({
     "annotator" | "list"
   >("annotator");
 
+  // Section collapse states
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
+    summary: false,
+    classifications: false,
+    structured: false,
+    other: false,
+    relations: false,
+    content: false,
+  });
+
+  const toggleCollapse = (key: string) => {
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const classifications = extractionConfig?.classifications || {};
   const structures = extractionConfig?.structures || [];
 
@@ -199,7 +213,7 @@ export function ArticleView({
 
     const nextData = {
       ...article.structured_data,
-      [structName]: records,
+      [structName]: Array.isArray(rawData) ? records : records[0],
     };
     void updateStructuredData(nextData);
   };
@@ -266,8 +280,17 @@ export function ArticleView({
     if (!hasData) return null;
 
     return (
-      <Section title="Structured Analysis" icon="database" collapsible>
-        <div className="space-y-6 p-4">
+      <Section
+        title="Structured Analysis"
+        icon="database"
+        collapsible
+        collapseProps={{
+          isOpen: !collapsed.structured,
+          onToggle: () => toggleCollapse("structured"),
+        }}
+        className="flex flex-col"
+      >
+        <div className="space-y-6 p-4 h-full">
           {structures.map((struct) => {
             const rawData = article.structured_data?.[struct.name];
             const records = (
@@ -303,7 +326,7 @@ export function ArticleView({
 
                 <div className="grid grid-cols-1 gap-4">
                   {(!rawData || records.length === 0) && isReviewMode ? (
-                    <div className="p-8 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                    <div className="p-8 text-center border border-dashed border-gray-200 dark:border-bp-dark-border rounded-lg bg-gray-50/50 dark:bg-bp-dark-surface/50">
                       <p className="text-gray-400 text-sm mb-2">
                         No records for {struct.name}
                       </p>
@@ -321,7 +344,7 @@ export function ArticleView({
                       (data: Record<string, unknown>, idx: number) => (
                         <div
                           key={`${struct.name}-${idx}`}
-                          className="bg-white border rounded-lg overflow-hidden shadow-sm transition-all"
+                          className="bg-white dark:bg-bp-dark-bg border rounded-lg overflow-hidden shadow-sm transition-all"
                           style={{
                             borderColor: isReviewMode ? "#0f9960" : "#e1e8ed",
                             borderWidth: isReviewMode ? "4px" : "1px",
@@ -333,15 +356,15 @@ export function ArticleView({
                           <div
                             className={`px-3 py-1.5 border-b flex items-center justify-between ${
                               isReviewMode
-                                ? "bg-green-50/30 border-green-100"
-                                : "bg-gray-50 border-gray-200"
+                                ? "bg-green-50/30 dark:bg-green-900/20 border-green-100 dark:border-green-900/50"
+                                : "bg-gray-50 dark:bg-bp-dark-surface border-gray-200 dark:border-bp-dark-border"
                             }`}
                           >
                             <span
                               className={`text-[10px] font-bold uppercase ${
                                 isReviewMode
                                   ? "text-green-700"
-                                  : "text-gray-500"
+                                  : "text-gray-500 dark:text-gray-400"
                               }`}
                             >
                               Record #{idx + 1}
@@ -446,7 +469,7 @@ export function ArticleView({
                                         />
                                       )
                                     ) : val !== undefined && val !== null ? (
-                                      <span className="text-gray-900 font-medium">
+                                      <span className="text-gray-900 dark:text-white font-medium">
                                         {field.dtype === "list" &&
                                         Array.isArray(val) ? (
                                           <div className="flex flex-wrap gap-1 mt-1">
@@ -486,10 +509,10 @@ export function ArticleView({
   })();
 
   return (
-    <div className="relative animate-[fade-in_0.3s_ease]">
+    <div className="relative animate-[fade-in_0.3s_ease] @container">
       {/* Article Content */}
       <div className="mx-auto px-4 pt-4">
-        <header className="mb-4 border-b border-gray-100 pb-1">
+        <header className="mb-4 border-b border-gray-100 dark:border-bp-dark-border pb-1">
           <div className="flex items-start gap-4 mb-2">
             <div className="flex-1">
               <EntityTitle
@@ -497,9 +520,9 @@ export function ArticleView({
                 titleURL={article.url}
                 heading={H3}
                 ellipsize={false}
-                className="text-gray-900 leading-tight tracking-tight mb-1"
+                className="text-gray-900 dark:text-white leading-tight tracking-tight mb-1"
               />
-              <div className="flex items-center gap-3 text-[11px] text-gray-500">
+              <div className="flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
                 <div className="flex items-center gap-1">
                   <Icon icon="time" size={12} />
                   <span>
@@ -561,14 +584,14 @@ export function ArticleView({
         </Alert>
 
         {article.status === "pending" && !isProcessing && (
-          <div className="p-12 rounded-lg text-center border border-dashed border-gray-300 bg-gray-50">
+          <div className="p-12 rounded-lg text-center border border-dashed border-gray-300 dark:border-[#5e6064] bg-gray-50 dark:bg-bp-dark-surface">
             <Icon
               icon="cloud-upload"
               size={40}
               className="mb-4 text-gray-400"
             />
             <H4>Ready for Processing</H4>
-            <p className="text-gray-500 mb-6">
+            <p className="text-gray-500 dark:text-gray-400 mb-6">
               Click the button to extract content, summary and entities using
               GLiNER2 and ReadabilityJS.
             </p>
@@ -589,7 +612,7 @@ export function ArticleView({
               title="Ingesting Article"
               description={
                 <div className="flex flex-col items-center gap-2">
-                  <span className="text-gray-500">
+                  <span className="text-gray-500 dark:text-gray-400">
                     {article.processing_step ||
                       "Running GLiNER2 multi-capability extraction..."}
                   </span>
@@ -600,237 +623,319 @@ export function ArticleView({
         )}
 
         {article.status === "completed" && (
-          <div className="space-y-4">
-            <Section title="Summary" icon="align-left" collapsible>
-              <div className="p-4 text-gray-800 leading-relaxed bg-white rounded border border-gray-100">
-                {article.summary}
-              </div>
-            </Section>
-
-            {/* Classifications Section */}
-            {Object.keys(classifications).length > 0 && (
-              <Section title="Classifications" icon="list-columns" collapsible>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-                  {Object.entries(classifications).map(([name, config]) => {
-                    const value = article.structured_data?.[name];
-                    const choices = Array.isArray(config)
-                      ? config
-                      : Array.isArray(config.labels)
-                        ? config.labels
-                        : Object.keys(config.labels);
-
-                    return (
-                      <div
-                        key={name}
-                        className="p-3 bg-gray-50 rounded border transition-all"
-                        style={{
-                          borderColor: isReviewMode ? "#0f9960" : "#e1e8ed",
-                          borderWidth: isReviewMode ? "4px" : "1px",
-                          boxShadow: isReviewMode
-                            ? "0 2px 4px rgba(15, 153, 96, 0.1)"
-                            : "none",
-                        }}
-                      >
-                        <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
-                          {name}
-                        </span>
-                        <div className="text-sm font-semibold text-gray-800">
-                          {isReviewMode ? (
-                            <Popover
-                              content={
-                                <Menu>
-                                  {choices.map((choice) => (
-                                    <MenuItem
-                                      key={choice}
-                                      text={choice}
-                                      active={
-                                        Array.isArray(value)
-                                          ? value.includes(choice)
-                                          : value === choice
-                                      }
-                                      onClick={() => {
-                                        if (
-                                          !Array.isArray(config) &&
-                                          config.multi_label
-                                        ) {
-                                          const current = Array.isArray(value)
-                                            ? (value as string[])
-                                            : value
-                                              ? [String(value)]
-                                              : [];
-                                          const next = current.includes(choice)
-                                            ? current.filter(
-                                                (c) => c !== choice,
-                                              )
-                                            : [...current, choice];
-                                          handleUpdateClassification(
-                                            name,
-                                            next,
-                                          );
-                                        } else {
-                                          handleUpdateClassification(
-                                            name,
-                                            choice,
-                                          );
-                                        }
-                                      }}
-                                    />
-                                  ))}
-                                </Menu>
-                              }
-                              position="bottom"
-                              fill
-                            >
-                              <Button
-                                rightIcon="caret-down"
-                                minimal
-                                small
-                                fill
-                                text={
-                                  Array.isArray(value)
-                                    ? value.join(", ") || "Select..."
-                                    : String(value || "Select...")
-                                }
-                                intent={value ? Intent.PRIMARY : Intent.NONE}
-                                className="text-left flex justify-between"
-                              />
-                            </Popover>
-                          ) : value ? (
-                            <div className="flex flex-wrap gap-1">
-                              {(Array.isArray(value) ? value : [value]).map(
-                                (v) => (
-                                  <Tag
-                                    key={String(v)}
-                                    intent={Intent.PRIMARY}
-                                    minimal
-                                    large
-                                    className="grow justify-center"
-                                  >
-                                    {renderValueWithConfidence(v)}
-                                  </Tag>
-                                ),
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-gray-300 italic">
-                              No match found
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Section>
-            )}
-
-            {/* Structured Data Section */}
-            {structuredAnalysis as any}
-
-            {/* Fallback for unknown keys in structured_data */}
-            {article.structured_data &&
-              Object.keys(article.structured_data).some(
-                (k: string) =>
-                  !classifications[k] &&
-                  k !== "relation_extraction" &&
-                  !structures.some((s: { name: string }) => s.name === k),
-              ) && (
-                <Section title="Other Extracted Data" icon="cube" collapsible>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-                    {Object.entries(article.structured_data)
-                      .filter(
-                        ([k]: [string, unknown]) =>
-                          !classifications[k] &&
-                          k !== "relation_extraction" &&
-                          !structures.some(
-                            (s: { name: string }) => s.name === k,
-                          ),
-                      )
-                      .map(([key, value]: [string, unknown]) => (
-                        <div
-                          key={key}
-                          className="p-3 bg-gray-50 rounded border border-gray-200"
-                        >
-                          <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
-                            {key}
-                          </span>
-                          <div className="text-sm">
-                            {typeof value === "object" &&
-                            value !== null &&
-                            !("label" in value) &&
-                            !("text" in value) ? (
-                              <pre className="text-[10px] overflow-x-auto bg-white p-2 border border-gray-100 rounded mt-1">
-                                {JSON.stringify(value, null, 2)}
-                              </pre>
-                            ) : (
-                              <span className="font-medium text-gray-700">
-                                {renderValueWithConfidence(value)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 @xl:grid-cols-3 gap-6">
+              {/* Left Column: Summary, Classifications, Structured Analysis */}
+              <div className="@xl:col-span-2 flex flex-col gap-6">
+                <Section
+                  title="Summary"
+                  icon="align-left"
+                  collapsible
+                  collapseProps={{
+                    isOpen: !collapsed.summary,
+                    onToggle: () => toggleCollapse("summary"),
+                  }}
+                  className="flex flex-col"
+                >
+                  <div className="p-4 text-gray-800 dark:text-gray-100 leading-relaxed">
+                    {article.summary}
                   </div>
                 </Section>
-              )}
 
-            {/* Relations Section */}
-            {article.structured_data?.relation_extraction &&
-              Object.keys(article.structured_data.relation_extraction).length >
-                0 && (
-                <Section title="Relations" icon="link" collapsible>
-                  <div className="p-4 space-y-4">
-                    {Object.entries(
-                      article.structured_data.relation_extraction as Record<
-                        string,
-                        {
-                          head: { text: string; confidence?: number };
-                          tail: { text: string; confidence?: number };
-                        }[]
-                      >,
-                    ).map(([relType, instances]) => (
-                      <div key={relType} className="space-y-2">
-                        <h6 className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">
-                          {relType}
-                        </h6>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {instances.map((inst, idx) => (
+                {/* Classifications Section */}
+                {Object.keys(classifications).length > 0 && (
+                  <Section
+                    title="Classifications"
+                    icon="list-columns"
+                    collapsible
+                    collapseProps={{
+                      isOpen: !collapsed.classifications,
+                      onToggle: () => toggleCollapse("classifications"),
+                    }}
+                    className="flex flex-col"
+                  >
+                    <div className="grid grid-cols-1 @md:grid-cols-2 gap-3 p-4 h-full">
+                      {Object.entries(classifications).map(([name, config]) => {
+                        const value = article.structured_data?.[name];
+                        const choices = Array.isArray(config)
+                          ? config
+                          : Array.isArray(config.labels)
+                            ? config.labels
+                            : Object.keys(config.labels);
+
+                        return (
+                          <div
+                            key={name}
+                            className="p-3 bg-gray-50 dark:bg-bp-dark-surface rounded border transition-all"
+                            style={{
+                              borderColor: isReviewMode ? "#0f9960" : "#e1e8ed",
+                              borderWidth: isReviewMode ? "4px" : "1px",
+                              boxShadow: isReviewMode
+                                ? "0 2px 4px rgba(15, 153, 96, 0.1)"
+                                : "none",
+                            }}
+                          >
+                            <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
+                              {name}
+                            </span>
+                            <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                              {isReviewMode ? (
+                                <Popover
+                                  content={
+                                    <Menu>
+                                      {choices.map((choice) => (
+                                        <MenuItem
+                                          key={choice}
+                                          text={choice}
+                                          active={
+                                            Array.isArray(value)
+                                              ? value.includes(choice)
+                                              : value === choice
+                                          }
+                                          onClick={() => {
+                                            if (
+                                              !Array.isArray(config) &&
+                                              config.multi_label
+                                            ) {
+                                              const current = Array.isArray(
+                                                value,
+                                              )
+                                                ? (value as string[])
+                                                : value
+                                                  ? [String(value)]
+                                                  : [];
+                                              const next = current.includes(
+                                                choice,
+                                              )
+                                                ? current.filter(
+                                                    (c) => c !== choice,
+                                                  )
+                                                : [...current, choice];
+                                              handleUpdateClassification(
+                                                name,
+                                                next,
+                                              );
+                                            } else {
+                                              handleUpdateClassification(
+                                                name,
+                                                choice,
+                                              );
+                                            }
+                                          }}
+                                        />
+                                      ))}
+                                    </Menu>
+                                  }
+                                  position="bottom"
+                                  fill
+                                >
+                                  <Button
+                                    rightIcon="caret-down"
+                                    minimal
+                                    small
+                                    fill
+                                    text={
+                                      Array.isArray(value)
+                                        ? value.join(", ") || "Select..."
+                                        : String(value || "Select...")
+                                    }
+                                    intent={
+                                      value ? Intent.PRIMARY : Intent.NONE
+                                    }
+                                    className="text-left flex justify-between"
+                                  />
+                                </Popover>
+                              ) : value ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {(Array.isArray(value) ? value : [value]).map(
+                                    (v) => (
+                                      <Tag
+                                        key={String(v)}
+                                        intent={Intent.PRIMARY}
+                                        minimal
+                                        large
+                                        className="grow justify-center"
+                                      >
+                                        {renderValueWithConfidence(v)}
+                                      </Tag>
+                                    ),
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-300 italic">
+                                  No match found
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Section>
+                )}
+
+                {/* Structured Data Section */}
+                {structuredAnalysis && (
+                  <div
+                    className="flex flex-col"
+                  >
+                    {structuredAnalysis}
+                  </div>
+                )}
+
+                {/* Fallback for unknown keys in structured_data */}
+                {article.structured_data &&
+                  Object.keys(article.structured_data).some(
+                    (k: string) =>
+                      !classifications[k] &&
+                      k !== "relation_extraction" &&
+                      !structures.some((s: { name: string }) => s.name === k),
+                  ) && (
+                    <Section
+                      title="Other Extracted Data"
+                      icon="cube"
+                      collapsible
+                      collapseProps={{
+                        isOpen: !collapsed.other,
+                        onToggle: () => toggleCollapse("other"),
+                      }}
+                      className="flex flex-col"
+                    >
+                      <div className="grid grid-cols-1 @md:grid-cols-2 gap-4 p-4 h-full bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
+                        {Object.entries(article.structured_data)
+                          .filter(
+                            ([k]: [string, unknown]) =>
+                              !classifications[k] &&
+                              k !== "relation_extraction" &&
+                              !structures.some(
+                                (s: { name: string }) => s.name === k,
+                              ),
+                          )
+                          .map(([key, value]: [string, unknown]) => (
                             <div
-                              key={idx}
-                              className="flex items-center gap-3 p-2 bg-gray-50 border border-gray-100 rounded text-sm group hover:border-blue-200 transition-colors"
+                              key={key}
+                              className="p-3 bg-gray-50 dark:bg-bp-dark-surface rounded border border-gray-200 dark:border-bp-dark-border"
                             >
-                              <div className="flex-1 flex flex-col">
-                                <span className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">
-                                  SOURCE
-                                </span>
-                                <span className="font-medium text-gray-900">
-                                  {renderValueWithConfidence(inst.head)}
-                                </span>
-                              </div>
-                              <Icon
-                                icon="arrow-right"
-                                className="text-gray-300 group-hover:text-blue-400 transition-colors"
-                              />
-                              <div className="flex-1 flex flex-col">
-                                <span className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">
-                                  TARGET
-                                </span>
-                                <span className="font-medium text-gray-900">
-                                  {renderValueWithConfidence(inst.tail)}
-                                </span>
+                              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
+                                {key}
+                              </span>
+                              <div className="text-sm">
+                                {typeof value === "object" &&
+                                value !== null &&
+                                !("label" in value) &&
+                                !("text" in value) ? (
+                                  <pre className="text-[10px] overflow-x-auto bg-white dark:bg-bp-dark-bg p-2 border border-gray-100 dark:border-bp-dark-border rounded mt-1">
+                                    {JSON.stringify(value, null, 2)}
+                                  </pre>
+                                ) : (
+                                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                                    {renderValueWithConfidence(value)}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           ))}
-                        </div>
                       </div>
-                    ))}
-                  </div>
-                </Section>
-              )}
+                    </Section>
+                  )}
+              </div>
+
+              {/* Right Column: Relations */}
+              <div className="@xl:col-span-1 flex flex-col gap-6">
+                {article.structured_data?.relation_extraction &&
+                Object.keys(article.structured_data.relation_extraction)
+                  .length > 0 ? (
+                  <Section
+                    title="Relations"
+                    icon="link"
+                    collapsible
+                    collapseProps={{
+                      isOpen: !collapsed.relations,
+                      onToggle: () => toggleCollapse("relations"),
+                    }}
+                    className="flex flex-col"                  >
+                    <div className="p-4 space-y-6 h-full bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
+                      {Object.entries(
+                        article.structured_data.relation_extraction as Record<
+                          string,
+                          {
+                            head: { text: string; confidence?: number };
+                            tail: { text: string; confidence?: number };
+                          }[]
+                        >,
+                      ).map(([relType, instances]) => (
+                        <div key={relType} className="space-y-3">
+                          <h6 className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">
+                            {relType}
+                          </h6>
+                          <div className="space-y-2">
+                            {instances.map((inst, idx) => (
+                              <div
+                                key={idx}
+                                className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-bp-dark-surface border border-gray-100 dark:border-bp-dark-border rounded text-sm group hover:border-blue-200 transition-colors"
+                              >
+                                <div className="flex flex-col">
+                                  <span className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">
+                                    SOURCE
+                                  </span>
+                                  <span className="font-medium text-gray-900 dark:text-white">
+                                    {renderValueWithConfidence(inst.head)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Icon
+                                    icon="arrow-down"
+                                    className="text-gray-300 group-hover:text-blue-400 transition-colors"
+                                    size={12}
+                                  />
+                                  <span className="text-[9px] font-bold text-blue-500 uppercase tracking-tighter">
+                                    {relType}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">
+                                    TARGET
+                                  </span>
+                                  <span className="font-medium text-gray-900 dark:text-white">
+                                    {renderValueWithConfidence(inst.tail)}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Section>
+                ) : (
+                  <Section
+                    title="Relations"
+                    icon="link"
+                    collapsible
+                    collapseProps={{
+                      isOpen: !collapsed.relations,
+                      onToggle: () => toggleCollapse("relations"),
+                    }}
+                    className="flex flex-col"                  >
+                    <NonIdealState
+                      icon="graph"
+                      title="No Relations"
+                      description="No semantic relations were extracted for this article."
+                      className="p-12 h-full bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border"
+                    />
+                  </Section>
+                )}
+              </div>
+            </div>
 
             <Section
               title="Content & Entities"
               icon="highlight"
+              collapsible
+              collapseProps={{
+                isOpen: !collapsed.content,
+                onToggle: () => toggleCollapse("content"),
+              }}
               rightElement={
                 <div className="flex items-center gap-4">
                   <Tabs
@@ -843,12 +948,12 @@ export function ArticleView({
                     <Tab id="annotator" title="Annotator" icon="highlight" />
                     <Tab id="list" title="List View" icon="th-list" />
                   </Tabs>
-                  <div className="flex items-center gap-2 ml-2 border-l border-gray-200 pl-4">
+                  <div className="flex items-center gap-2 ml-2 border-l border-gray-200 dark:border-bp-dark-border pl-4">
                     <Tag minimal>
                       {article.annotations?.length || 0} Entities
                     </Tag>
                     {isProcessing && (
-                      <span className="text-xs text-gray-500 italic">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 italic">
                         Polling...
                       </span>
                     )}
@@ -949,7 +1054,7 @@ export function ArticleView({
 
       {/* Sticky Review Bar */}
       {article.status === "completed" && (
-        <div className="sticky bottom-0 z-50 py-1.5 mt-8 border-t border-gray-300 bg-white">
+        <div className="sticky bottom-0 z-50 py-1.5 mt-8 border-t border-gray-300 dark:border-[#5e6064] bg-white dark:bg-bp-dark-bg">
           <div className="mx-auto px-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button
@@ -958,7 +1063,7 @@ export function ArticleView({
                 active={isReviewMode}
                 onClick={() => setIsReviewMode(!isReviewMode)}
                 intent="success"
-                className={`font-bold ${!isReviewMode ? "bg-white text-[#0f9960]" : ""}`}
+                className={`font-bold ${!isReviewMode ? "bg-white dark:bg-bp-dark-bg text-[#0f9960]" : ""}`}
               />
               {isReviewMode && (
                 <div className="flex text-green-800 items-center gap-2 font-medium text-xs">
@@ -970,7 +1075,7 @@ export function ArticleView({
 
             <div className="flex items-center gap-4">
               <div className="flex flex-col items-end">
-                <span className="text-[9px] font-black text-gray-500 uppercase tracking-tighter leading-none mb-1">
+                <span className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-tighter leading-none mb-1">
                   ARTICLE STATUS
                 </span>
                 <div className="font-bold leading-none">

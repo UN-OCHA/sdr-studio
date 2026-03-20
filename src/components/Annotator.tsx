@@ -406,9 +406,8 @@ export function Annotator({
       parts.push(
         <span
           key={`seg-${start}-${end}`}
-          className="inline-flex items-center overflow-hidden rounded-sm align-baseline mx-0.5 transition-colors duration-150 ease-in-out"
+          className="inline-flex items-center overflow-hidden rounded-sm align-baseline mx-0.5 transition-colors duration-150 ease-in-out bg-white dark:bg-bp-dark-surface"
           style={{
-            background: "#ffffff",
             color: bgColors.solid,
             boxShadow: `inset 0 0 0 1px ${bgColors.solid}`,
           }}
@@ -458,7 +457,7 @@ export function Annotator({
                       <div className="flex items-center justify-between gap-4">
                         <h6 className={Classes.HEADING}>{ann.label}</h6>
                         {ann.confidence !== undefined && (
-                          <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1 rounded">
+                          <span className="text-[10px] font-bold text-gray-400 bg-gray-100 dark:bg-bp-dark-header px-1 rounded">
                             {Math.round(ann.confidence * 100)}%
                           </span>
                         )}
@@ -496,7 +495,7 @@ export function Annotator({
     <div className="relative">
       {bulkSuggestion && (
         <div
-          className={`absolute top-4 right-4 bg-white border border-gray-200 py-2 px-3 rounded z-20 flex items-center gap-3 text-[13px] animate-[fade-in_0.2s_ease] ${Classes.ELEVATION_3}`}
+          className={`absolute top-4 right-4 bg-white dark:bg-bp-dark-bg border border-gray-200 dark:border-bp-dark-border py-2 px-3 rounded z-20 flex items-center gap-3 text-[13px] animate-[fade-in_0.2s_ease] ${Classes.ELEVATION_3}`}
         >
           <Icon icon="lightbulb" intent={Intent.WARNING} />
           <span>
@@ -504,13 +503,13 @@ export function Annotator({
             {bulkSuggestion.matches.length} more occurrences of "
             <em>{bulkSuggestion.text}</em>"
           </span>
-          <span className="text-gray-500 border-l border-gray-200 pl-3">
+          <span className="text-gray-500 dark:text-gray-400 border-l border-gray-200 dark:border-bp-dark-border pl-3">
             Esc to dismiss
           </span>
         </div>
       )}
 
-      <div className="mb-4 flex items-center gap-1.5 flex-wrap border-b pb-2 border-gray-300">
+      <div className="mb-4 flex items-center gap-1.5 flex-wrap border-b pb-2 border-gray-300 dark:border-[#5e6064]">
         {availableLabels.map((label, idx) => {
           const isActive = activeModeLabel === label;
           const colors = getProceduralColor(label, availableLabels);
@@ -525,9 +524,9 @@ export function Annotator({
                 isEditable &&
                 setActiveModeLabel((prev) => (prev === label ? null : label))
               }
-              className="overflow-hidden! rounded-2xl transition-all duration-150 ease-in-out pr-0!"
+              className="overflow-hidden! rounded-2xl transition-all duration-150 ease-in-out pr-0! bg-white dark:bg-bp-dark-bg"
               style={{
-                background: isActive ? colors.solid : "#ffffff",
+                background: isActive ? colors.solid : undefined,
                 color: colors.solid,
                 boxShadow: `inset 0 0 0 1px ${colors.solid}`,
                 opacity: isEditable ? 1 : 0.8,
@@ -551,7 +550,7 @@ export function Annotator({
           );
         })}
         {isEditable && activeModeLabel && (
-          <span className="text-xs text-gray-500 ml-auto">
+          <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
             Highlight text to apply <strong>{activeModeLabel}</strong>.{" "}
             <Tag minimal>Esc</Tag> to exit.
           </span>
@@ -561,7 +560,7 @@ export function Annotator({
       <div
         ref={containerRef}
         onMouseUp={handleMouseUp}
-        className={`leading-relaxed whitespace-pre-line ${activeModeLabel ? "cursor-crosshair" : "cursor-text"} text-gray-800`}
+        className={`leading-relaxed whitespace-pre-line ${activeModeLabel ? "cursor-crosshair" : "cursor-text"} text-gray-800 dark:text-gray-100`}
       >
         {renderAnnotatedText()}
       </div>

@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { Divider, H6, Icon, Text } from '@blueprintjs/core';
 import type { Article } from '../types';
 import type { SelectionState } from './CoverageView';
+import { useStore } from '../store';
 
 // Provided Mapbox Token from environment variables
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
@@ -23,7 +24,7 @@ function PopupContent({ article, locationName, excerpt }: { article: Article, lo
   
   return (
     <div className="flex flex-col gap-1 p-1 min-w-[200px]">
-      <H6 className="mb-0 leading-tight text-gray-900">{article.title}</H6>
+      <H6 className="mb-0 leading-tight text-gray-900 dark:text-white">{article.title}</H6>
       <Text className="text-blue-600 font-bold text-[10px] uppercase tracking-wider">{locationName}</Text>
       
       {excerpt && (
@@ -31,14 +32,13 @@ function PopupContent({ article, locationName, excerpt }: { article: Article, lo
           <Divider className="my-1" />
           <div className="text-gray-600 text-xs italic leading-relaxed">
             "
-            {parts.map((part, i) => 
+            {parts.map((part, i) =>
               part.toLowerCase() === locationName.toLowerCase() ? (
-                <strong key={i} className="text-blue-700 bg-blue-50 px-0.5 rounded font-bold">{part}</strong>
+                <strong key={i} className="text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-0.5 rounded font-bold">{part}</strong>
               ) : (
                 <span key={i}>{part}</span>
               )
-            )}
-            "
+            )}            "
           </div>
         </>
       )}
@@ -69,6 +69,7 @@ function getExcerpt(content: string, locationName: string, maxLength = 160): str
 }
 
 export function MapView({ articles, selection, onArticleClick }: MapViewProps) {
+  const isDarkMode = useStore((state) => state.isDarkMode);
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<Record<string, mapboxgl.Marker[]>>({});
@@ -94,7 +95,7 @@ export function MapView({ articles, selection, onArticleClick }: MapViewProps) {
 
     const m = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
+      style: isDarkMode ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
       center: center,
       zoom: allLocations.length > 0 ? 3 : 1,
       trackResize: true
@@ -114,7 +115,14 @@ export function MapView({ articles, selection, onArticleClick }: MapViewProps) {
     };
   }, []);
 
-  // 2. Handle Data Updates (Markers)
+  // 2. Handle Theme Switch
+  useEffect(() => {
+    if (map.current) {
+        map.current.setStyle(isDarkMode ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11');
+    }
+  }, [isDarkMode]);
+
+  // 3. Handle Data Updates (Markers)
   useEffect(() => {
     if (!map.current) return;
     Object.values(markers.current).flat().forEach(m => m.remove());
@@ -194,7 +202,7 @@ export function MapView({ articles, selection, onArticleClick }: MapViewProps) {
 
   if (allLocations.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full bg-gray-50 p-8 text-center">
+      <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-bp-dark-surface p-8 text-center">
         <div className="max-w-xs">
             <Text className="text-gray-400 font-medium italic mb-2">No geocoded locations available.</Text>
             <Text className="text-gray-400 text-xs">Articles must have identified locations and successful geocoding to appear on the map.</Text>
@@ -204,7 +212,7 @@ export function MapView({ articles, selection, onArticleClick }: MapViewProps) {
   }
 
   return (
-    <div className="relative h-full w-full bg-gray-100">
+    <div className="relative h-full w-full bg-gray-100 dark:bg-bp-dark-header">
       <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
       <style>{`
         .mapboxgl-map { overflow: visible !important; }

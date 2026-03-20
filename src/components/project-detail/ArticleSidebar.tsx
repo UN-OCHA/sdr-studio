@@ -167,7 +167,7 @@ export function ArticleSidebar({
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="p-2 border-b border-gray-200 bg-gray-100 space-y-2">
+      <div className="p-2 border-b border-gray-200 dark:border-bp-dark-border bg-gray-100 dark:bg-bp-dark-header space-y-2">
         <div className="flex gap-2">
           <InputGroup
             leftIcon="search"
@@ -354,7 +354,7 @@ export function ArticleSidebar({
       </div>
 
       {isProcessing && stats && (
-        <div className="p-3 bg-blue-50 border-b border-blue-100">
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/50">
           <div className="flex justify-between text-[10px] font-bold uppercase text-blue-600 mb-1">
             <span>Processing Articles...</span>
             <span>
@@ -389,8 +389,8 @@ export function ArticleSidebar({
               {articles.map((article) => (
                 <div
                   key={article.id}
-                  className={`flex items-start px-2 py-2 hover:bg-gray-100 border-b border-gray-200 w-full min-w-0 group cursor-pointer ${
-                    selectedArticleId === article.id ? "bg-blue-50/50" : ""
+                  className={`flex items-start px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-bp-dark-border w-full min-w-0 group cursor-pointer ${
+                    selectedArticleId === article.id ? "bg-blue-50/50 dark:bg-blue-900/20" : ""
                   }`}
                   onClick={() => onArticleSelect(article.id)}
                 >
@@ -430,7 +430,7 @@ export function ArticleSidebar({
                       </div>
                     </div>
 
-                    <div className="text-[11px] text-gray-500 line-clamp-1 mb-1 italic">
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-1 mb-1 italic">
                       {article.summary || "No summary available"}
                     </div>
 

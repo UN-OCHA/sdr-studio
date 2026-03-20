@@ -66,7 +66,7 @@ export function ProjectOnboarding({
     <div className="max-w-4xl mx-auto py-12 px-4">
       <div className="text-center mb-12">
         <H2 className="mb-2">Setup your Project</H2>
-        <p className="text-gray-500">
+        <p className="text-gray-500 dark:text-gray-400">
           Configure the extraction engine to start analyzing sources.
         </p>
         <div className="mt-8 max-w-xs mx-auto">
@@ -83,7 +83,7 @@ export function ProjectOnboarding({
         </div>
       </div>
 
-      <Card elevation={2} className="p-0 overflow-hidden bg-white">
+      <Card elevation={2} className="p-0 overflow-hidden bg-white dark:bg-bp-dark-bg">
         <div className="p-8">
           {step === 1 && (
             <div className="animate-[fade-in_0.3s_ease]">
@@ -140,7 +140,7 @@ export function ProjectOnboarding({
                 />
               </div>
               <SectionCard>
-                <p className="text-sm text-gray-500 mb-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                   Paste a list of URLs pointing to news articles (one per line).
                   You can skip this and add them later.
                 </p>
@@ -159,7 +159,7 @@ export function ProjectOnboarding({
 
         <Divider />
 
-        <div className="p-4 bg-gray-50 flex justify-between items-center">
+        <div className="p-4 bg-gray-50 dark:bg-bp-dark-surface flex justify-between items-center">
           <Button
             minimal
             text="Previous"

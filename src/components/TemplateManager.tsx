@@ -131,7 +131,7 @@ export function TemplateManager() {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Spinner />
-        <p className="mt-4 text-gray-500">Loading templates...</p>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading templates...</p>
       </div>
     );
   }
@@ -265,17 +265,17 @@ export function TemplateManager() {
               {templates.map((t) => (
                 <tr key={t.id} onClick={() => openEdit(t)}>
                   <td>
-                    <Icon icon={t.icon as IconName} className="text-gray-500" />
+                    <Icon icon={t.icon as IconName} className="text-gray-500 dark:text-gray-400" />
                   </td>
                   <td className="font-bold">{t.name}</td>
-                  <td className="text-sm text-gray-500">{t.description}</td>
+                  <td className="text-sm text-gray-500 dark:text-gray-400">{t.description}</td>
                   <td>
                     <div className="flex flex-wrap gap-1">
                       {Object.keys(t.extraction_config?.entities || {}).map(
                         (label) => (
                           <span
                             key={label}
-                            className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs border border-blue-100"
+                            className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded text-xs border border-blue-100 dark:border-blue-900/50"
                           >
                             {label}
                           </span>

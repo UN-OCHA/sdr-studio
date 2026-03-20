@@ -40,7 +40,7 @@ export function ProjectHome({ project, onTabChange }: ProjectHomeProps) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Spinner />
-        <p className="mt-4 text-gray-500 font-medium italic">
+        <p className="mt-4 text-gray-500 dark:text-gray-400 font-medium italic">
           Loading project overview...
         </p>
       </div>
@@ -104,12 +104,12 @@ export function ProjectHome({ project, onTabChange }: ProjectHomeProps) {
         subtitle="Essential configuration steps for optimal performance"
       >
         <SectionCard padded={false}>
-          <div className="p-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+          <div className="p-4 bg-gray-50 dark:bg-bp-dark-surface border-b border-gray-100 dark:border-bp-dark-border flex items-center justify-between">
             <div>
-              <div className="text-xs font-bold text-gray-500 uppercase mb-1">
+              <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
                 Setup Progress
               </div>
-              <div className="text-xl font-black text-gray-900">
+              <div className="text-xl font-black text-gray-900 dark:text-white">
                 {completedCount} of {onboardingSteps.length} Steps Complete
               </div>
             </div>
@@ -118,13 +118,14 @@ export function ProjectHome({ project, onTabChange }: ProjectHomeProps) {
             {onboardingSteps.map((step, idx) => (
               <div
                 key={idx}
-                className="p-4 flex items-center gap-4 group hover:bg-white transition-colors"
+                className="p-4 flex items-center gap-4 group hover:bg-white dark:hover:bg-bp-dark-bg transition-colors"
+
               >
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
                     step.completed
-                      ? "bg-green-50 border-green-200 text-green-600"
-                      : "bg-white border-gray-100 text-gray-300"
+                      ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900/50 text-green-600 dark:text-green-400"
+                      : "bg-white dark:bg-bp-dark-bg border-gray-100 dark:border-bp-dark-border text-gray-300"
                   }`}
                 >
                   <Icon
@@ -134,11 +135,11 @@ export function ProjectHome({ project, onTabChange }: ProjectHomeProps) {
                 </div>
                 <div className="flex-1">
                   <div
-                    className={`text-sm font-black tracking-tight ${step.completed ? "text-gray-400 line-through decoration-gray-300" : "text-gray-900"}`}
+                    className={`text-sm font-black tracking-tight ${step.completed ? "text-gray-400 line-through decoration-gray-300" : "text-gray-900 dark:text-white"}`}
                   >
                     {step.title}
                   </div>
-                  <div className="text-[11px] text-gray-500">
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">
                     {step.description}
                   </div>
                 </div>

@@ -13,7 +13,7 @@ export function SettingsSidebar({
   return (
     <div className="p-4 space-y-4">
       <div>
-        <p className="text-[10px] text-gray-500 uppercase font-bold mb-2 pl-2 tracking-wider">
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold mb-2 pl-2 tracking-wider">
           General
         </p>
         <Menu className="bg-transparent p-0">
@@ -39,7 +39,7 @@ export function SettingsSidebar({
       </div>
 
       <div>
-        <p className="text-[10px] text-gray-500 uppercase font-bold mb-2 pl-2 tracking-wider">
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold mb-2 pl-2 tracking-wider">
           Extraction Schema
         </p>
         <Menu className="bg-transparent p-0">
@@ -71,7 +71,7 @@ export function SettingsSidebar({
       </div>
 
       <div>
-        <p className="text-[10px] text-gray-500 uppercase font-bold mb-2 pl-2 tracking-wider">
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold mb-2 pl-2 tracking-wider">
           Data Pipeline
         </p>
         <Menu className="bg-transparent p-0">

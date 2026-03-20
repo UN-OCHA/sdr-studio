@@ -29,8 +29,8 @@ export function TimelineView({ articles, activeArticleId, onArticleClick }: Time
   }, [activeArticleId]);
 
   return (
-    <div className="p-4 bg-gray-50 min-h-full">
-      <div className="relative ml-4 pl-8 border-l-2 border-gray-200 py-4 flex flex-col gap-8">
+    <div className="p-4 bg-gray-50 dark:bg-bp-dark-surface min-h-full">
+      <div className="relative ml-4 pl-8 border-l-2 border-gray-200 dark:border-bp-dark-border py-4 flex flex-col gap-8">
         {sortedArticles.map((article) => {
           const displayDate = new Date(article.event_date || article.created_at);
           const hasLocation = (article.locations || []).length > 0;

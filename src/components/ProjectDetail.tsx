@@ -169,7 +169,7 @@ export function ProjectDetail({
   // If onboarding is not completed, show the onboarding view
   if (!project.onboarding_completed) {
     return (
-      <div className="h-full overflow-y-auto bg-gray-50">
+      <div className="h-full overflow-y-auto bg-gray-50 dark:bg-bp-dark-surface">
         <ProjectOnboarding
           project={project}
           onComplete={onUpdateProject}
@@ -333,10 +333,10 @@ export function ProjectDetail({
         {activeTab !== "home" && activeTab !== "coverage" && (
           <>
             <Panel
-              defaultSize={28}
-              minSize={28}
+              defaultSize={20}
+              minSize={20}
               maxSize={50}
-              className="flex flex-col bg-gray-50 border-r border-gray-200"
+              className="flex flex-col bg-gray-50 dark:bg-bp-dark-surface border-r border-gray-200 dark:border-bp-dark-border min-w-64"
             >
               <div className="grow overflow-y-clip">
                 {activeTab === "articles" ? (
@@ -367,7 +367,9 @@ export function ProjectDetail({
                     onRetryArticle={handleRetryArticle}
                     onLoadMore={() => void fetchArticles(true)}
                     onOpenUrlImportDialog={() => setIsImportDialogOpen(true)}
-                    onOpenFeedImportDialog={() => setIsFeedImportDialogOpen(true)}
+                    onOpenFeedImportDialog={() =>
+                      setIsFeedImportDialogOpen(true)
+                    }
                   />
                 ) : (
                   <SettingsSidebar
@@ -378,14 +380,14 @@ export function ProjectDetail({
               </div>
               <SidebarExportDock project={project} />
             </Panel>
-            <PanelResizeHandle className="w-1.5 bg-gray-100 hover:bg-blue-200 transition-colors border-x border-gray-200 flex items-center justify-center group cursor-col-resize">
+            <PanelResizeHandle className="w-1.5 bg-gray-100 dark:bg-bp-dark-header hover:bg-blue-200 transition-colors border-x border-gray-200 dark:border-bp-dark-border flex items-center justify-center group cursor-col-resize">
               <div className="w-0.5 h-8 bg-gray-300 group-hover:bg-blue-400 rounded-full" />
             </PanelResizeHandle>
           </>
         )}
 
         {/* Main Content */}
-        <Panel className="bg-white flex flex-col overflow-hidden">
+        <Panel className="bg-white dark:bg-bp-dark-bg flex flex-col overflow-hidden">
           <div className="grow overflow-y-auto min-h-0">
             {activeTab === "home" ? (
               <ProjectHome
@@ -476,7 +478,7 @@ export function ProjectDetail({
         title="Import Article URLs"
       >
         <div className="p-6">
-          <p className="mb-4 text-gray-500">
+          <p className="mb-4 text-gray-500 dark:text-gray-400">
             Paste a list of URLs pointing to web pages to scan (one per line).
           </p>
           <TextArea

@@ -260,13 +260,13 @@ export function ExportSettings({
       >
         <SectionCard padded={false}>
           {fields.length === 0 ? (
-            <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded text-gray-400 text-xs italic">
+            <div className="text-center py-10 bg-gray-50 dark:bg-bp-dark-surface border border-dashed border-gray-200 dark:border-bp-dark-border rounded text-gray-400 text-xs italic">
               No custom fields defined. Exports will use default article
               metadata.
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              <div className="flex gap-4 font-bold text-[9px] uppercase tracking-wider text-gray-400 px-4 py-2 bg-gray-50/50">
+              <div className="flex gap-4 font-bold text-[9px] uppercase tracking-wider text-gray-400 px-4 py-2 bg-gray-50/50 dark:bg-bp-dark-surface/50">
                 <div className="w-48">Data Source</div>
                 <div className="grow">Data Point</div>
                 <div className="grow">Export Label</div>
@@ -275,7 +275,7 @@ export function ExportSettings({
               {fields.map((field, index) => (
                 <div
                   key={index}
-                  className="p-3 flex items-center gap-4 hover:bg-gray-50/50 transition-colors"
+                  className="p-3 flex items-center gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
                 >
                   <div className="w-48">
                     <HTMLSelect
@@ -355,7 +355,7 @@ export function ExportSettings({
         <SectionCard className="p-4 space-y-6">
           <div className="grid grid-cols-2 gap-8">
             <div className="space-y-4">
-              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-tight mb-2">
+              <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-tight mb-2">
                 Document Options
               </div>
               <div className="space-y-3">
@@ -381,7 +381,7 @@ export function ExportSettings({
             </div>
 
             <div className="space-y-4">
-              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-tight mb-2">
+              <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-tight mb-2">
                 Header & Grouping
               </div>
               <FormGroup
@@ -456,7 +456,7 @@ export function ExportSettings({
                 <div
                   key={section.id}
                   className={`p-3 flex items-start gap-4 transition-colors ${
-                    section.enabled ? "bg-white" : "bg-gray-50/50 opacity-60"
+                    section.enabled ? "bg-white dark:bg-bp-dark-bg" : "bg-gray-50/50 dark:bg-bp-dark-surface/50 opacity-60"
                   }`}
                 >
                   <div className="flex flex-col pt-1">
@@ -505,7 +505,7 @@ export function ExportSettings({
                     <div className="flex items-center gap-4">
                       <InputGroup
                         small
-                        className="grow font-medium text-gray-800"
+                        className="grow font-medium text-gray-800 dark:text-gray-100"
                         placeholder="Section Title"
                         value={section.title}
                         onChange={(e) =>
@@ -554,7 +554,7 @@ export function ExportSettings({
                           <TextArea
                             fill
                             rows={2}
-                            className="text-xs font-mono bg-gray-50/50"
+                            className="text-xs font-mono bg-gray-50/50 dark:bg-bp-dark-surface/50"
                             placeholder="Markdown content..."
                             value={section.config?.text || ""}
                             onChange={(e) =>
@@ -627,7 +627,7 @@ export function ExportSettings({
         icon="layout-auto"
         collapsible={true}
       >
-        <SectionCard className="p-4 bg-gray-50/30">
+        <SectionCard className="p-4 bg-gray-50/30 dark:bg-bp-dark-surface/30">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Button
               text="Standard OCHA Metadata"
@@ -668,7 +668,7 @@ export function ExportSettings({
         style={{ width: "900px" }}
       >
         <div className="p-0 flex flex-col h-[75vh]">
-          <div className="grow overflow-auto bg-white p-10 border-b border-gray-200">
+          <div className="grow overflow-auto bg-white dark:bg-bp-dark-bg p-10 border-b border-gray-200 dark:border-bp-dark-border">
             {isLoadingPreview ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <Spinner size={32} />
@@ -689,7 +689,7 @@ export function ExportSettings({
               </div>
             )}
           </div>
-          <div className="p-3 flex justify-between items-center bg-gray-50 rounded-b">
+          <div className="p-3 flex justify-between items-center bg-gray-50 dark:bg-bp-dark-surface rounded-b">
             <p className="text-[10px] text-gray-400 italic">
               * This preview uses your currently saved settings.
             </p>

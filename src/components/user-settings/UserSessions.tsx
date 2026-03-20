@@ -58,7 +58,7 @@ export function UserSessions() {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Spinner />
-        <p className="mt-4 text-gray-500 text-sm">Loading active sessions...</p>
+        <p className="mt-4 text-gray-500 dark:text-gray-400 text-sm">Loading active sessions...</p>
       </div>
     );
   }
@@ -100,7 +100,7 @@ export function UserSessions() {
                             </div>
                         </td>
                         <td className="text-xs">{s.location}</td>
-                        <td className="text-xs text-gray-500">
+                        <td className="text-xs text-gray-500 dark:text-gray-400">
                             {new Date(s.last_active).toLocaleString()}
                         </td>
                         <td className="text-right">

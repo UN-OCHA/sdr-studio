@@ -34,7 +34,7 @@ export function UserProfile() {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Spinner />
-        <p className="mt-4 text-gray-500 text-sm">Loading profile...</p>
+        <p className="mt-4 text-gray-500 dark:text-gray-400 text-sm">Loading profile...</p>
       </div>
     );
   }
@@ -46,7 +46,7 @@ export function UserProfile() {
       <Section title="Personal Information" icon="user">
         <SectionCard className="space-y-4">
           <div className="flex items-start gap-8">
-            <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200 overflow-hidden shrink-0">
+            <div className="w-24 h-24 bg-gray-100 dark:bg-bp-dark-header rounded-lg flex items-center justify-center border border-gray-200 dark:border-bp-dark-border overflow-hidden shrink-0">
                 {profile.picture ? (
                     <img src={profile.picture} className="w-full h-full object-cover" />
                 ) : (
@@ -55,23 +55,23 @@ export function UserProfile() {
             </div>
             <div className="grow grid grid-cols-2 gap-y-4 gap-x-8">
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Full Name</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-0.5">Full Name</p>
                     <p className="text-sm font-medium">{profile.name}</p>
                 </div>
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Email Address</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-0.5">Email Address</p>
                     <p className="text-sm font-medium">{profile.email}</p>
                 </div>
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Account Status</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-0.5">Account Status</p>
                     <p className="text-sm capitalize text-green-600 font-bold">{profile.status}</p>
                 </div>
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Last Login</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-0.5">Last Login</p>
                     <p className="text-sm">{profile.last_login ? new Date(profile.last_login).toLocaleString() : "First time"}</p>
                 </div>
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">User ID</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-0.5">User ID</p>
                     <p className="text-xs font-mono text-gray-600">{profile.id}</p>
                 </div>
             </div>

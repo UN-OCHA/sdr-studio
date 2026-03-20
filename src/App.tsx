@@ -2,6 +2,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 import {
   Alignment,
   Button,
+  Classes,
   Menu,
   MenuDivider,
   MenuItem,
@@ -50,10 +51,12 @@ function App() {
     currentProjectId,
     isLoadingProjects,
     errorProjects,
+    isDarkMode,
     fetchProjects,
     setCurrentProjectId,
     updateProject,
     deleteProject,
+    toggleDarkMode,
   } = useStore();
 
   useEffect(() => {
@@ -120,6 +123,25 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.add(Classes.DARK, "dark");
+    } else {
+      document.body.classList.remove(Classes.DARK, "dark");
+    }
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        toggleDarkMode();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [toggleDarkMode]);
+
   if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -129,7 +151,7 @@ function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className={`flex flex-col h-screen overflow-hidden ${isDarkMode ? "dark " + Classes.DARK : ""} bg-white dark:bg-bp-dark-bg text-gray-900 dark:text-white`}>
       <div className="h-12 shrink-0">
         <Navbar fixedToTop>
           <NavbarGroup align={Alignment.START}>
@@ -173,10 +195,10 @@ function App() {
                 content={
                   <Menu>
                     <div className="px-4 py-3 flex flex-col">
-                      <span className="text-xs font-bold text-gray-900 truncate">
+                      <span className="text-xs font-bold text-gray-900 dark:text-white truncate">
                         {user?.name}
                       </span>
-                      <span className="text-[10px] text-gray-500 truncate">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
                         {user?.email}
                       </span>
                     </div>
@@ -199,6 +221,13 @@ function App() {
                     />
                     <MenuDivider />
                     <MenuItem
+                      icon={isDarkMode ? "flash" : "moon"}
+                      text={isDarkMode ? "Light Mode" : "Dark Mode"}
+                      onClick={toggleDarkMode}
+                      labelElement={<span className="text-[9px] text-gray-400">ALT+D</span>}
+                    />
+                    <MenuDivider />
+                    <MenuItem
                       icon="log-out"
                       text="Logout"
                       intent="danger"
@@ -212,12 +241,12 @@ function App() {
                 }
                 position="bottom-right"
               >
-                <button className="flex items-center gap-2 hover:bg-gray-100 p-1 px-2 rounded-lg transition-colors group cursor-pointer border-none bg-transparent outline-none">
+                <button className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 p-1 px-2 rounded-lg transition-colors group cursor-pointer border-none bg-transparent outline-none">
                   <div className="w-7 h-7 rounded-full bg-blue-400 flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-2 ring-white group-hover:bg-blue-600 transition-colors">
                     {getInitials(user?.name)}
                   </div>
                   <div className="flex flex-col items-start leading-none pr-1">
-                    <span className="text-xs font-bold text-gray-700">
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
                       {user?.name?.split(" ")[0]}
                     </span>
                     <span className="text-[9px] text-gray-400">

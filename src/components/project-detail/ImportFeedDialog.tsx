@@ -112,7 +112,7 @@ export function ImportFeedDialog({
         text={
           <div>
             <div className="font-bold text-xs">{item.label}</div>
-            <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
+            <div className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">
               {item.description}
             </div>
           </div>
@@ -200,7 +200,7 @@ export function ImportFeedDialog({
             <Collapse isOpen={showAdvanced}>
               <Card
                 elevation={Elevation.ZERO}
-                className="bg-gray-50 mt-2 space-y-3 border border-gray-200"
+                className="bg-gray-50 dark:bg-bp-dark-surface mt-2 space-y-3 border border-gray-200 dark:border-bp-dark-border"
               >
                 <div className="grid grid-cols-2 gap-4">
                   <FormGroup label="Result Limit" className="mb-0">

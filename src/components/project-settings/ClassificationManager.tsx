@@ -147,12 +147,12 @@ export const ClassificationManager = forwardRef(({
               icon={isMulti ? "property" : "list"}
               subtitle={
                 <div className="flex flex-col">
-                  <span className="text-gray-500 font-bold uppercase tracking-tighter text-[9px] mb-0.5">
+                  <span className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-tighter text-[9px] mb-0.5">
                     {isMulti ? "Multi-label Classification" : "Single Choice Classification"} • Confidence ≥ {t}
                   </span>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {options.slice(0, 8).map(opt => (
-                      <span key={opt} className="text-[10px] text-gray-500 bg-gray-100 px-1 rounded">{opt}</span>
+                      <span key={opt} className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-bp-dark-header px-1 rounded">{opt}</span>
                     ))}
                     {options.length > 8 && <span className="text-[10px] text-gray-400">+{options.length - 8} more</span>}
                   </div>
@@ -180,7 +180,7 @@ export const ClassificationManager = forwardRef(({
         );
       })}
       {entries.length === 0 && (
-        <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded text-gray-400 text-xs italic">
+        <div className="text-center py-10 bg-gray-50 dark:bg-bp-dark-surface border border-dashed border-gray-200 dark:border-bp-dark-border rounded text-gray-400 text-xs italic">
           No classifications defined yet.
         </div>
       )}
@@ -203,7 +203,7 @@ export const ClassificationManager = forwardRef(({
           </FormGroup>
 
           <FormGroup label="Options" labelInfo="(At least one)">
-            <div className="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 bg-white border border-gray-200 rounded max-h-32 overflow-y-auto">
+            <div className="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 bg-white dark:bg-bp-dark-bg border border-gray-200 dark:border-bp-dark-border rounded max-h-32 overflow-y-auto">
               {currentOptions.map((opt) => (
                 <Tooltip key={opt.label} content={opt.description || "No description"}>
                   <Tag
@@ -261,7 +261,7 @@ export const ClassificationManager = forwardRef(({
         </div>
 
         <Divider className="m-0" />
-        <div className="p-3 bg-gray-50 flex justify-end gap-2 rounded-b">
+        <div className="p-3 bg-gray-50 dark:bg-bp-dark-surface flex justify-end gap-2 rounded-b">
           <Button text="Cancel" onClick={() => setIsDialogOpen(false)} minimal />
           <Button
             intent={Intent.PRIMARY}

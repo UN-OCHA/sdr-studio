@@ -87,7 +87,7 @@ export function Dashboard({
         text={
           <div className="flex flex-col py-0.5">
             <span className="font-semibold text-xs">{option.name}</span>
-            <span className="text-[10px] text-gray-500 font-normal leading-tight">
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-normal leading-tight">
               {option.description}
             </span>
           </div>

@@ -36,7 +36,7 @@ export function OrgProfile() {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Spinner />
-        <p className="mt-4 text-gray-500 text-sm">Loading organization profile...</p>
+        <p className="mt-4 text-gray-500 dark:text-gray-400 text-sm">Loading organization profile...</p>
       </div>
     );
   }
@@ -48,7 +48,7 @@ export function OrgProfile() {
       <Section title="General Information" icon="info-sign">
         <SectionCard className="space-y-4">
           <div className="flex items-start gap-8">
-            <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200 overflow-hidden shrink-0">
+            <div className="w-24 h-24 bg-gray-100 dark:bg-bp-dark-header rounded-lg flex items-center justify-center border border-gray-200 dark:border-bp-dark-border overflow-hidden shrink-0">
                 {org.logo_url ? (
                     <img src={org.logo_url} className="w-full h-full object-contain" />
                 ) : (
@@ -57,15 +57,15 @@ export function OrgProfile() {
             </div>
             <div className="grow grid grid-cols-2 gap-y-4 gap-x-8">
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Organization Name</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-0.5">Organization Name</p>
                     <p className="text-sm font-medium">{org.display_name}</p>
                 </div>
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Organization ID</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-0.5">Organization ID</p>
                     <p className="text-xs font-mono text-gray-600">{org.id}</p>
                 </div>
                 <div>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Created At</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-0.5">Created At</p>
                     <p className="text-sm">{new Date(org.created_at).toLocaleDateString()}</p>
                 </div>
             </div>
