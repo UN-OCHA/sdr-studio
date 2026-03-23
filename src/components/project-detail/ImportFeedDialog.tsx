@@ -1,6 +1,7 @@
 import {
   Button,
   Card,
+  Checkbox,
   Collapse,
   Dialog,
   Divider,
@@ -11,12 +12,13 @@ import {
   Intent,
   MenuItem,
   NumericInput,
+  Tag,
 } from "@blueprintjs/core";
 import { Select, type ItemRenderer } from "@blueprintjs/select";
 import { useState } from "react";
 import { projectsApi } from "../../api";
 import { useToaster } from "../../hooks/useToaster";
-import type { Project } from "../../types";
+import type { Project, DiscoveryArticle } from "../../types";
 
 interface ImportFeedDialogProps {
   project: Project;
@@ -55,7 +57,11 @@ const SOURCE_LABELS: Record<string, string> = {
   brave: "Search Query",
 };
 
-const SOURCE_TYPE_MAP = Object.fromEntries(SOURCE_TYPES.map(s => [s.value, s]));
+const SOURCE_TYPE_MAP = Object.fromEntries(
+  SOURCE_TYPES.map((s) => [s.value, s]),
+);
+
+type Step = "config" | "preview";
 
 export function ImportFeedDialog({
   project,
@@ -63,16 +69,22 @@ export function ImportFeedDialog({
   onClose,
   onRefresh,
 }: ImportFeedDialogProps) {
+  const [step, setStep] = useState<Step>("config");
   const [type, setType] = useState("rss");
   const [url, setUrl] = useState("");
   const [config, setConfig] = useState<any>({ limit: 10 });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [previewArticles, setPreviewArticles] = useState<DiscoveryArticle[]>([]);
+  const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const { toaster } = useToaster();
 
-  const handleImport = async () => {
+  const handleDiscovery = async () => {
     if (!url) {
-      toaster?.show({ message: "Please enter a URL or query", intent: Intent.WARNING });
+      toaster?.show({
+        message: "Please enter a URL or query",
+        intent: Intent.WARNING,
+      });
       return;
     }
 
@@ -83,14 +95,21 @@ export function ImportFeedDialog({
         url,
         config,
       });
-      toaster?.show({
-        message: result.message,
-        intent: Intent.SUCCESS,
-        icon: "tick",
-      });
-      onRefresh();
-      onClose();
-      setUrl("");
+      
+      if (!result || !result.articles) {
+        throw new Error("Invalid discovery result");
+      }
+
+      setPreviewArticles(result.articles);
+      // Only select those NOT already imported
+      setSelectedUrls(
+        new Set(
+          result.articles
+            .filter((a: DiscoveryArticle) => !a.already_imported)
+            .map((a: DiscoveryArticle) => a.url),
+        ),
+      );
+      setStep("preview");
     } catch (err: any) {
       toaster?.show({
         message: err.message || "Discovery failed",
@@ -98,6 +117,67 @@ export function ImportFeedDialog({
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (selectedUrls.size === 0) {
+      toaster?.show({
+        message: "Please select at least one article",
+        intent: Intent.WARNING,
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await projectsApi.importUrls(
+        project.id,
+        Array.from(selectedUrls),
+      );
+      toaster?.show({
+        message: result.message,
+        intent: Intent.SUCCESS,
+        icon: "tick",
+      });
+      onRefresh();
+      onClose();
+      reset();
+    } catch (err: any) {
+      toaster?.show({
+        message: err.message || "Import failed",
+        intent: Intent.DANGER,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const reset = () => {
+    setStep("config");
+    setUrl("");
+    setPreviewArticles([]);
+    setSelectedUrls(new Set());
+    setConfig({ limit: 10 });
+  };
+
+  const toggleUrl = (url: string, alreadyImported: boolean) => {
+    if (alreadyImported) return;
+    const next = new Set(selectedUrls);
+    if (next.has(url)) {
+      next.delete(url);
+    } else {
+      next.add(url);
+    }
+    setSelectedUrls(next);
+  };
+
+  const toggleAll = () => {
+    const nonImported = previewArticles.filter((a) => !a.already_imported);
+    if (selectedUrls.size === nonImported.length) {
+      setSelectedUrls(new Set());
+    } else {
+      setSelectedUrls(new Set(nonImported.map((a) => a.url)));
     }
   };
 
@@ -131,197 +211,319 @@ export function ImportFeedDialog({
   };
 
   const currentSourceType = SOURCE_TYPE_MAP[type] || SOURCE_TYPES[0];
-
   const sourceLabel = SOURCE_LABELS[type] || "URL";
 
   return (
     <Dialog
-      title="Import from Feed or Search"
+      title={
+        step === "config" ? "Import from Feed or Search" : "Preview Results"
+      }
       isOpen={isOpen}
-      onClose={onClose}
-      style={{ width: "500px" }}
+      onClose={() => {
+        onClose();
+        reset();
+      }}
+      style={{ width: step === "config" ? "500px" : "800px" }}
     >
       <div className="p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-1">
-            <FormGroup label="Type">
-              <Select<SourceTypeOption>
-                items={SOURCE_TYPES}
-                itemRenderer={renderSourceType}
-                onItemSelect={(item) => {
-                  setType(item.value);
-                  setConfig({ limit: 10 });
-                }}
-                filterable={false}
-                popoverProps={{ minimal: true, matchTargetWidth: true }}
-              >
-                <Button
-                  fill
-                  text={currentSourceType.label}
-                  rightIcon="double-caret-vertical"
-                  alignText="left"
-                  variant="outlined"
-                />
-              </Select>
-            </FormGroup>
-          </div>
-          <div className="md:col-span-2">
-            <FormGroup label={sourceLabel} labelInfo="(required)">
-              <InputGroup
-                placeholder={
-                  type === "rss"
-                    ? "https://reliefweb.int/updates/rss.xml"
-                    : "e.g. floods in South Sudan 2024"
-                }
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-              />
-            </FormGroup>
-          </div>
-        </div>
-
-        {(type === "exa" || type === "brave") && (
+        {step === "config" ? (
           <>
-            <Button
-              minimal
-              small
-              icon={showAdvanced ? "chevron-up" : "chevron-down"}
-              text={
-                showAdvanced
-                  ? "Hide Advanced Settings"
-                  : "Show Advanced Settings"
-              }
-              onClick={() => setShowAdvanced(!showAdvanced)}
-            />
-
-            <Collapse isOpen={showAdvanced}>
-              <Card
-                elevation={Elevation.ZERO}
-                className="bg-gray-50 dark:bg-bp-dark-surface mt-2 space-y-3 border border-gray-200 dark:border-bp-dark-border"
-              >
-                <div className="grid grid-cols-2 gap-4">
-                  <FormGroup label="Result Limit" className="mb-0">
-                    <NumericInput
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1">
+                <FormGroup label="Type">
+                  <Select<SourceTypeOption>
+                    items={SOURCE_TYPES}
+                    itemRenderer={renderSourceType}
+                    onItemSelect={(item) => {
+                      setType(item.value);
+                      setConfig({ limit: 10 });
+                    }}
+                    filterable={false}
+                    popoverProps={{ minimal: true, matchTargetWidth: true }}
+                  >
+                    <Button
                       fill
-                      min={1}
-                      max={50}
-                      value={config.limit || 10}
-                      onValueChange={(val) => updateConfig("limit", val)}
+                      text={currentSourceType.label}
+                      rightIcon="double-caret-vertical"
+                      alignText="left"
+                      variant="outlined"
                     />
-                  </FormGroup>
+                  </Select>
+                </FormGroup>
+              </div>
+              <div className="md:col-span-2">
+                <FormGroup label={sourceLabel} labelInfo="(required)">
+                  <InputGroup
+                    placeholder={
+                      type === "rss"
+                        ? "https://reliefweb.int/updates/rss.xml"
+                        : "e.g. floods in South Sudan 2024"
+                    }
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                  />
+                </FormGroup>
+              </div>
+            </div>
 
-                  {type === "exa" && (
-                    <FormGroup label="Search Type" className="mb-0">
-                      <HTMLSelect
-                        fill
-                        value={config.search_type || "neural"}
-                        onChange={(e) =>
-                          updateConfig("search_type", e.target.value)
-                        }
-                        options={[
-                          { label: "Neural (AI)", value: "neural" },
-                          { label: "Keyword", value: "keyword" },
-                        ]}
-                      />
-                    </FormGroup>
-                  )}
+            {(type === "exa" || type === "brave") && (
+              <>
+                <Button
+                  minimal
+                  small
+                  icon={showAdvanced ? "chevron-up" : "chevron-down"}
+                  text={
+                    showAdvanced
+                      ? "Hide Advanced Settings"
+                      : "Show Advanced Settings"
+                  }
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                />
 
-                  {type === "brave" && (
-                    <FormGroup label="Freshness" className="mb-0">
-                      <HTMLSelect
-                        fill
-                        value={config.freshness || ""}
-                        onChange={(e) =>
-                          updateConfig("freshness", e.target.value)
-                        }
-                        options={[
-                          { label: "Anytime", value: "" },
-                          { label: "Last 24h", value: "pd" },
-                          { label: "Last Week", value: "pw" },
-                          { label: "Last Month", value: "pm" },
-                          { label: "Last Year", value: "py" },
-                        ]}
-                      />
-                    </FormGroup>
-                  )}
-                </div>
+                <Collapse isOpen={showAdvanced}>
+                  <Card
+                    elevation={Elevation.ZERO}
+                    className="bg-gray-50 dark:bg-bp-dark-surface mt-2 space-y-3 border border-gray-200 dark:border-bp-dark-border"
+                  >
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormGroup label="Result Limit" className="mb-0">
+                        <NumericInput
+                          fill
+                          min={1}
+                          max={50}
+                          value={config.limit || 10}
+                          onValueChange={(val) => updateConfig("limit", val)}
+                        />
+                      </FormGroup>
 
-                {type === "exa" && (
-                  <>
-                    <FormGroup label="Category">
-                      <HTMLSelect
-                        fill
-                        value={config.category || ""}
-                        onChange={(e) =>
-                          updateConfig("category", e.target.value)
-                        }
-                        options={[
-                          { label: "General", value: "" },
-                          { label: "News", value: "news" },
-                          {
-                            label: "Research Paper",
-                            value: "research paper",
-                          },
-                          { label: "Tweet", value: "tweet" },
-                          { label: "Blog", value: "blog" },
-                        ]}
-                      />
-                    </FormGroup>
-                    <FormGroup label="Published After (ISO Date)">
-                      <InputGroup
-                        placeholder="YYYY-MM-DD"
-                        value={config.published_after || ""}
-                        onChange={(e) =>
-                          updateConfig("published_after", e.target.value)
-                        }
-                      />
-                    </FormGroup>
-                  </>
-                )}
+                      {type === "exa" && (
+                        <FormGroup label="Search Type" className="mb-0">
+                          <HTMLSelect
+                            fill
+                            value={config.search_type || "neural"}
+                            onChange={(e) =>
+                              updateConfig("search_type", e.target.value)
+                            }
+                            options={[
+                              { label: "Neural (AI)", value: "neural" },
+                              { label: "Keyword", value: "keyword" },
+                            ]}
+                          />
+                        </FormGroup>
+                      )}
 
-                {type === "brave" && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormGroup label="Country (2-letter)">
-                      <InputGroup
-                        placeholder="US, GB, etc."
-                        value={config.country || ""}
-                        onChange={(e) =>
-                          updateConfig(
-                            "country",
-                            e.target.value.toUpperCase(),
-                          )
-                        }
-                      />
-                    </FormGroup>
-                    <FormGroup label="Language (2-letter)">
-                      <InputGroup
-                        placeholder="en, fr, es"
-                        value={config.search_lang || ""}
-                        onChange={(e) =>
-                          updateConfig(
-                            "search_lang",
-                            e.target.value.toLowerCase(),
-                          )
-                        }
-                      />
-                    </FormGroup>
-                  </div>
-                )}
-              </Card>
-            </Collapse>
+                      {type === "brave" && (
+                        <FormGroup label="Freshness" className="mb-0">
+                          <HTMLSelect
+                            fill
+                            value={config.freshness || ""}
+                            onChange={(e) =>
+                              updateConfig("freshness", e.target.value)
+                            }
+                            options={[
+                              { label: "Anytime", value: "" },
+                              { label: "Last 24h", value: "pd" },
+                              { label: "Last Week", value: "pw" },
+                              { label: "Last Month", value: "pm" },
+                              { label: "Last Year", value: "py" },
+                            ]}
+                          />
+                        </FormGroup>
+                      )}
+                    </div>
+
+                    {type === "exa" && (
+                      <>
+                        <FormGroup label="Category">
+                          <HTMLSelect
+                            fill
+                            value={config.category || ""}
+                            onChange={(e) =>
+                              updateConfig("category", e.target.value)
+                            }
+                            options={[
+                              { label: "General", value: "" },
+                              { label: "News", value: "news" },
+                              {
+                                label: "Research Paper",
+                                value: "research paper",
+                              },
+                              { label: "Tweet", value: "tweet" },
+                              { label: "Blog", value: "blog" },
+                            ]}
+                          />
+                        </FormGroup>
+                        <FormGroup label="Published After (ISO Date)">
+                          <InputGroup
+                            placeholder="YYYY-MM-DD"
+                            value={config.published_after || ""}
+                            onChange={(e) =>
+                              updateConfig("published_after", e.target.value)
+                            }
+                          />
+                        </FormGroup>
+                      </>
+                    )}
+
+                    {type === "brave" && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormGroup label="Country (2-letter)">
+                          <InputGroup
+                            placeholder="US, GB, etc."
+                            value={config.country || ""}
+                            onChange={(e) =>
+                              updateConfig(
+                                "country",
+                                e.target.value.toUpperCase(),
+                              )
+                            }
+                          />
+                        </FormGroup>
+                        <FormGroup label="Language (2-letter)">
+                          <InputGroup
+                            placeholder="en, fr, es"
+                            value={config.search_lang || ""}
+                            onChange={(e) =>
+                              updateConfig(
+                                "search_lang",
+                                e.target.value.toLowerCase(),
+                              )
+                            }
+                          />
+                        </FormGroup>
+                      </div>
+                    )}
+                  </Card>
+                </Collapse>
+              </>
+            )}
           </>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">
+                Found {previewArticles.length} articles
+              </div>
+              <Button
+                minimal
+                small
+                text={
+                  selectedUrls.size ===
+                  previewArticles.filter((a) => !a.already_imported).length
+                    ? "Deselect All"
+                    : "Select All"
+                }
+                onClick={toggleAll}
+              />
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto border border-gray-200 dark:border-bp-dark-border rounded">
+              {previewArticles.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  No articles found.
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead className="sticky top-0 bg-white dark:bg-bp-dark-surface z-10">
+                    <tr className="border-b border-gray-200 dark:border-bp-dark-border">
+                      <th className="p-2 w-10"></th>
+                      <th className="p-2 text-xs font-bold uppercase tracking-wider text-gray-500">
+                        Article
+                      </th>
+                      <th className="p-2 text-xs font-bold uppercase tracking-wider text-gray-500 w-24">
+                        Source
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewArticles.map((article) => (
+                      <tr
+                        key={article.url}
+                        className={`border-b border-gray-100 dark:border-bp-dark-border/50 hover:bg-gray-50 dark:hover:bg-white/5 ${
+                          article.already_imported
+                            ? "opacity-60 cursor-not-allowed bg-gray-50/30"
+                            : "cursor-pointer"
+                        }`}
+                        onClick={() =>
+                          toggleUrl(article.url, article.already_imported)
+                        }
+                      >
+                        <td className="p-2">
+                          <Checkbox
+                            className="mb-0"
+                            disabled={article.already_imported}
+                            checked={selectedUrls.has(article.url)}
+                            onChange={() =>
+                              toggleUrl(article.url, article.already_imported)
+                            }
+                          />
+                        </td>
+                        <td className="p-2">
+                          <div className="flex items-center gap-2">
+                            <div className="font-bold text-xs line-clamp-1">
+                              {article.title || "Untitled"}
+                            </div>
+                            {article.already_imported && (
+                              <Tag minimal intent={Intent.SUCCESS} size="small">
+                                Imported
+                              </Tag>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-gray-500 line-clamp-1">
+                            {article.url}
+                          </div>
+                          {article.description && (
+                            <div className="text-[10px] mt-1 text-gray-400 line-clamp-2 italic">
+                              {article.description}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          <div className="text-[10px] bg-gray-100 dark:bg-bp-dark-border px-1.5 py-0.5 rounded inline-block">
+                            {article.source || type.toUpperCase()}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
         )}
 
         <Divider />
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button text="Cancel" onClick={onClose} />
-          <Button
-            intent={Intent.PRIMARY}
-            text="Run Discovery"
-            loading={isSubmitting}
-            onClick={handleImport}
-          />
+          {step === "config" ? (
+            <>
+              <Button text="Cancel" onClick={onClose} />
+              <Button
+                intent={Intent.PRIMARY}
+                text="Search & Preview"
+                loading={isSubmitting}
+                onClick={handleDiscovery}
+              />
+            </>
+          ) : (
+            <>
+              <Button
+                text="Back"
+                disabled={isSubmitting}
+                onClick={() => setStep("config")}
+              />
+              <Button
+                intent={Intent.PRIMARY}
+                text={
+                  isSubmitting
+                    ? "Importing..."
+                    : `Import ${selectedUrls.size} Articles`
+                }
+                loading={isSubmitting}
+                onClick={handleImport}
+              />
+            </>
+          )}
         </div>
       </div>
     </Dialog>

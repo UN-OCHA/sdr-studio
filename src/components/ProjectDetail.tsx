@@ -137,7 +137,13 @@ export function ProjectDetail({
         if (isLoadMore) {
           setArticles((prev) => [...prev, ...data.articles]);
         } else {
-          setArticles(data.articles);
+          setArticles((prev) => {
+            // If the content is identical (excluding status/metadata changes), 
+            // we could potentially be more surgical, but a simple set is fine 
+            // as long as it doesn't break selection.
+            return data.articles;
+          });
+          
           if (data.articles.length > 0 && !selectedArticleId) {
             setSelectedArticleId(data.articles[0].id);
           }
@@ -201,32 +207,39 @@ export function ProjectDetail({
     let interval: number | undefined;
     let wasProcessing = false;
 
-    const fetchStats = async () => {
+    const fetchStatsAndArticles = async () => {
       try {
         const data = await projectsApi.getStats(project.id);
         setStats(data);
 
         const isStillProcessing = data.pending > 0 || data.processing > 0;
 
-        if (wasProcessing && !isStillProcessing) {
+        // Refresh articles list during processing to show progress
+        if (isStillProcessing || (wasProcessing && !isStillProcessing)) {
           void fetchArticles(false);
         }
 
         wasProcessing = isStillProcessing;
 
         if (!isStillProcessing) {
-          if (interval) window.clearInterval(interval);
+          if (interval) {
+            window.clearInterval(interval);
+            interval = undefined;
+          }
         }
       } catch (err) {
         console.error("Failed to fetch project stats:", err);
       }
     };
 
-    void fetchStats().then(() => {
-      if (wasProcessing) {
-        interval = window.setInterval(fetchStats, 3000);
-      }
+    // Initial check
+    void fetchStatsAndArticles().then(() => {
+      // If still processing after initial check, start interval
+      // Note: stats state might not be updated yet, so we rely on local logic
     });
+
+    // Always keep an interval if processing is expected or active
+    interval = window.setInterval(fetchStatsAndArticles, 3000);
 
     return () => {
       if (interval) window.clearInterval(interval);
@@ -409,7 +422,7 @@ export function ProjectDetail({
               maxSize={50}
               className="flex flex-col bg-gray-50 dark:bg-bp-dark-surface border-r border-gray-200 dark:border-bp-dark-border min-w-64"
             >
-              <div className="grow overflow-y-clip">
+              <div className="grow min-h-0 overflow-y-clip">
                 {activeTab === "articles" ? (
                   <ArticleSidebar
                     project={project}

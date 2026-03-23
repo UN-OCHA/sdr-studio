@@ -32,6 +32,7 @@ jobs:
             echo "AUTH0_MANAGEMENT_CLIENT_SECRET=${{ secrets.AUTH0_MANAGEMENT_CLIENT_SECRET }}" >> backend/.env
             echo "AUTH0_CLIENT_ID=${{ secrets.VITE_AUTH0_CLIENT_ID }}" >> backend/.env
             echo "APP_SECRET=${{ secrets.APP_SECRET }}" >> backend/.env
+            echo "EXA_API_KEY=${{ secrets.EXA_API_KEY }}" >> backend/.env
 
             # Rebuild and restart containers
             # Pass secrets to docker-compose build args for frontend
@@ -43,12 +44,12 @@ jobs:
 
             docker compose stop frontend
             docker rmi sdr-studio-frontend || true
-            
+
             docker compose build \
               --build-arg VITE_AUTH0_DOMAIN=${{ secrets.VITE_AUTH0_DOMAIN }} \
               --build-arg VITE_AUTH0_CLIENT_ID=${{ secrets.VITE_AUTH0_CLIENT_ID }} \
               --build-arg VITE_AUTH0_AUDIENCE=${{ secrets.VITE_AUTH0_AUDIENCE }} \
               --build-arg VITE_AUTH0_ORG_ID_CLAIM=${{ secrets.VITE_AUTH0_ORG_ID_CLAIM }} \
               --build-arg VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }}
-            
+
             docker compose up -d

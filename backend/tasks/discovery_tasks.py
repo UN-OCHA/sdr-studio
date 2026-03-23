@@ -14,7 +14,7 @@ load_dotenv()
 EXA_API_KEY = os.getenv("EXA_API_KEY")
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 
-def discover_exa(query: str, config: Dict[str, Any], limit: int = 10) -> List[str]:
+def discover_exa(query: str, config: Dict[str, Any], limit: int = 10) -> List[Dict[str, Any]]:
     """Search for links using Exa (Metaphor) API."""
     if not EXA_API_KEY:
         print("EXA_API_KEY not found in environment")
@@ -50,12 +50,21 @@ def discover_exa(query: str, config: Dict[str, Any], limit: int = 10) -> List[st
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         response.raise_for_status()
         results = response.json().get("results", [])
-        return [r["url"] for r in results]
+        return [
+            {
+                "url": r["url"],
+                "title": r.get("title", ""),
+                "description": r.get("text", "")[:200] + "..." if r.get("text") else "",
+                "published_date": r.get("publishedDate"),
+                "source": "Exa"
+            }
+            for r in results
+        ]
     except Exception as e:
         print(f"Exa search error: {e}")
         return []
 
-def discover_brave(query: str, config: Dict[str, Any], limit: int = 10) -> List[str]:
+def discover_brave(query: str, config: Dict[str, Any], limit: int = 10) -> List[Dict[str, Any]]:
     """Search for links using Brave Search API."""
     if not BRAVE_API_KEY:
         print("BRAVE_API_KEY not found in environment")
@@ -85,49 +94,52 @@ def discover_brave(query: str, config: Dict[str, Any], limit: int = 10) -> List[
         response = requests.get(url, params=params, headers=headers, timeout=30)
         response.raise_for_status()
         results = response.json().get("web", {}).get("results", [])
-        return [r["url"] for r in results]
+        return [
+            {
+                "url": r["url"],
+                "title": r.get("title", ""),
+                "description": r.get("description", ""),
+                "published_date": r.get("page_age"),
+                "source": "Brave"
+            }
+            for r in results
+        ]
     except Exception as e:
         print(f"Brave search error: {e}")
         return []
 
-def discover_rss(url: str) -> List[str]:
+def discover_rss(url: str) -> List[Dict[str, Any]]:
     """Search for links using RSS feed."""
     try:
         feed = feedparser.parse(url)
-        return [entry.link for entry in feed.entries]
+        return [
+            {
+                "url": entry.link,
+                "title": entry.get("title", ""),
+                "description": entry.get("summary", "")[:200] + "..." if entry.get("summary") else "",
+                "published_date": entry.get("published"),
+                "source": feed.get("feed", {}).get("title", "RSS Feed")
+            }
+            for entry in feed.entries
+        ]
     except Exception as e:
         print(f"RSS fetch error: {e}")
         return []
 
 def run_one_off_discovery(project_id: UUID, type: str, query_or_url: str, config: Dict[str, Any], org_id: str):
-    """Run discovery manually (one-off) and import articles."""
-    with Session(engine) as session:
-        print(f"Manual discovery: {query_or_url} ({type})")
+    """Run discovery manually (one-off) and return articles for preview."""
+    print(f"Manual discovery: {query_or_url} ({type})")
+    
+    limit = config.get("limit", 10)
+    articles = []
+    if type == "exa":
+        articles = discover_exa(query_or_url, config, limit)
+    elif type == "brave":
+        articles = discover_brave(query_or_url, config, limit)
+    elif type == "rss":
+        articles = discover_rss(query_or_url)
         
-        limit = config.get("limit", 10)
-        urls = []
-        if type == "exa":
-            urls = discover_exa(query_or_url, config, limit)
-        elif type == "brave":
-            urls = discover_brave(query_or_url, config, limit)
-        elif type == "rss":
-            urls = discover_rss(query_or_url)
-            
-        if not urls:
-            return 0
-            
-        new_urls = []
-        for url in urls:
-            existing = session.exec(
-                select(Article).where(Article.project_id == project_id).where(Article.url == url)
-            ).first()
-            if not existing:
-                new_urls.append(url)
-                
-        if new_urls:
-            print(f"Manual discovery found {len(new_urls)} new articles")
-            import_articles_logic(project_id, new_urls, org_id, session, None)
-        return len(new_urls)
+    return articles
 
 def discover_from_source(source_id: UUID):
     """Run discovery for a specific source and import new articles."""
@@ -143,9 +155,11 @@ def discover_from_source(source_id: UUID):
         
         urls = []
         if source.type == "exa":
-            urls = discover_exa(source.url, config, limit)
+            articles = discover_exa(source.url, config, limit)
+            urls = [a["url"] for a in articles]
         elif source.type == "brave":
-            urls = discover_brave(source.url, config, limit)
+            articles = discover_brave(source.url, config, limit)
+            urls = [a["url"] for a in articles]
             
         if not urls:
             return

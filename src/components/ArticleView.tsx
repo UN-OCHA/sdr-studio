@@ -2,10 +2,13 @@ import {
   Alert,
   Button,
   Callout,
+  Card,
   Classes,
+  Divider,
   EntityTitle,
   H3,
   H4,
+  H5,
   Icon,
   InputGroup,
   Intent,
@@ -13,11 +16,13 @@ import {
   MenuItem,
   NonIdealState,
   Popover,
+  ProgressBar,
   Section,
   Spinner,
   Tab,
   Tabs,
   Tag,
+  Text,
   Tooltip,
 } from "@blueprintjs/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -697,19 +702,148 @@ export function ArticleView({
         )}
 
         {(isProcessing || article.status === "processing") && (
-          <div className="py-24">
-            <NonIdealState
-              icon={<Spinner intent={Intent.PRIMARY} size={48} />}
-              title="Ingesting Article"
-              description={
-                <div className="flex flex-col items-center gap-2">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    {article.processing_step ||
-                      "Running GLiNER2 multi-capability extraction..."}
+          <div className="max-w-2xl mx-auto py-16">
+            <Card elevation={2} className="p-8 space-y-8">
+              <div className="text-center space-y-2">
+                <H4>Ingesting Article</H4>
+                <Text className="text-gray-500">
+                  Running automated extraction pipeline...
+                </Text>
+              </div>
+
+              <div className="space-y-6">
+                {(
+                  article.processing_steps || [
+                    "Downloading source...",
+                    "Generating summary...",
+                    "Running GLiNER2 extraction & enrichment...",
+                  ]
+                ).map((stepName, idx, arr) => {
+                  const stepOrder =
+                    article.processing_steps || [
+                      "Downloading source...",
+                      "Generating summary...",
+                      "Running GLiNER2 extraction & enrichment...",
+                    ];
+                  const currentStepIdx = stepOrder.indexOf(
+                    article.processing_step || "",
+                  );
+                  const isCompleted = idx < currentStepIdx;
+                  const isActive = idx === currentStepIdx;
+
+                  // Define UI labels and descriptions for backend step names
+                  const stepMeta: Record<
+                    string,
+                    { label: string; description: string }
+                  > = {
+                    "Downloading source...": {
+                      label: "Downloading & Cleaning",
+                      description: "Fetching content and removing boilerplate.",
+                    },
+                    "Generating summary...": {
+                      label: "Generating AI Summary",
+                      description: "Condensing article into key insights.",
+                    },
+                    "Running GLiNER2 extraction & enrichment...": {
+                      label: "Extracting Entities & Relations",
+                      description:
+                        "Identifying locations, dates, and semantic relations.",
+                    },
+                  };
+
+                  const meta = stepMeta[stepName] || {
+                    label: stepName,
+                    description: "Executing task...",
+                  };
+
+                  return (
+                    <div key={stepName} className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${
+                            isCompleted
+                              ? "bg-green-500 border-green-500 text-white"
+                              : isActive
+                                ? "border-blue-500 text-blue-500"
+                                : "border-gray-200 text-gray-300"
+                          }`}
+                        >
+                          {isCompleted ? (
+                            <Icon icon="tick" size={16} />
+                          ) : isActive ? (
+                            <Spinner size={16} intent={Intent.PRIMARY} />
+                          ) : (
+                            <span className="text-xs font-bold">{idx + 1}</span>
+                          )}
+                        </div>
+                        {idx < arr.length - 1 && (
+                          <div
+                            className={`w-0.5 grow mt-2 mb-2 rounded transition-colors ${
+                              isCompleted ? "bg-green-500" : "bg-gray-100"
+                            }`}
+                          />
+                        )}
+                      </div>
+                      <div className="pb-4">
+                        <H5
+                          className={
+                            isCompleted
+                              ? "text-green-600"
+                              : isActive
+                                ? "text-blue-600"
+                                : "text-gray-400"
+                          }
+                        >
+                          {meta.label}
+                        </H5>
+                        <Text
+                          className={
+                            isActive ? "text-gray-700" : "text-gray-400"
+                          }
+                        >
+                          {meta.description}
+                        </Text>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <Divider />
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  <span>Overall Progress</span>
+                  <span>
+                    {Math.round(
+                      (((article.processing_steps || [
+                        "Downloading source...",
+                        "Generating summary...",
+                        "Running GLiNER2 extraction & enrichment...",
+                      ]).indexOf(article.processing_step || "") +
+                        1) /
+                        (article.processing_steps?.length || 3)) *
+                        100,
+                    )}
+                    %
                   </span>
                 </div>
-              }
-            />
+                <ProgressBar
+                  intent={Intent.PRIMARY}
+                  animate={true}
+                  stripes={true}
+                  value={
+                    ((article.processing_steps || [
+                      "Downloading source...",
+                      "Generating summary...",
+                      "Running GLiNER2 extraction & enrichment...",
+                    ]).indexOf(article.processing_step || "") +
+                      1) /
+                    (article.processing_steps?.length || 3)
+                  }
+                />
+              </div>
+            </Card>
           </div>
         )}
 

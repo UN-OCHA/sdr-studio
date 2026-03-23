@@ -17,23 +17,42 @@ def import_articles_logic(project_id: UUID, urls: List[str], org_id: str, sessio
     if not project:
         return None
 
+    imported_count = 0
     for url in urls:
+        # Check if already exists in this project
+        existing = session.exec(
+            select(Article).where(Article.project_id == project_id).where(Article.url == url)
+        ).first()
+        if existing:
+            continue
+            
         article = Article(project_id=project_id, url=url, org_id=org_id)
         session.add(article)
         session.commit()
         session.refresh(article)
+        
+        imported_count += 1
         
         if background_tasks:
             background_tasks.add_task(process_article_task, article.id)
         else:
             from threading import Thread
             Thread(target=process_article_task, args=(article.id,)).start()
-    return len(urls)
+    return imported_count
 
 def _download_and_clean(article: Article, config: dict):
     response = requests.get(article.url, timeout=60, impersonate="chrome", allow_redirects=True)
     response.raise_for_status()
-    doc = Document(response.text)
+    
+    # Sanitize to remove NULL bytes and control characters that break lxml
+    raw_text = response.text
+    if '\x00' in raw_text:
+        raw_text = raw_text.replace('\x00', '')
+        
+    # More aggressive cleanup for other non-printable characters if needed
+    # but NULL is the most common culprit for the reported error.
+    
+    doc = Document(raw_text)
     article.title = doc.title()
     soup = bs4.BeautifulSoup(doc.summary(), "lxml")
     
@@ -175,8 +194,16 @@ def process_article_task(article_id: UUID):
         
         config = project.extraction_config or DEFAULT_CONFIG
         
+        # Define steps based on configuration
+        steps = ["Downloading source..."]
+        # In this simplified version, summary and extraction are always part of the plan
+        # but you could conditionally add them if config allowed disabling them.
+        steps.append("Generating summary...")
+        steps.append("Running GLiNER2 extraction & enrichment...")
+        
         article.status = "processing"
-        article.processing_step = "Downloading source..."
+        article.processing_steps = steps
+        article.processing_step = steps[0]
         article.reviewed = False # Reset reviewed status on reprocess
         session.add(article)
         session.commit()

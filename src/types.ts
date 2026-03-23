@@ -219,6 +219,7 @@ export type Article = {
   }[];
   event_date?: string;
   processing_step: string;
+  processing_steps?: string[];
   created_at: string;
   annotations: Annotation[];
   pinned?: boolean;
@@ -294,4 +295,19 @@ export type SourceUpdate = {
   active?: boolean;
   polling_interval?: number;
   config?: any;
+};
+
+export type DiscoveryArticle = {
+  url: string;
+  title: string;
+  description: string;
+  published_date?: string;
+  source?: string;
+  already_imported: boolean;
+};
+
+export type DiscoveryResponse = {
+  articles: DiscoveryArticle[];
+  count: number;
+  message: string;
 };

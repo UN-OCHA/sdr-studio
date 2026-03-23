@@ -6,7 +6,8 @@ from database import get_session
 from auth import get_current_org_id
 from models import (
     Project, Article, ArticleRead, ArticleUpdate, ArticleImport, DiscoveryRequest,
-    ArticleReadWithAnnotations, ArticleListResponse, Annotation, AnnotationUpdate
+    ArticleReadWithAnnotations, ArticleListResponse, Annotation, AnnotationUpdate,
+    DiscoveryResponse
 )
 from tasks.article_tasks import import_articles_logic, process_article_task
 from tasks.discovery_tasks import run_one_off_discovery
@@ -83,7 +84,7 @@ def import_articles(project_id: UUID, data: ArticleImport, background_tasks: Bac
         raise HTTPException(status_code=404, detail="Project not found or access denied")
     return {"message": f"Imported {count} articles and processing started"}
 
-@router.post("/api/projects/{project_id}/discover")
+@router.post("/api/projects/{project_id}/discover", response_model=DiscoveryResponse)
 def discover_articles(project_id: UUID, data: DiscoveryRequest, background_tasks: BackgroundTasks, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
     # Check if project exists and user has access
     project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
@@ -91,8 +92,23 @@ def discover_articles(project_id: UUID, data: DiscoveryRequest, background_tasks
         raise HTTPException(status_code=404, detail="Project not found or access denied")
     
     # Run discovery in foreground for immediate feedback
-    count = run_one_off_discovery(project_id, data.type, data.url, data.config or {}, org_id)
-    return {"message": f"Discovery finished. Found {count} new articles.", "count": count}
+    raw_articles = run_one_off_discovery(project_id, data.type, data.url, data.config or {}, org_id)
+    
+    # Check which ones are already imported
+    existing_urls = set(session.exec(
+        select(Article.url).where(Article.project_id == project_id)
+    ).all())
+    
+    articles = []
+    for a in raw_articles:
+        a["already_imported"] = a["url"] in existing_urls
+        articles.append(a)
+
+    return {
+        "articles": articles,
+        "count": len(articles),
+        "message": f"Discovery finished. Found {len(articles)} articles."
+    }
 
 @router.get("/api/articles/{article_id}", response_model=ArticleReadWithAnnotations)
 def get_article(article_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):

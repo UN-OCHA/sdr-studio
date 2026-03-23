@@ -21,6 +21,7 @@ class ArticleBase(SQLModel):
     summary: str = ""
     status: str = "pending"  # pending, processing, completed, error
     processing_step: Optional[str] = None # e.g. "Downloading", "Cleaning", "Summarizing", etc.
+    processing_steps: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
     reviewed: bool = Field(default=False)
     error_message: Optional[str] = None
     structured_data: Optional[Dict[str, Any]] = Field(default={}, sa_column=Column(JSON))
@@ -223,6 +224,19 @@ class TrainingRequest(SQLModel):
 
 class ArticleImport(SQLModel):
     urls: List[str]
+
+class DiscoveryArticle(SQLModel):
+    url: str
+    title: str = ""
+    description: str = ""
+    published_date: Optional[str] = None
+    source: Optional[str] = None
+    already_imported: bool = False
+
+class DiscoveryResponse(SQLModel):
+    articles: List[DiscoveryArticle]
+    count: int
+    message: str
 
 class DiscoveryRequest(SQLModel):
     url: str
