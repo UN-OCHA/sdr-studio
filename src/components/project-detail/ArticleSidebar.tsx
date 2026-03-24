@@ -88,7 +88,6 @@ export function ArticleSidebar({
   articles,
   totalCount,
   stats,
-  isLoading,
   selectedArticleId,
   checkedArticleIds,
   search,
