@@ -18,9 +18,9 @@ import {
 import { Select, type ItemRenderer } from "@blueprintjs/select";
 import { useState } from "react";
 import TimeAgo from "react-timeago";
+import { useTemplates } from "../hooks/queries";
 import type { Project, ProjectCreate, ProjectTemplate } from "../types";
 import { IconPicker } from "./IconPicker";
-import { useTemplates } from "../hooks/queries";
 
 type DashboardProps = {
   projects: Project[];
@@ -89,16 +89,17 @@ export function Dashboard({
     );
   };
 
-  const selectedTemplate = selectedTemplateId === "none"
-    ? {
-        id: "none",
-        name: "Blank (No Template)",
-        icon: "blank",
-        description: "Start from scratch.",
-        extraction_config: undefined,
-        export_config: undefined,
-      }
-    : templates.find((t) => t.id === selectedTemplateId);
+  const selectedTemplate =
+    selectedTemplateId === "none"
+      ? {
+          id: "none",
+          name: "Blank (No Template)",
+          icon: "blank",
+          description: "Start from scratch.",
+          extraction_config: undefined,
+          export_config: undefined,
+        }
+      : templates.find((t) => t.id === selectedTemplateId);
 
   return (
     <div className="mx-auto h-full">
@@ -185,6 +186,8 @@ export function Dashboard({
                   title={project.name}
                   subtitle={project.description || "No description provided."}
                   heading={H5}
+                  ellipsize
+                  className="max-h-32"
                 />
               </div>
               <div className="flex justify-between items-center text-xs text-gray-400">

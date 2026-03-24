@@ -26,17 +26,17 @@ import {
 } from "@blueprintjs/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import TimeAgo from "react-timeago";
+import { getProceduralColor } from "../colorUtils";
+import {
+  useArticle,
+  useDeleteArticle,
+  useProcessArticle,
+  useSources,
+  useUpdateAnnotations,
+  useUpdateArticle,
+} from "../hooks/queries";
 import type { Annotation, Article, Project, Source } from "../types";
 import { Annotator } from "./Annotator";
-import { getProceduralColor } from "../colorUtils";
-import { 
-  useUpdateArticle, 
-  useDeleteArticle, 
-  useProcessArticle, 
-  useUpdateAnnotations,
-  useArticle,
-  useSources
-} from "../hooks/queries";
 
 type ArticleViewProps = {
   article: Article;
@@ -69,8 +69,10 @@ export function ArticleView({
 }: ArticleViewProps) {
   // Use useArticle for full article data if needed (polling/fetching)
   const { data: fullArticle } = useArticle(
-    article.status === "completed" && (!article.annotations || article.annotations.length === 0) 
-    ? article.id : null
+    article.status === "completed" &&
+      (!article.annotations || article.annotations.length === 0)
+      ? article.id
+      : null,
   );
 
   const { data: sources = [] } = useSources(article.project_id);
@@ -81,12 +83,22 @@ export function ArticleView({
 
     return (
       <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
-        <Icon 
-          icon={type === "rss" ? "feed" : (type === "exa" || type === "brave") ? "search" : "import"} 
-          size={12} 
+        <Icon
+          icon={
+            type === "rss"
+              ? "feed"
+              : type === "exa" || type === "brave"
+                ? "search"
+                : "import"
+          }
+          size={12}
         />
         <span className="text-[11px]">
-          {source ? source.name : type === "manual" ? "Manual Import" : `${type.toUpperCase()} Discovery`}
+          {source
+            ? source.name
+            : type === "manual"
+              ? "Manual Import"
+              : `${type.toUpperCase()} Discovery`}
         </span>
       </div>
     );
@@ -127,13 +139,15 @@ export function ArticleView({
   // Track review mode exit to auto-save reviewed status
   useEffect(() => {
     if (!isReviewMode && hasChanges) {
-      void updateArticleMutation.mutateAsync({ 
-        id: article.id, 
-        data: { reviewed: true } 
-      }).then((updated) => {
-        onUpdate({ ...article, reviewed: updated.reviewed });
-        setHasChanges(false);
-      });
+      void updateArticleMutation
+        .mutateAsync({
+          id: article.id,
+          data: { reviewed: true },
+        })
+        .then((updated) => {
+          onUpdate({ ...article, reviewed: updated.reviewed });
+          setHasChanges(false);
+        });
     }
   }, [isReviewMode, hasChanges, article, onUpdate, updateArticleMutation]);
 
@@ -177,28 +191,37 @@ export function ArticleView({
     }
   }, [article.reviewed, executeProcess]);
 
-  const handleAnnotationChange = useCallback(async (newAnnotations: Annotation[]) => {
-    try {
-      await updateAnnotationsMutation.mutateAsync({ id: article.id, annotations: newAnnotations });
-      setHasChanges(true);
-      onUpdate({ ...article, annotations: newAnnotations });
-    } catch (error) {
-      console.error("Failed to update annotations:", error);
-    }
-  }, [article, onUpdate, updateAnnotationsMutation]);
+  const handleAnnotationChange = useCallback(
+    async (newAnnotations: Annotation[]) => {
+      try {
+        await updateAnnotationsMutation.mutateAsync({
+          id: article.id,
+          annotations: newAnnotations,
+        });
+        setHasChanges(true);
+        onUpdate({ ...article, annotations: newAnnotations });
+      } catch (error) {
+        console.error("Failed to update annotations:", error);
+      }
+    },
+    [article, onUpdate, updateAnnotationsMutation],
+  );
 
-  const updateStructuredData = useCallback(async (newData: Record<string, unknown>) => {
-    try {
-      const updated = await updateArticleMutation.mutateAsync({
-        id: article.id,
-        data: { structured_data: newData },
-      });
-      setHasChanges(true);
-      onUpdate({ ...article, structured_data: updated.structured_data });
-    } catch (error) {
-      console.error("Failed to update structured data:", error);
-    }
-  }, [article, onUpdate, updateArticleMutation]);
+  const updateStructuredData = useCallback(
+    async (newData: Record<string, unknown>) => {
+      try {
+        const updated = await updateArticleMutation.mutateAsync({
+          id: article.id,
+          data: { structured_data: newData },
+        });
+        setHasChanges(true);
+        onUpdate({ ...article, structured_data: updated.structured_data });
+      } catch (error) {
+        console.error("Failed to update structured data:", error);
+      }
+    },
+    [article, onUpdate, updateArticleMutation],
+  );
 
   const handleUpdateClassification = (
     name: string,
@@ -208,62 +231,71 @@ export function ArticleView({
     void updateStructuredData(next);
   };
 
-  const handleUpdateField = useCallback((
-    structName: string,
-    fieldName: string,
-    value: unknown,
-    recordIndex: number = 0,
-  ) => {
-    const rawData = article.structured_data?.[structName];
-    const records = Array.isArray(rawData) ? [...rawData] : [rawData || {}];
+  const handleUpdateField = useCallback(
+    (
+      structName: string,
+      fieldName: string,
+      value: unknown,
+      recordIndex: number = 0,
+    ) => {
+      const rawData = article.structured_data?.[structName];
+      const records = Array.isArray(rawData) ? [...rawData] : [rawData || {}];
 
-    const targetRecord = { ...(records[recordIndex] || {}) } as Record<
-      string,
-      unknown
-    >;
-    targetRecord[fieldName] = value;
-    records[recordIndex] = targetRecord;
+      const targetRecord = { ...(records[recordIndex] || {}) } as Record<
+        string,
+        unknown
+      >;
+      targetRecord[fieldName] = value;
+      records[recordIndex] = targetRecord;
 
-    const nextData = {
-      ...article.structured_data,
-      [structName]: Array.isArray(rawData) ? records : records[0],
-    };
-    void updateStructuredData(nextData);
-  }, [article.structured_data, updateStructuredData]);
-
-  const handleAddRecord = useCallback((structName: string) => {
-    const rawData = article.structured_data?.[structName];
-    const records = Array.isArray(rawData) ? [...rawData] : [rawData || {}];
-
-    // Create an empty record
-    records.push({});
-
-    const nextData = {
-      ...article.structured_data,
-      [structName]: Array.isArray(rawData) ? records : records[0],
-    };
-    void updateStructuredData(nextData);
-  }, [article.structured_data, updateStructuredData]);
-
-  const handleDeleteRecord = useCallback((structName: string, index: number) => {
-    const rawData = article.structured_data?.[structName];
-    if (!Array.isArray(rawData)) {
-      // If it's not an array, just clear it
-      const nextData = { ...article.structured_data };
-      delete nextData[structName];
+      const nextData = {
+        ...article.structured_data,
+        [structName]: Array.isArray(rawData) ? records : records[0],
+      };
       void updateStructuredData(nextData);
-      return;
-    }
+    },
+    [article.structured_data, updateStructuredData],
+  );
 
-    const nextRecords = rawData.filter((_val, i) => i !== index);
-    const nextData = {
-      ...article.structured_data,
-      [structName]: nextRecords.length > 0 ? nextRecords : undefined,
-    };
-    if (!nextData[structName]) delete nextData[structName];
+  const handleAddRecord = useCallback(
+    (structName: string) => {
+      const rawData = article.structured_data?.[structName];
+      const records = Array.isArray(rawData) ? [...rawData] : [rawData || {}];
 
-    void updateStructuredData(nextData);
-  }, [article.structured_data, updateStructuredData]);
+      // Create an empty record
+      records.push({});
+
+      const nextData = {
+        ...article.structured_data,
+        [structName]: Array.isArray(rawData) ? records : records[0],
+      };
+      void updateStructuredData(nextData);
+    },
+    [article.structured_data, updateStructuredData],
+  );
+
+  const handleDeleteRecord = useCallback(
+    (structName: string, index: number) => {
+      const rawData = article.structured_data?.[structName];
+      if (!Array.isArray(rawData)) {
+        // If it's not an array, just clear it
+        const nextData = { ...article.structured_data };
+        delete nextData[structName];
+        void updateStructuredData(nextData);
+        return;
+      }
+
+      const nextRecords = rawData.filter((_val, i) => i !== index);
+      const nextData = {
+        ...article.structured_data,
+        [structName]: nextRecords.length > 0 ? nextRecords : undefined,
+      };
+      if (!nextData[structName]) delete nextData[structName];
+
+      void updateStructuredData(nextData);
+    },
+    [article.structured_data, updateStructuredData],
+  );
 
   const handleUpdateRelation = (
     relType: string,
@@ -275,7 +307,9 @@ export function ArticleView({
       ...(article.structured_data?.relation_extraction || {}),
     } as Record<string, RelationInstance[]>;
     const instances = [...(nextRelations[relType] || [])];
-    const current = { ...(instances[index] || { head: { text: "" }, tail: { text: "" } }) };
+    const current = {
+      ...(instances[index] || { head: { text: "" }, tail: { text: "" } }),
+    };
 
     current[field] = { ...current[field], text: value };
 
@@ -386,9 +420,8 @@ export function ArticleView({
           isOpen: !collapsed.structured,
           onToggle: () => toggleCollapse("structured"),
         }}
-        className="flex flex-col"
       >
-        <div className="space-y-6 p-4 h-full">
+        <div className="space-y-6 p-4">
           {structures.map((struct) => {
             const rawData = article.structured_data?.[struct.name];
             const records = (
@@ -616,9 +649,9 @@ export function ArticleView({
   ]);
 
   return (
-    <div className="relative animate-[fade-in_0.3s_ease] @container">
+    <div className="relative animate-[fade-in_0.3s_ease] @container flex flex-col min-h-full">
       {/* Article Content */}
-      <div className="mx-auto px-4 pt-4">
+      <div className="mx-auto px-4 pt-4 w-full flex-grow">
         <header className="mb-4 border-b border-gray-100 dark:border-bp-dark-border pb-1">
           <div className="flex items-start gap-4 mb-2">
             <div className="flex-1">
@@ -667,7 +700,10 @@ export function ArticleView({
               <Button
                 intent={Intent.PRIMARY}
                 icon="refresh"
-                loading={processArticleMutation.isPending || article.status === "processing"}
+                loading={
+                  processArticleMutation.isPending ||
+                  article.status === "processing"
+                }
                 text="Reprocess"
                 onClick={handleProcess}
               />
@@ -715,9 +751,13 @@ export function ArticleView({
           </div>
         )}
 
-        {(processArticleMutation.isPending || article.status === "processing") && (
+        {(processArticleMutation.isPending ||
+          article.status === "processing") && (
           <div className="max-w-xl mx-auto py-12 px-4">
-            <Card elevation={1} className="p-0! overflow-hidden border-0 shadow-lg bg-white dark:bg-bp-dark-surface">
+            <Card
+              elevation={1}
+              className="p-0! overflow-hidden border-0 shadow-lg bg-white dark:bg-bp-dark-surface"
+            >
               <div className="bg-gray-50 dark:bg-bp-dark-header border-b border-gray-200 dark:border-bp-dark-border px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Spinner size={20} intent={Intent.PRIMARY} />
@@ -728,13 +768,20 @@ export function ArticleView({
                     </Text>
                   </div>
                 </div>
-                <Tag minimal round intent={Intent.PRIMARY} className="font-bold">
+                <Tag
+                  minimal
+                  round
+                  intent={Intent.PRIMARY}
+                  className="font-bold"
+                >
                   {Math.round(
-                    (((article.processing_steps || [
-                      "Downloading source...",
-                      "Generating summary...",
-                      "Running GLiNER2 extraction & enrichment...",
-                    ]).indexOf(article.processing_step || "") +
+                    (((
+                      article.processing_steps || [
+                        "Downloading source...",
+                        "Generating summary...",
+                        "Running GLiNER2 extraction & enrichment...",
+                      ]
+                    ).indexOf(article.processing_step || "") +
                       1) /
                       (article.processing_steps?.length || 3)) *
                       100,
@@ -751,12 +798,11 @@ export function ArticleView({
                     "Running GLiNER2 extraction & enrichment...",
                   ]
                 ).map((stepName, idx, arr) => {
-                  const stepOrder =
-                    article.processing_steps || [
-                      "Downloading source...",
-                      "Generating summary...",
-                      "Running GLiNER2 extraction & enrichment...",
-                    ];
+                  const stepOrder = article.processing_steps || [
+                    "Downloading source...",
+                    "Generating summary...",
+                    "Running GLiNER2 extraction & enrichment...",
+                  ];
                   const currentStepIdx = stepOrder.indexOf(
                     article.processing_step || "",
                   );
@@ -779,7 +825,8 @@ export function ArticleView({
                     },
                     "Running GLiNER2 extraction & enrichment...": {
                       label: "Extracting Entities & Relations",
-                      description: "Identifying locations and semantic relations.",
+                      description:
+                        "Identifying locations and semantic relations.",
                       icon: "layout-group-by",
                     },
                   };
@@ -805,27 +852,51 @@ export function ArticleView({
                           {isCompleted ? (
                             <Icon icon="tick" size={12} />
                           ) : isActive ? (
-                            <Icon icon={meta.icon} size={12} className="animate-pulse" />
+                            <Icon
+                              icon={meta.icon}
+                              size={12}
+                              className="animate-pulse"
+                            />
                           ) : (
-                            <span className="text-[10px] font-bold">{idx + 1}</span>
+                            <span className="text-[10px] font-bold">
+                              {idx + 1}
+                            </span>
                           )}
                         </div>
                         {idx < arr.length - 1 && (
                           <div
                             className={`w-0.5 grow transition-colors duration-500 ${
-                              isCompleted ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"
+                              isCompleted
+                                ? "bg-green-500"
+                                : "bg-gray-200 dark:bg-gray-700"
                             }`}
                           />
                         )}
                       </div>
-                      <div className={`pb-6 grow transition-opacity duration-300 ${!isActive && !isCompleted ? "opacity-50" : "opacity-100"}`}>
+                      <div
+                        className={`pb-6 grow transition-opacity duration-300 ${!isActive && !isCompleted ? "opacity-50" : "opacity-100"}`}
+                      >
                         <div className="flex items-center gap-2">
-                          <span className={`text-sm font-bold ${
-                            isCompleted ? "text-green-600 dark:text-green-400" : isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-500"
-                          }`}>
+                          <span
+                            className={`text-sm font-bold ${
+                              isCompleted
+                                ? "text-green-600 dark:text-green-400"
+                                : isActive
+                                  ? "text-blue-600 dark:text-blue-400"
+                                  : "text-gray-500"
+                            }`}
+                          >
                             {meta.label}
                           </span>
-                          {isActive && <Tag minimal intent={Intent.PRIMARY} className="text-[9px] h-4 px-1 leading-none uppercase font-black">Active</Tag>}
+                          {isActive && (
+                            <Tag
+                              minimal
+                              intent={Intent.PRIMARY}
+                              className="text-[9px] h-4 px-1 leading-none uppercase font-black"
+                            >
+                              Active
+                            </Tag>
+                          )}
                         </div>
                         <Text className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                           {meta.description}
@@ -848,11 +919,13 @@ export function ArticleView({
                   <ProgressBar
                     intent={Intent.PRIMARY}
                     value={
-                      ((article.processing_steps || [
-                        "Downloading source...",
-                        "Generating summary...",
-                        "Running GLiNER2 extraction & enrichment...",
-                      ]).indexOf(article.processing_step || "") +
+                      ((
+                        article.processing_steps || [
+                          "Downloading source...",
+                          "Generating summary...",
+                          "Running GLiNER2 extraction & enrichment...",
+                        ]
+                      ).indexOf(article.processing_step || "") +
                         1) /
                       (article.processing_steps?.length || 3)
                     }
@@ -877,7 +950,6 @@ export function ArticleView({
                 isOpen: !collapsed.summary,
                 onToggle: () => toggleCollapse("summary"),
               }}
-              className="flex flex-col"
             >
               <div className="p-4 text-gray-800 dark:text-gray-100 leading-relaxed text-sm">
                 {article.summary}
@@ -885,7 +957,7 @@ export function ArticleView({
             </Section>
 
             {/* Middle Section: Analysis Grid (Masonry-lite) */}
-            <div className="columns-1 @3xl:columns-2 gap-6 space-y-6 [column-fill:balance]">
+            <div className="columns-1 @3xl:columns-2 gap-6 space-y-6">
               {/* Classifications Section */}
               {Object.keys(classifications).length > 0 && (
                 <div className="break-inside-avoid">
@@ -897,9 +969,8 @@ export function ArticleView({
                       isOpen: !collapsed.classifications,
                       onToggle: () => toggleCollapse("classifications"),
                     }}
-                    className="flex flex-col"
                   >
-                    <div className="grid grid-cols-1 gap-3 p-4 h-full">
+                    <div className="grid grid-cols-1 gap-3 p-4">
                       {Object.entries(classifications).map(([name, config]) => {
                         const value = article.structured_data?.[name];
                         const choices = Array.isArray(config)
@@ -1049,8 +1120,7 @@ export function ArticleView({
                   ([, instances]) => instances.length > 0,
                 );
 
-                if (activeRelations.length === 0 && !isReviewMode)
-                  return null;
+                if (activeRelations.length === 0 && !isReviewMode) return null;
 
                 return (
                   <div className="break-inside-avoid">
@@ -1062,7 +1132,6 @@ export function ArticleView({
                         isOpen: !collapsed.relations,
                         onToggle: () => toggleCollapse("relations"),
                       }}
-                      className="flex flex-col"
                       rightElement={
                         isReviewMode && allRelTypes.length > 0 ? (
                           <div onClick={(e) => e.stopPropagation()}>
@@ -1088,18 +1157,13 @@ export function ArticleView({
                               }
                               position="bottom"
                             >
-                              <Button
-                                small
-                                minimal
-                                icon="plus"
-                                text="Add"
-                              />
+                              <Button small minimal icon="plus" text="Add" />
                             </Popover>
                           </div>
                         ) : undefined
                       }
                     >
-                      <div className="p-4 space-y-6 h-full bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
+                      <div className="p-4 space-y-6 bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
                         {activeRelations.length === 0 && (
                           <NonIdealState
                             icon="graph"
@@ -1243,9 +1307,8 @@ export function ArticleView({
                         isOpen: !collapsed.other,
                         onToggle: () => toggleCollapse("other"),
                       }}
-                      className="flex flex-col"
                     >
-                      <div className="grid grid-cols-1 gap-4 p-4 h-full bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
+                      <div className="grid grid-cols-1 gap-4 p-4 bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
                         {Object.entries(article.structured_data)
                           .filter(
                             ([k]: [string, unknown]) =>
@@ -1281,18 +1344,18 @@ export function ArticleView({
                   </div>
                 )}
             </div>
+<Section
+  title="Content & Entities"
+  icon="highlight"
+  collapsible
+  collapseProps={{
+    isOpen: !collapsed.content,
+    onToggle: () => toggleCollapse("content"),
+  }}
+  rightElement={
 
-            <Section
-              title="Content & Entities"
-              icon="highlight"
-              collapsible
-              collapseProps={{
-                isOpen: !collapsed.content,
-                onToggle: () => toggleCollapse("content"),
-              }}
-              rightElement={
-                <div 
-                  className="flex items-center gap-4" 
+                <div
+                  className="flex items-center gap-4"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Tabs
@@ -1411,7 +1474,7 @@ export function ArticleView({
 
       {/* Sticky Review Bar */}
       {article.status === "completed" && (
-        <div className="sticky bottom-0 z-50 py-1.5 mt-8 border-t border-gray-300 dark:border-[#5e6064] bg-white dark:bg-bp-dark-bg">
+        <div className="sticky bottom-0 z-50 py-1.5 mt-auto border-t border-gray-300 dark:border-[#5e6064] bg-white dark:bg-bp-dark-bg">
           <div className="mx-auto px-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button
@@ -1446,10 +1509,16 @@ export function ArticleView({
                   NAVIGATE
                 </span>
                 <div className="flex gap-1">
-                  <Tag minimal className="font-mono font-bold text-[10px] px-1.5 min-w-0">
+                  <Tag
+                    minimal
+                    className="font-mono font-bold text-[10px] px-1.5 min-w-0"
+                  >
                     <Icon icon="arrow-left" size={10} />
                   </Tag>
-                  <Tag minimal className="font-mono font-bold text-[10px] px-1.5 min-w-0">
+                  <Tag
+                    minimal
+                    className="font-mono font-bold text-[10px] px-1.5 min-w-0"
+                  >
                     <Icon icon="arrow-right" size={10} />
                   </Tag>
                 </div>

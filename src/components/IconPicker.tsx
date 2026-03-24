@@ -92,9 +92,10 @@ export function IconPicker({ selectedIcon, onSelect }: IconPickerProps) {
       <Button
         icon={(selectedIcon as IconName) || "help"} // Fallback icon
         text={selectedIcon || "Select an icon..."} // Fallback text
-        rightIcon="double-caret-vertical"
+        endIcon="double-caret-vertical"
         fill
         alignText="left"
+        className="capitalize!"
       />
     </Select>
   );
