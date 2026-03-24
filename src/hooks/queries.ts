@@ -309,17 +309,26 @@ export const useDeleteSource = (projectId: string) => {
 // --- Stats ---
 
 export const useProjectStats = (projectId: string) => {
-  return useQuery({
-    queryKey: ["project-stats", projectId],
-    queryFn: () => api.getProjectStats(projectId),
-    enabled: !!projectId,
-    refetchInterval: (query) => {
-      const stats = query.state.data as ProjectStats | undefined;
-      const isProcessing = (stats?.processing || 0) > 0 || (stats?.pending || 0) > 0;
-      return isProcessing ? 3000 : false;
-    },
-  });
+return useQuery({
+  queryKey: ["project-stats", projectId],
+  queryFn: () => api.getProjectStats(projectId),
+  enabled: !!projectId,
+  refetchInterval: (query) => {
+    const stats = query.state.data as ProjectStats | undefined;
+    const isProcessing = (stats?.processing || 0) > 0 || (stats?.pending || 0) > 0;
+    return isProcessing ? 3000 : false;
+  },
+});
 };
+
+export const useProjectUsage = (projectId: string) => {
+return useQuery({
+  queryKey: ["project-usage", projectId],
+  queryFn: () => api.getProjectUsage(projectId),
+  enabled: !!projectId,
+});
+};
+
 
 // --- Templates ---
 

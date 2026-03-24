@@ -13,7 +13,7 @@ from sqlmodel import Session, desc, func, select
 from auth import get_current_org_id, get_org_id_from_api_key
 from database import get_session
 from models import (Annotation, ApiKey, ApiKeyCreate, ApiKeyRead, Article,
-                    Project, ProjectCreate, ProjectRead, ProjectUpdate)
+                    Project, ProjectCreate, ProjectRead, ProjectUpdate, UsageSummary, DiscoveryLog)
 from tasks.article_tasks import process_article_task
 from utils.config import DEFAULT_CONFIG
 from utils.pdf_utils import markdown_to_pdf_typst
@@ -238,6 +238,32 @@ def reprocess_project(project_id: UUID, org_id: str = Depends(get_current_org_id
     session.commit()
     
     return {"message": f"Queued {len(articles)} articles for reprocessing"}
+
+@router.get("/{project_id}/usage", response_model=UsageSummary)
+def get_project_usage(project_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
+    if not project: raise HTTPException(status_code=404, detail="Project not found or access denied")
+    
+    # Calculate costs by type
+    logs = session.exec(select(DiscoveryLog).where(DiscoveryLog.project_id == project_id)).all()
+    by_type = {}
+    total_cost = 0.0
+    for log in logs:
+        by_type[log.type] = by_type.get(log.type, 0.0) + (log.cost or 0.0)
+        total_cost += (log.cost or 0.0)
+        
+    recent_logs = session.exec(
+        select(DiscoveryLog)
+        .where(DiscoveryLog.project_id == project_id)
+        .order_by(desc(DiscoveryLog.created_at))
+        .limit(10)
+    ).all()
+    
+    return UsageSummary(
+        total_cost=total_cost,
+        by_type=by_type,
+        recent_logs=list(recent_logs)
+    )
 
 @router.get("/{project_id}/stats")
 def get_project_stats(project_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):

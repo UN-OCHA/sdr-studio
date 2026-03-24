@@ -46,6 +46,9 @@ type ArticleViewProps = {
   onRefresh: () => void;
   onDelete: () => void;
   onTogglePin?: (article: Article) => void;
+  onNext?: () => void;
+  onPrevious?: () => void;
+  onNavigateToSettings?: (section: any) => void;
 };
 
 interface RelationSide {
@@ -66,6 +69,9 @@ export function ArticleView({
   onRefresh,
   onDelete,
   onTogglePin,
+  onNext,
+  onPrevious,
+  onNavigateToSettings,
 }: ArticleViewProps) {
   // Use useArticle for full article data if needed (polling/fetching)
   const { data: fullArticle } = useArticle(
@@ -76,6 +82,28 @@ export function ArticleView({
   );
 
   const { data: sources = [] } = useSources(article.project_id);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't navigate if the user is typing in an input, textarea, or contentEditable
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement).isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === "ArrowLeft") {
+        onPrevious?.();
+      } else if (e.key === "ArrowRight") {
+        onNext?.();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onNext, onPrevious]);
 
   const getSourceDisplay = () => {
     const type = article.source_type || "manual";
@@ -416,12 +444,26 @@ export function ArticleView({
         title="Structured Analysis"
         icon="database"
         collapsible
+        rightElement={
+          onNavigateToSettings && (
+            <Button
+              minimal
+              small
+              icon="settings"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigateToSettings("structure");
+              }}
+              title="Configure Extraction Structure"
+            />
+          )
+        }
         collapseProps={{
           isOpen: !collapsed.structured,
           onToggle: () => toggleCollapse("structured"),
         }}
       >
-        <div className="space-y-6 p-4">
+        <div className="space-y-4 p-4">
           {structures.map((struct) => {
             const rawData = article.structured_data?.[struct.name];
             const records = (
@@ -675,35 +717,49 @@ export function ArticleView({
             onToggle: () => toggleCollapse("relations"),
           }}
           rightElement={
-            isReviewMode && allRelTypes.length > 0 ? (
-              <div onClick={(e) => e.stopPropagation()}>
-                <Popover
-                  content={
-                    <Menu>
-                      <li className={Classes.MENU_HEADER}>
-                        <h6 className={Classes.HEADING}>
-                          Add Relation Instance
-                        </h6>
-                      </li>
-                      {allRelTypes.map((type) => (
-                        <MenuItem
-                          key={type}
-                          text={type}
-                          icon="plus"
-                          onClick={() => handleAddRelationInstance(type)}
-                        />
-                      ))}
-                    </Menu>
-                  }
-                  position="bottom"
-                >
-                  <Button small minimal icon="plus" text="Add" />
-                </Popover>
-              </div>
-            ) : undefined
+            <div className="flex items-center gap-1">
+              {onNavigateToSettings && (
+                <Button
+                  minimal
+                  small
+                  icon="settings"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigateToSettings("relations");
+                  }}
+                  title="Configure Relations"
+                />
+              )}
+              {isReviewMode && allRelTypes.length > 0 && (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Popover
+                    content={
+                      <Menu>
+                        <li className={Classes.MENU_HEADER}>
+                          <h6 className={Classes.HEADING}>
+                            Add Relation Instance
+                          </h6>
+                        </li>
+                        {allRelTypes.map((type) => (
+                          <MenuItem
+                            key={type}
+                            text={type}
+                            icon="plus"
+                            onClick={() => handleAddRelationInstance(type)}
+                          />
+                        ))}
+                      </Menu>
+                    }
+                    position="bottom"
+                  >
+                    <Button small minimal icon="plus" text="Add" />
+                  </Popover>
+                </div>
+              )}
+            </div>
           }
         >
-          <div className="p-4 space-y-6 bg-white dark:bg-bp-dark-bg">
+          <div className="p-4 4 bg-white dark:bg-bp-dark-bg">
             {activeRelations.length === 0 && (
               <NonIdealState
                 icon="graph"
@@ -912,6 +968,15 @@ export function ArticleView({
     getDisplayText,
     renderValueWithConfidence,
   ]);
+
+  const hasRelations = useMemo(() => {
+    const relations = (article.structured_data?.relation_extraction ||
+      {}) as Record<string, RelationInstance[]>;
+    const activeRelations = Object.values(relations).some(
+      (instances) => instances.length > 0,
+    );
+    return activeRelations || isReviewMode;
+  }, [article.structured_data, isReviewMode]);
 
   return (
     <div className="relative animate-[fade-in_0.3s_ease] @container flex flex-col min-h-full">
@@ -1220,7 +1285,7 @@ export function ArticleView({
         )}
 
         {article.status === "completed" && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Top Section: Summary (Full Width) */}
             <Section
               title="Summary"
@@ -1237,22 +1302,40 @@ export function ArticleView({
             </Section>
 
             {/* Middle Section: Analysis Grid (Masonry-lite for others) */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Grid for Classifications, Structured, and Relations */}
-              <div className="grid grid-cols-1 @4xl:grid-cols-2 gap-6 items-start">
-                <div className="space-y-6">
+              <div
+                className={`grid grid-cols-1 ${hasRelations ? "@4xl:grid-cols-2" : ""} gap-4 items-start`}
+              >
+                <div className="space-y-4">
                   {/* Classifications Section (Full width grid) */}
                   {Object.keys(classifications).length > 0 && (
                     <Section
                       title="Classifications"
                       icon="list-columns"
                       collapsible
+                      rightElement={
+                        onNavigateToSettings && (
+                          <Button
+                            minimal
+                            small
+                            icon="settings"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onNavigateToSettings("classifications");
+                            }}
+                            title="Configure Classifications"
+                          />
+                        )
+                      }
                       collapseProps={{
                         isOpen: !collapsed.classifications,
                         onToggle: () => toggleCollapse("classifications"),
                       }}
                     >
-                      <div className="grid grid-cols-2 @2xl:grid-cols-2 gap-3 p-4">
+                      <div
+                        className={`grid grid-cols-2 ${hasRelations ? "@2xl:grid-cols-2" : "@2xl:grid-cols-4"} gap-3 p-4`}
+                      >
                         {Object.entries(classifications).map(
                           ([name, config]) => {
                             const value = article.structured_data?.[name];
@@ -1383,11 +1466,14 @@ export function ArticleView({
                     </Section>
                   )}
                   {structuredAnalysis}
+                  {!hasRelations && otherAnalysis}
                 </div>
-                <div className="space-y-6">
-                  {relationAnalysis}
-                  {otherAnalysis}
-                </div>
+                {hasRelations && (
+                  <div className="space-y-4">
+                    {relationAnalysis}
+                    {otherAnalysis}
+                  </div>
+                )}
               </div>
             </div>
             <Section
@@ -1403,7 +1489,20 @@ export function ArticleView({
                   className="flex items-center gap-4"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {onNavigateToSettings && (
+                    <Button
+                      minimal
+                      small
+                      icon="settings"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigateToSettings("entities");
+                      }}
+                      title="Configure Entities"
+                    />
+                  )}
                   <Tabs
+
                     id="ArticleContentViewTabs"
                     selectedTabId={activeContentTab}
                     onChange={(id) =>
@@ -1458,7 +1557,7 @@ export function ArticleView({
                     isEditable={isReviewMode}
                   />
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {labels.map((label) => {
                       const labelAnns = (article.annotations || [])
                         .filter((a) => a.label === label)
@@ -1556,13 +1655,17 @@ export function ArticleView({
                 <div className="flex gap-1">
                   <Tag
                     minimal
-                    className="font-mono font-bold text-[10px] px-1.5 min-w-0"
+                    interactive
+                    onClick={onPrevious}
+                    className="font-mono font-bold text-[10px] px-1.5 min-w-0 cursor-pointer hover:bg-gray-200 dark:hover:bg-bp-dark-header"
                   >
                     <Icon icon="arrow-left" size={10} />
                   </Tag>
                   <Tag
                     minimal
-                    className="font-mono font-bold text-[10px] px-1.5 min-w-0"
+                    interactive
+                    onClick={onNext}
+                    className="font-mono font-bold text-[10px] px-1.5 min-w-0 cursor-pointer hover:bg-gray-200 dark:hover:bg-bp-dark-header"
                   >
                     <Icon icon="arrow-right" size={10} />
                   </Tag>

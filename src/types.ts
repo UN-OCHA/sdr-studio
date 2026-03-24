@@ -133,6 +133,7 @@ export type SettingsSection =
   | "classifications"
   | "structures"
   | "monitoring"
+  | "usage"
   | "export"
   | "api"
   | "org-profile"
@@ -288,6 +289,23 @@ export type TrainingRequest = {
   use_early_stopping: boolean;
 };
 
+export type DiscoveryLog = {
+  id: string;
+  project_id: string;
+  source_id?: string;
+  type: string;
+  query: string;
+  cost: number;
+  article_count: number;
+  created_at: string;
+};
+
+export type UsageSummary = {
+  total_cost: number;
+  by_type: Record<string, number>;
+  recent_logs: DiscoveryLog[];
+};
+
 export type Source = {
   id: string;
   project_id: string;
@@ -298,6 +316,8 @@ export type Source = {
   config?: Record<string, unknown>;
   polling_interval: number;
   last_polled?: string;
+  last_polled_cost: number;
+  total_cost: number;
   created_at: string;
 };
 

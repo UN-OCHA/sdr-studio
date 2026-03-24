@@ -9,6 +9,7 @@ import { ExtractionSettings } from "../project-settings/ExtractionSettings";
 import { GeneralSettings } from "../project-settings/GeneralSettings";
 import { ModelLibrary } from "../project-settings/ModelLibrary";
 import { ProjectProfile } from "../project-settings/ProjectProfile";
+import { UsageSummary } from "../project-settings/UsageSummary";
 
 type SettingsContentProps = {
   project: Project;
@@ -36,6 +37,7 @@ const SECTION_TITLES: Partial<Record<SettingsSection, string>> = {
   general: "Intelligence Engine",
   library: "Model Library",
   monitoring: "Monitoring Station",
+  usage: "Project Usage & Costs",
   export: "Export Configuration",
   entities: "Entity Labels",
   relations: "Relations",
@@ -48,6 +50,7 @@ const SECTION_SUBTITLES: Partial<Record<SettingsSection, string>> = {
   general: "Model and sensitivity parameters.",
   library: "Manage trained LoRA adapters.",
   monitoring: "Automated article discovery.",
+  usage: "Track API consumption and costs.",
   export: "Configure how data is formatted for export.",
   api: "Manage API keys for external report integration.",
   entities: "Identify specific spans of text like locations, dates, or names.",
@@ -196,6 +199,8 @@ export function SettingsContent({
       {settingsSection === "monitoring" && (
         <MonitoringStation project={project} ref={monitoringRef} />
       )}
+
+      {settingsSection === "usage" && <UsageSummary projectId={project.id} />}
 
       {settingsSection === "export" && (
         <ExportSettings

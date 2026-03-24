@@ -35,6 +35,12 @@ export function SettingsSidebar({
             active={activeSection === "library"}
             onClick={() => onChangeSection("library")}
           />
+          <MenuItem
+            icon="dollar"
+            text="Usage & Costs"
+            active={activeSection === "usage"}
+            onClick={() => onChangeSection("usage")}
+          />
         </Menu>
       </div>
 

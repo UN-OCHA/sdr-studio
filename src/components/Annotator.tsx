@@ -390,7 +390,7 @@ export function Annotator({
             boxShadow: `inset 0 0 0 1px ${bgColors.solid}`,
           }}
         >
-          <span data-start={start} className="pl-2 pr-1.5">
+          <span data-start={start} className="pl-2 pr-1.5 whitespace-nowrap">
             {segmentText}
           </span>
 

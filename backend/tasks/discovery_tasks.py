@@ -1,11 +1,12 @@
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from uuid import UUID
-from sqlmodel import Session, select
+from sqlmodel import Session, select, desc
 from curl_cffi import requests
 import feedparser
+from datetime import datetime, timezone
 from database import engine
-from models import Source, Article, Project
+from models import Source, Article, Project, DiscoveryLog
 from tasks.article_tasks import import_articles_logic
 from dotenv import load_dotenv
 
@@ -14,11 +15,11 @@ load_dotenv()
 EXA_API_KEY = os.getenv("EXA_API_KEY")
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 
-def discover_exa(query: str, config: Dict[str, Any], limit: int = 10) -> List[Dict[str, Any]]:
+def discover_exa(query: str, config: Dict[str, Any], limit: int = 10) -> Tuple[List[Dict[str, Any]], float]:
     """Search for links using Exa (Metaphor) API."""
     if not EXA_API_KEY:
         print("EXA_API_KEY not found in environment")
-        return []
+        return [], 0.0
     
     url = "https://api.exa.ai/search"
     headers = {
@@ -49,8 +50,17 @@ def discover_exa(query: str, config: Dict[str, Any], limit: int = 10) -> List[Di
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         response.raise_for_status()
-        results = response.json().get("results", [])
-        return [
+        data = response.json()
+        results = data.get("results", [])
+        
+        # Exa API can return cost as a float or a dictionary with a 'total' key
+        raw_cost = data.get("costDollars", data.get("cost", 0.0))
+        if isinstance(raw_cost, dict):
+            cost = raw_cost.get("total", 0.0)
+        else:
+            cost = raw_cost
+            
+        articles = [
             {
                 "url": r["url"],
                 "title": r.get("title", ""),
@@ -60,9 +70,10 @@ def discover_exa(query: str, config: Dict[str, Any], limit: int = 10) -> List[Di
             }
             for r in results
         ]
+        return articles, float(cost)
     except Exception as e:
         print(f"Exa search error: {e}")
-        return []
+        return [], 0.0
 
 def discover_brave(query: str, config: Dict[str, Any], limit: int = 10) -> List[Dict[str, Any]]:
     """Search for links using Brave Search API."""
@@ -132,12 +143,36 @@ def run_one_off_discovery(project_id: UUID, type: str, query_or_url: str, config
     
     limit = config.get("limit", 10)
     articles = []
+    cost = 0.0
+    
     if type == "exa":
-        articles = discover_exa(query_or_url, config, limit)
+        articles, cost = discover_exa(query_or_url, config, limit)
     elif type == "brave":
         articles = discover_brave(query_or_url, config, limit)
     elif type == "rss":
         articles = discover_rss(query_or_url)
+        
+    # Log the discovery
+    if articles or cost > 0:
+        with Session(engine) as session:
+            log = DiscoveryLog(
+                project_id=project_id,
+                type=type,
+                query=query_or_url,
+                cost=cost,
+                article_count=len(articles),
+                org_id=org_id
+            )
+            session.add(log)
+            
+            # Update project total cost
+            project = session.get(Project, project_id)
+            if project:
+                if not project.total_cost: project.total_cost = 0.0
+                project.total_cost += cost
+                session.add(project)
+                
+            session.commit()
         
     return articles
 
@@ -154,13 +189,46 @@ def discover_from_source(source_id: UUID):
         limit = config.get("limit", 10)
         
         urls = []
+        cost = 0.0
+        articles_data = []
+
         if source.type == "exa":
-            articles = discover_exa(source.url, config, limit)
-            urls = [a["url"] for a in articles]
+            articles_data, cost = discover_exa(source.url, config, limit)
+            urls = [a["url"] for a in articles_data]
         elif source.type == "brave":
-            articles = discover_brave(source.url, config, limit)
-            urls = [a["url"] for a in articles]
+            articles_data = discover_brave(source.url, config, limit)
+            urls = [a["url"] for a in articles_data]
+        elif source.type == "rss":
+            articles_data = discover_rss(source.url)
+            urls = [a["url"] for a in articles_data]
             
+        # Log the discovery
+        log = DiscoveryLog(
+            project_id=source.project_id,
+            source_id=source.id,
+            type=source.type,
+            query=source.url,
+            cost=cost,
+            article_count=len(articles_data),
+            org_id=source.org_id
+        )
+        session.add(log)
+
+        # Update source and project totals
+        source.last_polled = datetime.now(timezone.utc)
+        source.last_polled_cost = cost
+        if not source.total_cost: source.total_cost = 0.0
+        source.total_cost += cost
+        session.add(source)
+
+        project = session.get(Project, source.project_id)
+        if project:
+            if not project.total_cost: project.total_cost = 0.0
+            project.total_cost += cost
+            session.add(project)
+
+        session.commit()
+
         if not urls:
             return
             

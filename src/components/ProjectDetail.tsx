@@ -196,6 +196,27 @@ export function ProjectDetail({
 
   const selectedArticle = articles.find((a) => a.id === selectedArticleId);
 
+  const handleNextArticle = useCallback(() => {
+    if (!selectedArticleId || articles.length === 0) return;
+    const currentIndex = articles.findIndex((a) => a.id === selectedArticleId);
+    if (currentIndex < articles.length - 1) {
+      setSelectedArticleId(articles[currentIndex + 1].id);
+    }
+  }, [articles, selectedArticleId]);
+
+  const handlePreviousArticle = useCallback(() => {
+    if (!selectedArticleId || articles.length === 0) return;
+    const currentIndex = articles.findIndex((a) => a.id === selectedArticleId);
+    if (currentIndex > 0) {
+      setSelectedArticleId(articles[currentIndex - 1].id);
+    }
+  }, [articles, selectedArticleId]);
+
+  const handleNavigateToSettings = useCallback((section: SettingsSection) => {
+    setActiveTab("settings");
+    setSettingsSection(section);
+  }, []);
+
   const handleImport = async () => {
     const urls = urlsToImport
       .split("\n")
@@ -436,6 +457,9 @@ export function ProjectDetail({
                     setSelectedArticleId(null);
                   }}
                   onTogglePin={handleTogglePin}
+                  onNext={handleNextArticle}
+                  onPrevious={handlePreviousArticle}
+                  onNavigateToSettings={handleNavigateToSettings}
                 />
               ) : (
                 <div className="p-12">

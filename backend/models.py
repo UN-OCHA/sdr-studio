@@ -40,6 +40,7 @@ class ProjectBase(SQLModel):
     extraction_config: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     export_config: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     onboarding_completed: bool = Field(default=False)
+    total_cost: float = Field(default=0.0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # -- Project Template Models --
@@ -105,6 +106,8 @@ class SourceBase(SQLModel):
     config: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     polling_interval: int = Field(default=15) # In minutes
     last_polled: Optional[datetime] = None
+    last_polled_cost: float = Field(default=0.0)
+    total_cost: float = Field(default=0.0)
     org_id: str = Field(default="public", index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -146,6 +149,24 @@ class ApiKeyBase(SQLModel):
 class ApiKey(ApiKeyBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     project: Project = Relationship(back_populates="api_keys")
+
+# -- Discovery Log Models --
+
+class DiscoveryLog(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    project_id: UUID = Field(foreign_key="project.id")
+    source_id: Optional[UUID] = Field(default=None, foreign_key="source.id")
+    type: str = "exa"  # exa, brave, rss
+    query: str
+    cost: float = 0.0
+    article_count: int = 0
+    org_id: str = Field(index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class UsageSummary(SQLModel):
+    total_cost: float
+    by_type: Dict[str, float]
+    recent_logs: List[DiscoveryLog]
 
 class ApiKeyRead(ApiKeyBase):
     id: UUID

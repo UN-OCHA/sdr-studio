@@ -20,6 +20,7 @@ import type {
   ApiKey,
   ModelAdapter,
   ProjectTemplate,
+  UsageSummary,
 } from "./types";
 
 const API_BASE_URL = "/api";
@@ -159,6 +160,8 @@ export const reprocessProject = (id: string) =>
   });
 
 export const getProjectStats = (id: string) => apiFetch<ProjectStats>(`/projects/${id}/stats`);
+
+export const getProjectUsage = (id: string) => apiFetch<UsageSummary>(`/projects/${id}/usage`);
 
 export const getExportToken = () => apiFetch<{ token: string }>("/export-token", { method: "POST" });
 
