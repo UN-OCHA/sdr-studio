@@ -1,23 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { projectsApi, sourcesApi, articlesApi, templatesApi, orgsApi, usersApi } from "../api";
+import * as api from "../api";
 import type { 
-  Project, 
-  ProjectCreate, 
   ProjectUpdate, 
-  Source, 
   SourceCreate, 
   SourceUpdate, 
   ArticleUpdate, 
   Article, 
   ArticleListResponse,
   ProjectStats,
-  ProjectTemplate,
-  ProjectTemplateCreate,
   ProjectTemplateUpdate,
-  Member,
-  Invitation,
-  Organization,
-  ApiKey,
   ApiKeyCreate,
   ModelAdapter,
   TrainingRequest,
@@ -26,17 +17,18 @@ import type {
 
 // --- Projects ---
 
-export const useProjects = () => {
+export const useProjects = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ["projects"],
-    queryFn: () => projectsApi.list() as Promise<Project[]>,
+    queryFn: api.listProjects,
+    enabled,
   });
 };
 
 export const useProject = (id: string | null) => {
   return useQuery({
     queryKey: ["projects", id],
-    queryFn: () => projectsApi.get(id!) as Promise<Project>,
+    queryFn: () => api.getProject(id!),
     enabled: !!id,
   });
 };
@@ -44,7 +36,10 @@ export const useProject = (id: string | null) => {
 export const useCreateProject = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: ProjectCreate) => projectsApi.create(data) as Promise<Project>,
+    mutationFn: api.createProject,
+    meta: {
+      successMessage: "Project created successfully",
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
@@ -55,7 +50,10 @@ export const useUpdateProject = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: ProjectUpdate }) => 
-      projectsApi.update(id, data) as Promise<Project>,
+      api.updateProject(id, data),
+    meta: {
+      successMessage: "Project updated successfully",
+    },
     onSuccess: (project) => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["projects", project.id] });
@@ -66,7 +64,10 @@ export const useUpdateProject = () => {
 export const useDeleteProject = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => projectsApi.delete(id),
+    mutationFn: api.deleteProject,
+    meta: {
+      successMessage: "Project deleted",
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
@@ -86,7 +87,7 @@ export const useArticles = (projectId: string, params: {
 }) => {
   return useQuery({
     queryKey: ["articles", projectId, params],
-    queryFn: () => projectsApi.listArticles(projectId, params) as Promise<ArticleListResponse>,
+    queryFn: () => api.listProjectArticles(projectId, params),
     enabled: !!projectId,
     refetchInterval: (query) => {
       const data = query.state.data as ArticleListResponse | undefined;
@@ -101,7 +102,7 @@ export const useArticles = (projectId: string, params: {
 export const useArticlesWithLocations = (projectId: string) => {
   return useQuery({
     queryKey: ["articles", projectId, "locations"],
-    queryFn: () => projectsApi.listArticlesWithLocations(projectId) as Promise<Article[]>,
+    queryFn: () => api.listProjectArticlesWithLocations(projectId),
     enabled: !!projectId,
   });
 };
@@ -109,7 +110,7 @@ export const useArticlesWithLocations = (projectId: string) => {
 export const useArticle = (articleId: string | null) => {
   return useQuery({
     queryKey: ["articles", articleId],
-    queryFn: () => articlesApi.get(articleId!) as Promise<Article>,
+    queryFn: () => api.getArticle(articleId!),
     enabled: !!articleId,
     refetchInterval: (query) => {
       const article = query.state.data as Article | undefined;
@@ -124,7 +125,7 @@ export const useUpdateArticle = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: ArticleUpdate }) =>
-      articlesApi.update(id, data) as Promise<Article>,
+      api.updateArticle(id, data),
     onSuccess: (article) => {
       queryClient.invalidateQueries({ queryKey: ["articles", article.project_id] });
       queryClient.invalidateQueries({ queryKey: ["articles", article.id] });
@@ -136,7 +137,7 @@ export const useUpdateAnnotations = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, annotations }: { id: string; annotations: Annotation[] }) =>
-      articlesApi.updateAnnotations(id, annotations) as Promise<Article>,
+      api.updateArticleAnnotations(id, annotations),
     onSuccess: (article) => {
       queryClient.invalidateQueries({ queryKey: ["articles", article.id] });
     },
@@ -146,7 +147,7 @@ export const useUpdateAnnotations = () => {
 export const useDeleteArticle = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => articlesApi.delete(id),
+    mutationFn: api.deleteArticle,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["articles", projectId] });
       queryClient.invalidateQueries({ queryKey: ["project-stats", projectId] });
@@ -157,7 +158,39 @@ export const useDeleteArticle = (projectId: string) => {
 export const useBulkDeleteArticles = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (articleIds: string[]) => projectsApi.bulkDeleteArticles(projectId, articleIds),
+    mutationFn: (articleIds: string[]) => api.bulkDeleteArticles(projectId, articleIds),
+    meta: {
+      successMessage: "Selected articles deleted",
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["articles", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["project-stats", projectId] });
+    },
+  });
+};
+
+export const useBulkReprocessArticles = (projectId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (articleIds: string[]) => api.bulkReprocessArticles(projectId, articleIds),
+    meta: {
+      successMessage: "Articles queued for reprocessing",
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["articles", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["project-stats", projectId] });
+    },
+  });
+};
+
+export const useBulkMarkArticlesReviewed = (projectId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ articleIds, reviewed }: { articleIds: string[]; reviewed: boolean }) =>
+      api.bulkMarkArticlesReviewed(projectId, articleIds, reviewed),
+    meta: {
+      successMessage: "Articles updated",
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["articles", projectId] });
       queryClient.invalidateQueries({ queryKey: ["project-stats", projectId] });
@@ -168,7 +201,10 @@ export const useBulkDeleteArticles = (projectId: string) => {
 export const useImportUrls = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (urls: string[]) => projectsApi.importUrls(projectId, urls),
+    mutationFn: (urls: string[]) => api.importUrls(projectId, urls),
+    meta: {
+      successMessage: "URLs imported successfully",
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["articles", projectId] });
       queryClient.invalidateQueries({ queryKey: ["project-stats", projectId] });
@@ -179,27 +215,33 @@ export const useImportUrls = (projectId: string) => {
 export const useDiscoverArticles = (projectId: string) => {
   return useMutation({
     mutationFn: (data: { type: string; url: string; config?: Record<string, unknown> }) =>
-      projectsApi.discoverArticles(projectId, data),
+      api.discoverArticles(projectId, data),
+    meta: {
+      successMessage: "Discovery task started",
+    },
   });
 };
 
 export const useExportToken = () => {
   return useMutation({
-    mutationFn: () => projectsApi.getExportToken() as Promise<{ token: string }>,
+    mutationFn: api.getExportToken,
   });
 };
 
 export const useReportPreview = (projectId: string) => {
   return useMutation({
     mutationFn: (config: Record<string, unknown>) => 
-      projectsApi.getReportPreview(projectId, config),
+      api.getReportPreview(projectId, config),
   });
 };
 
 export const useReprocessProject = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (projectId: string) => projectsApi.reprocess(projectId),
+    mutationFn: (projectId: string) => api.reprocessProject(projectId),
+    meta: {
+      successMessage: "All articles queued for reprocessing",
+    },
     onSuccess: (_, projectId) => {
       queryClient.invalidateQueries({ queryKey: ["articles", projectId] });
       queryClient.invalidateQueries({ queryKey: ["project-stats", projectId] });
@@ -210,7 +252,10 @@ export const useReprocessProject = () => {
 export const useProcessArticle = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (articleId: string) => articlesApi.process(articleId) as Promise<Article>,
+    mutationFn: (articleId: string) => api.processArticle(articleId),
+    meta: {
+      successMessage: "Article reprocessing started",
+    },
     onSuccess: (article) => {
       queryClient.invalidateQueries({ queryKey: ["articles", article.id] });
       queryClient.invalidateQueries({ queryKey: ["project-stats", article.project_id] });
@@ -224,7 +269,7 @@ export const useProcessArticle = () => {
 export const useSources = (projectId: string) => {
   return useQuery({
     queryKey: ["sources", projectId],
-    queryFn: () => sourcesApi.list(projectId) as Promise<Source[]>,
+    queryFn: () => api.listSources(projectId),
     enabled: !!projectId,
   });
 };
@@ -233,7 +278,7 @@ export const useCreateSource = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ projectId, data }: { projectId: string; data: SourceCreate }) =>
-      sourcesApi.create(projectId, data) as Promise<Source>,
+      api.createSource(projectId, data),
     onSuccess: (source) => {
       queryClient.invalidateQueries({ queryKey: ["sources", source.project_id] });
     },
@@ -244,7 +289,7 @@ export const useUpdateSource = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: SourceUpdate }) =>
-      sourcesApi.update(id, data) as Promise<Source>,
+      api.updateSource(id, data),
     onSuccess: (source) => {
       queryClient.invalidateQueries({ queryKey: ["sources", source.project_id] });
     },
@@ -254,7 +299,7 @@ export const useUpdateSource = () => {
 export const useDeleteSource = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => sourcesApi.delete(id),
+    mutationFn: (id: string) => api.deleteSource(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sources", projectId] });
     },
@@ -266,7 +311,7 @@ export const useDeleteSource = (projectId: string) => {
 export const useProjectStats = (projectId: string) => {
   return useQuery({
     queryKey: ["project-stats", projectId],
-    queryFn: () => projectsApi.getStats(projectId) as Promise<ProjectStats>,
+    queryFn: () => api.getProjectStats(projectId),
     enabled: !!projectId,
     refetchInterval: (query) => {
       const stats = query.state.data as ProjectStats | undefined;
@@ -278,17 +323,18 @@ export const useProjectStats = (projectId: string) => {
 
 // --- Templates ---
 
-export const useTemplates = () => {
+export const useTemplates = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ["templates"],
-    queryFn: () => templatesApi.list() as Promise<ProjectTemplate[]>,
+    queryFn: api.listTemplates,
+    enabled,
   });
 };
 
 export const useCreateTemplate = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: ProjectTemplateCreate) => templatesApi.create(data) as Promise<ProjectTemplate>,
+    mutationFn: api.createTemplate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["templates"] });
     },
@@ -299,7 +345,7 @@ export const useUpdateTemplate = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: ProjectTemplateUpdate }) =>
-      templatesApi.update(id, data) as Promise<ProjectTemplate>,
+      api.updateTemplate(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["templates"] });
     },
@@ -309,7 +355,7 @@ export const useUpdateTemplate = () => {
 export const useDeleteTemplate = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => templatesApi.delete(id),
+    mutationFn: api.deleteTemplate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["templates"] });
     },
@@ -318,31 +364,32 @@ export const useDeleteTemplate = () => {
 
 // --- Organization ---
 
-export const useCurrentOrg = () => {
+export const useCurrentOrg = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ["org", "current"],
-    queryFn: () => orgsApi.getCurrent() as Promise<Organization>,
+    queryFn: api.getCurrentOrg,
+    enabled,
   });
 };
 
 export const useOrgMembers = () => {
   return useQuery({
     queryKey: ["org", "members"],
-    queryFn: () => orgsApi.listMembers() as Promise<Member[]>,
+    queryFn: api.listOrgMembers,
   });
 };
 
 export const useOrgInvitations = () => {
   return useQuery({
     queryKey: ["org", "invitations"],
-    queryFn: () => orgsApi.listInvitations() as Promise<Invitation[]>,
+    queryFn: api.listOrgInvitations,
   });
 };
 
 export const useInviteMember = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (email: string) => orgsApi.inviteMember(email),
+    mutationFn: api.inviteOrgMember,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org", "invitations"] });
     },
@@ -352,7 +399,7 @@ export const useInviteMember = () => {
 export const useUpdateMember = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => orgsApi.updateMember(id, status),
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.updateOrgMember(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org", "members"] });
     },
@@ -362,7 +409,7 @@ export const useUpdateMember = () => {
 export const useRemoveMember = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => orgsApi.removeMember(id),
+    mutationFn: api.removeOrgMember,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org", "members"] });
     },
@@ -371,14 +418,14 @@ export const useRemoveMember = () => {
 
 export const useResendInvitation = () => {
   return useMutation({
-    mutationFn: (id: string) => orgsApi.resendInvitation(id),
+    mutationFn: api.resendOrgInvitation,
   });
 };
 
 export const useRevokeInvitation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => orgsApi.revokeInvitation(id),
+    mutationFn: api.revokeOrgInvitation,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org", "invitations"] });
     },
@@ -387,24 +434,25 @@ export const useRevokeInvitation = () => {
 
 // --- User ---
 
-export const useUserProfile = () => {
+export const useUserProfile = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ["user", "profile"],
-    queryFn: () => usersApi.getMe() as Promise<Member>,
+    queryFn: api.getMe,
+    enabled,
   });
 };
 
 export const useUserSessions = () => {
   return useQuery({
     queryKey: ["user", "sessions"],
-    queryFn: () => usersApi.listSessions(),
+    queryFn: api.listUserSessions,
   });
 };
 
 export const useRevokeSession = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => usersApi.revokeSession(id),
+    mutationFn: api.revokeUserSession,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", "sessions"] });
     },
@@ -413,7 +461,7 @@ export const useRevokeSession = () => {
 
 export const useRequestPasswordReset = () => {
   return useMutation({
-    mutationFn: () => usersApi.requestPasswordReset(),
+    mutationFn: api.requestUserPasswordReset,
   });
 };
 
@@ -422,7 +470,7 @@ export const useRequestPasswordReset = () => {
 export const useApiKeys = (projectId: string) => {
   return useQuery({
     queryKey: ["api-keys", projectId],
-    queryFn: () => projectsApi.listApiKeys(projectId) as Promise<ApiKey[]>,
+    queryFn: () => api.listApiKeys(projectId),
     enabled: !!projectId,
   });
 };
@@ -430,7 +478,7 @@ export const useApiKeys = (projectId: string) => {
 export const useCreateApiKey = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: ApiKeyCreate) => projectsApi.createApiKey(projectId, data) as Promise<ApiKey>,
+    mutationFn: (data: ApiKeyCreate) => api.createApiKey(projectId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["api-keys", projectId] });
     },
@@ -440,7 +488,7 @@ export const useCreateApiKey = (projectId: string) => {
 export const useDeleteApiKey = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => projectsApi.deleteApiKey(id),
+    mutationFn: (id: string) => api.deleteApiKey(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["api-keys", projectId] });
     },
@@ -452,7 +500,7 @@ export const useDeleteApiKey = (projectId: string) => {
 export const useAdapters = (projectId: string) => {
   return useQuery({
     queryKey: ["adapters", projectId],
-    queryFn: () => projectsApi.listAdapters(projectId) as Promise<ModelAdapter[]>,
+    queryFn: () => api.listModelAdapters(projectId),
     enabled: !!projectId,
     refetchInterval: (query) => {
       const adapters = query.state.data as ModelAdapter[] | undefined;
@@ -464,7 +512,7 @@ export const useAdapters = (projectId: string) => {
 export const useTrainAdapter = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: TrainingRequest) => projectsApi.trainAdapter(projectId, data) as Promise<ModelAdapter>,
+    mutationFn: (data: TrainingRequest) => api.trainModelAdapter(projectId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adapters", projectId] });
     },
@@ -474,7 +522,7 @@ export const useTrainAdapter = (projectId: string) => {
 export const useActivateAdapter = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (adapterId: string) => projectsApi.activateAdapter(projectId, adapterId),
+    mutationFn: (adapterId: string) => api.activateModelAdapter(projectId, adapterId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects", projectId] });
       queryClient.invalidateQueries({ queryKey: ["adapters", projectId] });
@@ -485,7 +533,7 @@ export const useActivateAdapter = (projectId: string) => {
 export const useDeactivateAdapter = (projectId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => projectsApi.deactivateAdapter(projectId),
+    mutationFn: () => api.deactivateModelAdapter(projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects", projectId] });
       queryClient.invalidateQueries({ queryKey: ["adapters", projectId] });

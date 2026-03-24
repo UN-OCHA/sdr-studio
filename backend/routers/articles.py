@@ -83,6 +83,33 @@ def bulk_delete_articles(project_id: UUID, article_ids: List[UUID], org_id: str 
     session.commit()
     return {"message": f"Deleted {len(articles)} articles"}
 
+@router.post("/api/projects/{project_id}/articles/bulk-reprocess")
+def bulk_reprocess_articles(project_id: UUID, article_ids: List[UUID], org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found or access denied")
+        
+    articles = session.exec(select(Article).where(Article.id.in_(article_ids)).where(Article.project_id == project_id)).all()
+    for article in articles:
+        article.status = "pending"
+        article.processing_step = None
+        session.add(article)
+    session.commit()
+    return {"message": f"Queued {len(articles)} articles for reprocessing"}
+
+@router.post("/api/projects/{project_id}/articles/bulk-mark-reviewed")
+def bulk_mark_reviewed_articles(project_id: UUID, article_ids: List[UUID], reviewed: bool = True, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+    project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found or access denied")
+        
+    articles = session.exec(select(Article).where(Article.id.in_(article_ids)).where(Article.project_id == project_id)).all()
+    for article in articles:
+        article.reviewed = reviewed
+        session.add(article)
+    session.commit()
+    return {"message": f"Marked {len(articles)} articles as {'reviewed' if reviewed else 'unreviewed'}"}
+
 @router.post("/api/projects/{project_id}/import")
 def import_articles(project_id: UUID, data: ArticleImport, background_tasks: BackgroundTasks, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
     count = import_articles_logic(project_id, data.urls, org_id, session, background_tasks)

@@ -270,17 +270,18 @@ def list_project_articles_with_locations(project_id: UUID, org_id: str = Depends
     project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
     if not project: raise HTTPException(status_code=404, detail="Project not found or access denied")
     
-    # Filter for articles that have geocoded locations (not None and not empty list)
-    # Using SQLModel/SQLAlchemy's func.json_array_length or similar can be tricky across DBs,
-    # so we'll fetch those that aren't null and filter in Python or use a simple check.
+    # Filter for articles that have EITHER geocoded locations OR an event date
     articles = session.exec(
         select(Article)
         .where(Article.project_id == project_id)
-        .where(Article.locations != None)
+        .where((Article.locations != None) | (Article.event_date != None))
     ).all()
     
-    # Ensure they are not empty lists
-    return [a for a in articles if a.locations and len(a.locations) > 0]
+    # Filter in Python to ensure locations list isn't empty if it's the only reason for inclusion
+    return [
+        a for a in articles 
+        if (a.locations and len(a.locations) > 0) or a.event_date
+    ]
 
 # Exports
 @router.get("/{project_id}/export/json")

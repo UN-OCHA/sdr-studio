@@ -19,4 +19,5 @@ python-dotenv
 feedparser
 geopy
 dateparser
+langdetect
 # Add any other specific libraries mentioned by the user if needed

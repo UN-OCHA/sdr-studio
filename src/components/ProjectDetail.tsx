@@ -8,7 +8,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useLocalStorage } from "../hooks/useStorage";
-import { useToaster } from "../hooks/useToaster";
 import type { Article, ArticleListResponse, Project, SettingsSection } from "../types";
 import { ArticleView } from "./ArticleView";
 import { CoverageView } from "./CoverageView";
@@ -27,10 +26,11 @@ import {
   useImportUrls, 
   useReprocessProject, 
   useProcessArticle, 
-  useBulkDeleteArticles 
+  useBulkDeleteArticles,
+  useBulkReprocessArticles,
+  useBulkMarkArticlesReviewed
 } from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
-import { ensureError } from "../utils/errorUtils";
 
 type ProjectDetailProps = {
   project: Project;
@@ -50,7 +50,6 @@ export function ProjectDetail({
     useState<SettingsSection>("profile");
 
   const queryClient = useQueryClient();
-  const { toaster } = useToaster();
 
   // Selection state
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(
@@ -97,6 +96,8 @@ export function ProjectDetail({
   const reprocessProjectMutation = useReprocessProject();
   const processArticleMutation = useProcessArticle();
   const bulkDeleteArticlesMutation = useBulkDeleteArticles(project.id);
+  const bulkReprocessArticlesMutation = useBulkReprocessArticles(project.id);
+  const bulkMarkArticlesReviewedMutation = useBulkMarkArticlesReviewed(project.id);
 
   const articles = useMemo(() => articleData?.articles || [], [articleData?.articles]);
   const totalCount = articleData?.total || 0;
@@ -203,18 +204,10 @@ export function ProjectDetail({
     if (urls.length > 0) {
       try {
         await importUrlsMutation.mutateAsync(urls);
-        toaster?.show({
-          message: `Importing ${urls.length} URLs in the background...`,
-          intent: Intent.PRIMARY,
-          icon: "cloud-upload",
-        });
         setIsImportDialogOpen(false);
         setUrlsToImport("");
       } catch (err: unknown) {
-        toaster?.show({
-          message: ensureError(err).message || "Import failed",
-          intent: Intent.DANGER,
-        });
+        console.error("Import failed:", err);
       }
     }
   };
@@ -235,18 +228,8 @@ export function ProjectDetail({
       onUpdateProject(updated);
       setPendingConfig(null);
       setPendingExportConfig(null);
-      toaster?.show({
-        message: "Project configuration updated successfully",
-        intent: Intent.SUCCESS,
-        icon: "tick",
-      });
     } catch (err: unknown) {
       console.error("Failed to save configuration:", err);
-      toaster?.show({
-        message: ensureError(err).message || "Failed to update project configuration",
-        intent: Intent.DANGER,
-        icon: "error",
-      });
     } finally {
       setIsSaving(false);
     }
@@ -260,18 +243,8 @@ export function ProjectDetail({
         data: updates,
       });
       onUpdateProject(updated);
-      toaster?.show({
-        message: "Project details saved",
-        intent: Intent.SUCCESS,
-        icon: "tick",
-      });
     } catch (err: unknown) {
       console.error("Failed to update project details:", err);
-      toaster?.show({
-        message: "Failed to save project details",
-        intent: Intent.DANGER,
-        icon: "error",
-      });
     } finally {
       setIsSaving(false);
     }
@@ -280,33 +253,16 @@ export function ProjectDetail({
   const handleReprocessAll = async () => {
     try {
       await reprocessProjectMutation.mutateAsync(project.id);
-      toaster?.show({
-        message: "Reprocessing all articles...",
-        intent: Intent.PRIMARY,
-        icon: "automatic-updates",
-      });
     } catch (err: unknown) {
       console.error("Failed to reprocess articles:", err);
-      toaster?.show({
-        message: ensureError(err).message || "Reprocess failed",
-        intent: Intent.DANGER,
-      });
     }
   };
 
   const handleRetryArticle = async (articleId: string) => {
     try {
       await processArticleMutation.mutateAsync(articleId);
-      toaster?.show({
-        message: "Retrying article processing...",
-        intent: Intent.PRIMARY,
-      });
     } catch (err: unknown) {
       console.error("Failed to retry article:", err);
-      toaster?.show({
-        message: ensureError(err).message || "Retry failed",
-        intent: Intent.DANGER,
-      });
     }
   };
 
@@ -316,18 +272,32 @@ export function ProjectDetail({
 
     try {
       await bulkDeleteArticlesMutation.mutateAsync(Array.from(checkedArticleIds));
-      toaster?.show({
-        message: `Deleted ${checkedArticleIds.size} articles`,
-        intent: Intent.SUCCESS,
-        icon: "trash",
-      });
       setCheckedArticleIds(new Set());
     } catch (err: unknown) {
       console.error("Failed to delete articles:", err);
-      toaster?.show({
-        message: ensureError(err).message || "Deletion failed",
-        intent: Intent.DANGER,
+    }
+  };
+
+  const handleBulkReprocess = async () => {
+    if (checkedArticleIds.size === 0) return;
+    try {
+      await bulkReprocessArticlesMutation.mutateAsync(Array.from(checkedArticleIds));
+      setCheckedArticleIds(new Set());
+    } catch (err: unknown) {
+      console.error("Failed to reprocess articles:", err);
+    }
+  };
+
+  const handleBulkMarkReviewed = async (reviewed: boolean) => {
+    if (checkedArticleIds.size === 0) return;
+    try {
+      await bulkMarkArticlesReviewedMutation.mutateAsync({
+        articleIds: Array.from(checkedArticleIds),
+        reviewed,
       });
+      setCheckedArticleIds(new Set());
+    } catch (err: unknown) {
+      console.error("Failed to mark articles reviewed:", err);
     }
   };
 
@@ -386,6 +356,8 @@ export function ProjectDetail({
                     onToggleCheck={handleToggleCheck}
                     onToggleCheckAll={handleToggleCheckAll}
                     onBulkDelete={handleBulkDelete}
+                    onBulkReprocess={handleBulkReprocess}
+                    onBulkMarkReviewed={handleBulkMarkReviewed}
                     onRefresh={() => void refetchArticles()}
                     onReprocessAll={handleReprocessAll}
                     onRetryArticle={handleRetryArticle}

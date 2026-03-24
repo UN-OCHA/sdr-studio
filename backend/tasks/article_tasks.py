@@ -225,8 +225,20 @@ def _run_extraction_and_geocode(article: Article, session: Session, clean_text: 
                 article.event_date = parsed_date
 
 from utils.model_loader import get_summarizer, get_gliner, get_cleaning_model, get_translation_model
+from langdetect import detect, DetectorFactory
+DetectorFactory.seed = 0 # Ensure deterministic detection
 
 def _translate_content(article: Article, raw_text: str, config: dict):
+    # Detect language first
+    try:
+        lang = detect(raw_text)
+        if lang == 'en':
+            print(f"Article {article.id} is already in English ({lang}), skipping translation.")
+            return raw_text
+    except Exception as e:
+        print(f"Language detection failed: {e}")
+        # Default to translate if we can't tell
+
     trans_cfg = config.get("translation", {})
     model_id = trans_cfg.get("model_id", "google-t5/t5-small")
     tokenizer, model = get_translation_model(model_id)
@@ -241,6 +253,9 @@ def _translate_content(article: Article, raw_text: str, config: dict):
     inputs = tokenizer(prompt, return_tensors="pt", max_length=1024, truncation=True)
     outputs = model.generate(inputs["input_ids"], max_length=1024)
     translated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    
+    # IMPORTANT: Update article.content so extraction offsets match what is shown in UI
+    article.content = translated_text
     
     return translated_text
 

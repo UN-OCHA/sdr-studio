@@ -70,6 +70,8 @@ type ArticleSidebarProps = {
   onToggleCheck: (id: string) => void;
   onToggleCheckAll: () => void;
   onBulkDelete: () => void;
+  onBulkReprocess: () => void;
+  onBulkMarkReviewed: (reviewed: boolean) => void;
   onRefresh: () => void;
   onReprocessAll: () => void;
   onRetryArticle: (id: string) => void;
@@ -104,6 +106,8 @@ export function ArticleSidebar({
   onToggleCheck,
   onToggleCheckAll,
   onBulkDelete,
+  onBulkReprocess,
+  onBulkMarkReviewed,
   onRefresh,
   onReprocessAll,
   onRetryArticle,
@@ -317,6 +321,22 @@ export function ArticleSidebar({
           <div className="flex gap-1">
             {checkedArticleIds.size > 0 ? (
               <>
+                <Button
+                  small
+                  minimal
+                  icon="tick"
+                  intent={Intent.SUCCESS}
+                  title={`Mark ${checkedArticleIds.size} as Reviewed`}
+                  onClick={() => onBulkMarkReviewed(true)}
+                />
+                <Button
+                  small
+                  minimal
+                  icon="automatic-updates"
+                  intent={Intent.PRIMARY}
+                  title={`Reprocess ${checkedArticleIds.size} Selected`}
+                  onClick={onBulkReprocess}
+                />
                 <Button
                   small
                   minimal

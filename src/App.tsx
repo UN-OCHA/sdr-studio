@@ -54,7 +54,7 @@ function App() {
     toggleDarkMode,
   } = useStore();
 
-  const { data: projects = [], isLoading: isLoadingProjects, error: errorProjects, refetch: fetchProjects } = useProjects();
+  const { data: projects = [], isLoading: isLoadingProjects, error: errorProjects, refetch: fetchProjects } = useProjects(isTokenReady);
   const createProjectMutation = useCreateProject();
   const deleteProjectMutation = useDeleteProject();
 
