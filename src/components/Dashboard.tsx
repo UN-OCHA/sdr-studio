@@ -16,11 +16,11 @@ import {
   type IconName,
 } from "@blueprintjs/core";
 import { Select, type ItemRenderer } from "@blueprintjs/select";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import TimeAgo from "react-timeago";
-import { templatesApi } from "../api";
 import type { Project, ProjectCreate, ProjectTemplate } from "../types";
 import { IconPicker } from "./IconPicker";
+import { useTemplates } from "../hooks/queries";
 
 type DashboardProps = {
   projects: Project[];
@@ -42,19 +42,13 @@ export function Dashboard({
   onDeleteProject,
 }: DashboardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+  const { data: templates = [] } = useTemplates();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("none");
   const [newProject, setNewProject] = useState({
     name: "",
     description: "",
     icon: "briefcase",
   });
-
-  useEffect(() => {
-    if (isDialogOpen) {
-      void templatesApi.list().then(setTemplates);
-    }
-  }, [isDialogOpen]);
 
   const handleCreate = () => {
     if (!newProject.name) return;
@@ -95,18 +89,16 @@ export function Dashboard({
     );
   };
 
-  const selectedTemplate = useMemo(() => {
-    if (selectedTemplateId === "none") {
-      return {
+  const selectedTemplate = selectedTemplateId === "none"
+    ? {
         id: "none",
         name: "Blank (No Template)",
         icon: "blank",
         description: "Start from scratch.",
         extraction_config: undefined,
-      };
-    }
-    return templates.find((t) => t.id === selectedTemplateId);
-  }, [selectedTemplateId, templates]);
+        export_config: undefined,
+      }
+    : templates.find((t) => t.id === selectedTemplateId);
 
   return (
     <div className="mx-auto h-full">

@@ -16,14 +16,16 @@ import {
   TextArea,
 } from "@blueprintjs/core";
 import { marked } from "marked";
-import { useEffect, useMemo, useState } from "react";
-import { projectsApi } from "../../api";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import type {
   ExportConfig,
   ExportField,
   Project,
   ReportSection,
 } from "../../types";
+import { useReportPreview } from "../../hooks/queries";
+import { ensureError } from "../../utils/errorUtils";
+import { useToaster } from "../../hooks/useToaster";
 
 type ExportSettingsProps = {
   projectId?: string;
@@ -82,27 +84,30 @@ export function ExportSettings({
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewContent, setPreviewContent] = useState("");
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const { showToaster } = useToaster();
+  
+  const reportPreviewMutation = useReportPreview(projectId || "");
 
-  const fetchPreview = async () => {
+  const fetchPreview = useCallback(async () => {
     if (!projectId) return;
-    setIsLoadingPreview(true);
     try {
       // Send the current UNSAVED report state to the backend
-      const data = await projectsApi.getReportPreview(projectId, report);
+      const data = (await reportPreviewMutation.mutateAsync(report)) as {
+        markdown: string;
+      };
       setPreviewContent(data.markdown);
     } catch (err) {
-      console.error("Preview failed", err);
-    } finally {
-      setIsLoadingPreview(false);
+      showToaster(ensureError(err).message, Intent.DANGER);
     }
-  };
+  }, [projectId, report, reportPreviewMutation, showToaster]);
 
   useEffect(() => {
-    setFields(config?.fields || []);
-    if (config?.report) {
-      setReport(config.report);
-    }
+    Promise.resolve().then(() => {
+      setFields(config?.fields || []);
+      if (config?.report) {
+        setReport(config.report);
+      }
+    });
   }, [config]);
 
   const handleUpdate = (updates: Partial<ExportConfig>) => {
@@ -525,7 +530,7 @@ export function ExportSettings({
                           value={section.type}
                           onChange={(e) =>
                             updateReportSection(index, {
-                              type: e.target.value as any,
+                              type: e.target.value as "metadata" | "summary" | "entities" | "structured_data" | "article_list" | "custom_text",
                             })
                           }
                           options={[
@@ -669,7 +674,7 @@ export function ExportSettings({
       >
         <div className="p-0 flex flex-col h-[75vh]">
           <div className="grow overflow-auto bg-white dark:bg-bp-dark-bg p-10 border-b border-gray-200 dark:border-bp-dark-border">
-            {isLoadingPreview ? (
+            {reportPreviewMutation.isPending ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <Spinner size={32} />
                 <p className="mt-4 text-gray-400 italic">
@@ -699,7 +704,7 @@ export function ExportSettings({
                 intent={Intent.PRIMARY}
                 icon="refresh"
                 text="Refresh"
-                loading={isLoadingPreview}
+                loading={reportPreviewMutation.isPending}
                 onClick={fetchPreview}
               />
             </div>

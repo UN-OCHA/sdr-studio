@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { MapView } from "./MapView";
 import { TimelineView } from "./TimelineView";
-import { projectsApi } from "../api";
-import type { Article, Project } from "../types";
+import type { Project } from "../types";
 import {
   NonIdealState,
   Section,
   SectionCard,
   Spinner,
 } from "@blueprintjs/core";
+import { useArticlesWithLocations } from "../hooks/queries";
+import { ensureError } from "../utils/errorUtils";
 
 type CoverageViewProps = {
   project: Project;
@@ -23,34 +24,14 @@ export type SelectionState = {
 };
 
 export function CoverageView({ project }: CoverageViewProps) {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
+  const { data: articles = [], isLoading, error } = useArticlesWithLocations(project.id);
   const [selection, setSelection] = useState<SelectionState | null>(null);
-
-  useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await projectsApi.listArticlesWithLocations(project.id);
-        setArticles(data);
-      } catch (err: any) {
-        setError(err.message || "Failed to fetch location data.");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLocations();
-  }, [project.id]);
 
   const handleArticleSelect = (id: string, source: SelectionSource = "timeline") => {
     setSelection({ id, timestamp: Date.now(), source });
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="p-12">
         <Spinner />
@@ -64,7 +45,7 @@ export function CoverageView({ project }: CoverageViewProps) {
         <NonIdealState
           icon="error"
           title="Error Loading Coverage"
-          description={error}
+          description={ensureError(error).message}
         />
       </div>
     );

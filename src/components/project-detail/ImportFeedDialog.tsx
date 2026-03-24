@@ -16,9 +16,10 @@ import {
 } from "@blueprintjs/core";
 import { Select, type ItemRenderer } from "@blueprintjs/select";
 import { useState } from "react";
-import { projectsApi } from "../../api";
 import { useToaster } from "../../hooks/useToaster";
 import type { Project, DiscoveryArticle } from "../../types";
+import { ensureError } from "../../utils/errorUtils";
+import { useDiscoverArticles, useImportUrls } from "../../hooks/queries";
 
 interface ImportFeedDialogProps {
   project: Project;
@@ -63,6 +64,17 @@ const SOURCE_TYPE_MAP = Object.fromEntries(
 
 type Step = "config" | "preview";
 
+interface DiscoveryConfig {
+  limit?: number;
+  search_type?: string;
+  freshness?: string;
+  category?: string;
+  published_after?: string;
+  country?: string;
+  search_lang?: string;
+  [key: string]: string | number | boolean | undefined;
+}
+
 export function ImportFeedDialog({
   project,
   isOpen,
@@ -72,12 +84,16 @@ export function ImportFeedDialog({
   const [step, setStep] = useState<Step>("config");
   const [type, setType] = useState("rss");
   const [url, setUrl] = useState("");
-  const [config, setConfig] = useState<any>({ limit: 10 });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [config, setConfig] = useState<DiscoveryConfig>({ limit: 10 });
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [previewArticles, setPreviewArticles] = useState<DiscoveryArticle[]>([]);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const { toaster } = useToaster();
+
+  const discoverMutation = useDiscoverArticles(project.id);
+  const importMutation = useImportUrls(project.id);
+
+  const isSubmitting = discoverMutation.isPending || importMutation.isPending;
 
   const handleDiscovery = async () => {
     if (!url) {
@@ -88,9 +104,8 @@ export function ImportFeedDialog({
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      const result = await projectsApi.discoverArticles(project.id, {
+      const result = await discoverMutation.mutateAsync({
         type,
         url,
         config,
@@ -110,13 +125,11 @@ export function ImportFeedDialog({
         ),
       );
       setStep("preview");
-    } catch (err: any) {
+    } catch (err: unknown) {
       toaster?.show({
-        message: err.message || "Discovery failed",
+        message: ensureError(err).message || "Discovery failed",
         intent: Intent.DANGER,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -129,12 +142,8 @@ export function ImportFeedDialog({
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      const result = await projectsApi.importUrls(
-        project.id,
-        Array.from(selectedUrls),
-      );
+      const result = await importMutation.mutateAsync(Array.from(selectedUrls));
       toaster?.show({
         message: result.message,
         intent: Intent.SUCCESS,
@@ -143,13 +152,11 @@ export function ImportFeedDialog({
       onRefresh();
       onClose();
       reset();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toaster?.show({
-        message: err.message || "Import failed",
+        message: ensureError(err).message || "Import failed",
         intent: Intent.DANGER,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -159,6 +166,8 @@ export function ImportFeedDialog({
     setPreviewArticles([]);
     setSelectedUrls(new Set());
     setConfig({ limit: 10 });
+    discoverMutation.reset();
+    importMutation.reset();
   };
 
   const toggleUrl = (url: string, alreadyImported: boolean) => {
@@ -181,8 +190,8 @@ export function ImportFeedDialog({
     }
   };
 
-  const updateConfig = (key: string, value: any) => {
-    setConfig((prev: any) => ({ ...prev, [key]: value }));
+  const updateConfig = (key: string, value: string | number | boolean | undefined) => {
+    setConfig((prev: DiscoveryConfig) => ({ ...prev, [key]: value }));
   };
 
   const renderSourceType: ItemRenderer<SourceTypeOption> = (
@@ -291,7 +300,7 @@ export function ImportFeedDialog({
                           fill
                           min={1}
                           max={50}
-                          value={config.limit || 10}
+                          value={config.limit ?? 10}
                           onValueChange={(val) => updateConfig("limit", val)}
                         />
                       </FormGroup>
@@ -464,7 +473,7 @@ export function ImportFeedDialog({
                               {article.title || "Untitled"}
                             </div>
                             {article.already_imported && (
-                              <Tag minimal intent={Intent.SUCCESS} size="small">
+                              <Tag minimal intent={Intent.SUCCESS}>
                                 Imported
                               </Tag>
                             )}

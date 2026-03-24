@@ -16,19 +16,28 @@ import {
   Switch,
   Divider,
 } from "@blueprintjs/core";
-import { useCallback, useEffect, useState } from "react";
-import { projectsApi } from "../../api";
+import { useState } from "react";
 import { useToaster } from "../../hooks/useToaster";
-import type { ModelAdapter, Project, TrainingRequest } from "../../types";
+import type { Project, TrainingRequest } from "../../types";
+import { 
+  useAdapters, 
+  useTrainAdapter, 
+  useActivateAdapter, 
+  useDeactivateAdapter 
+} from "../../hooks/queries";
+import { ensureError } from "../../utils/errorUtils";
 
 type ModelLibraryProps = {
   project: Project;
-  onProjectUpdate: (project: Project) => void;
+  onProjectUpdate?: (project: Project) => void;
 };
 
-export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
-  const [adapters, setAdapters] = useState<ModelAdapter[]>([]);
-  const [loading, setLoading] = useState(true);
+export function ModelLibrary({ project }: ModelLibraryProps) {
+  const { data: adapters = [], isLoading } = useAdapters(project.id);
+  const trainMutation = useTrainAdapter(project.id);
+  const activateMutation = useActivateAdapter(project.id);
+  const deactivateMutation = useDeactivateAdapter(project.id);
+
   const [isTrainDialogOpen, setIsTrainDialogOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [trainingParams, setTrainingParams] = useState<TrainingRequest>({
@@ -44,64 +53,31 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
     weight_decay: 0.01,
     use_early_stopping: false,
   });
-  const [isTraining, setIsTraining] = useState(false);
   const { toaster } = useToaster();
 
-  const fetchAdapters = useCallback(async () => {
-    try {
-      const data = await projectsApi.listAdapters(project.id);
-      setAdapters(data);
-    } catch {
-      toaster?.show({
-        message: "Failed to load adapters",
-        intent: Intent.DANGER,
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [project.id, toaster]);
-
-  const hasTrainingAdapter = adapters.some((a) => a.status === "training");
-
-  useEffect(() => {
-    fetchAdapters();
-    const interval = setInterval(() => {
-      if (hasTrainingAdapter) {
-        fetchAdapters();
-      }
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [fetchAdapters, hasTrainingAdapter]);
-
   const handleTrain = async () => {
-    setIsTraining(true);
     try {
-      await projectsApi.trainAdapter(project.id, trainingParams);
+      await trainMutation.mutateAsync(trainingParams);
       toaster?.show({
         message: "Training started in background",
         intent: Intent.SUCCESS,
       });
       setIsTrainDialogOpen(false);
-      fetchAdapters();
-    } catch (err) {
+    } catch (err: unknown) {
       toaster?.show({
-        message: err instanceof Error ? err.message : "Training failed",
+        message: ensureError(err).message || "Training failed",
         intent: Intent.DANGER,
       });
-    } finally {
-      setIsTraining(false);
     }
   };
 
   const handleActivate = async (adapterId: string) => {
     try {
-      await projectsApi.activateAdapter(project.id, adapterId);
+      await activateMutation.mutateAsync(adapterId);
       toaster?.show({ message: "Adapter activated", intent: Intent.SUCCESS });
-      const updatedProject = await projectsApi.get(project.id);
-      onProjectUpdate(updatedProject);
-    } catch {
+    } catch (err: unknown) {
       toaster?.show({
-        message: "Failed to activate adapter",
+        message: ensureError(err).message || "Failed to activate adapter",
         intent: Intent.DANGER,
       });
     }
@@ -109,13 +85,11 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
 
   const handleDeactivate = async () => {
     try {
-      await projectsApi.deactivateAdapter(project.id);
+      await deactivateMutation.mutateAsync();
       toaster?.show({ message: "Adapter deactivated", intent: Intent.SUCCESS });
-      const updatedProject = await projectsApi.get(project.id);
-      onProjectUpdate(updatedProject);
-    } catch {
+    } catch (err: unknown) {
       toaster?.show({
-        message: "Failed to deactivate adapter",
+        message: ensureError(err).message || "Failed to deactivate adapter",
         intent: Intent.DANGER,
       });
     }
@@ -166,6 +140,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
               text={!activeAdapterId ? "Currently Active" : "Reset to Base"}
               disabled={!activeAdapterId}
               intent={Intent.NONE}
+              loading={deactivateMutation.isPending}
               onClick={handleDeactivate}
               minimal={!activeAdapterId}
               icon={!activeAdapterId ? "tick" : "history"}
@@ -265,6 +240,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
                         : Intent.NONE
                     }
                     disabled={adapter.status !== "completed"}
+                    loading={activateMutation.isPending && activateMutation.variables === adapter.id}
                     onClick={() => handleActivate(adapter.id)}
                     icon="play"
                   />
@@ -292,7 +268,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
         </Card>
       </div>
 
-      {!loading && adapters.length === 0 && (
+      {!isLoading && adapters.length === 0 && (
         <Callout
           intent={Intent.PRIMARY}
           icon="info-sign"
@@ -478,7 +454,7 @@ export function ModelLibrary({ project, onProjectUpdate }: ModelLibraryProps) {
             text="Launch Training"
             intent={Intent.PRIMARY}
             icon="rocket"
-            loading={isTraining}
+            loading={trainMutation.isPending}
             onClick={handleTrain}
           />
         </div>

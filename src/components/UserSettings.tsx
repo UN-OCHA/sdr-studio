@@ -4,8 +4,9 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import type { SettingsSection } from "../types";
 import { UserSessions } from "./user-settings/UserSessions";
 import { UserProfile } from "./user-settings/UserProfile";
-import { usersApi } from "../api";
+import { useRequestPasswordReset } from "../hooks/queries";
 import { useToaster } from "../hooks/useToaster";
+import { ensureError } from "../utils/errorUtils";
 
 type UserSettingsProps = {
   onBack: () => void;
@@ -26,20 +27,17 @@ const SECTION_SUBTITLES: Partial<Record<SettingsSection, string>> = {
 
 export function UserSettings({ onBack, initialSection = "user-profile" }: UserSettingsProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
-  const [isResetting, setIsResetting] = useState(false);
   const { showToaster } = useToaster();
+  const passwordResetMutation = useRequestPasswordReset();
 
   const handlePasswordReset = useCallback(async () => {
-    setIsResetting(true);
     try {
-        await usersApi.requestPasswordReset();
+        await passwordResetMutation.mutateAsync();
         showToaster("Password reset email sent. Please check your inbox.", Intent.SUCCESS);
-    } catch (err: any) {
-        showToaster(err.message || "Failed to trigger reset", Intent.DANGER);
-    } finally {
-        setIsResetting(false);
+    } catch (err: unknown) {
+        showToaster(ensureError(err).message || "Failed to trigger reset", Intent.DANGER);
     }
-  }, [showToaster]);
+  }, [showToaster, passwordResetMutation]);
 
   const title = SECTION_TITLES[activeSection] || "User Settings";
   const subtitle = SECTION_SUBTITLES[activeSection] || "";
@@ -146,7 +144,7 @@ export function UserSettings({ onBack, initialSection = "user-profile" }: UserSe
                                   intent={Intent.DANGER}
                                   text="Send Reset Email"
                                   onClick={handlePasswordReset}
-                                  loading={isResetting}
+                                  loading={passwordResetMutation.isPending}
                               />
                           </div>
                       </SectionCard>

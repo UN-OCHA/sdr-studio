@@ -1,12 +1,15 @@
 import { Button, Menu, MenuItem, Popover } from "@blueprintjs/core";
 import { projectsApi } from "../../api";
 import type { Project } from "../../types";
+import { useExportToken } from "../../hooks/queries";
 
 type SidebarExportDockProps = {
   project: Project;
 };
 
 export function SidebarExportDock({ project }: SidebarExportDockProps) {
+  const exportTokenMutation = useExportToken();
+
   return (
     <div className="p-1.5 border-t border-gray-200 dark:border-bp-dark-border bg-white dark:bg-bp-dark-bg">
       <Popover
@@ -17,7 +20,7 @@ export function SidebarExportDock({ project }: SidebarExportDockProps) {
               icon="document"
               text="Export as JSON"
               onClick={async () => {
-                const { token } = await projectsApi.getExportToken();
+                const { token } = await exportTokenMutation.mutateAsync();
                 window.open(
                   projectsApi.exportJsonUrl(project.id, token),
                   "_blank",
@@ -28,7 +31,7 @@ export function SidebarExportDock({ project }: SidebarExportDockProps) {
               icon="th"
               text="Export as CSV"
               onClick={async () => {
-                const { token } = await projectsApi.getExportToken();
+                const { token } = await exportTokenMutation.mutateAsync();
                 window.open(
                   projectsApi.exportCsvUrl(project.id, token),
                   "_blank",
@@ -39,7 +42,7 @@ export function SidebarExportDock({ project }: SidebarExportDockProps) {
               icon="print"
               text="Generate Report (MD)"
               onClick={async () => {
-                const { token } = await projectsApi.getExportToken();
+                const { token } = await exportTokenMutation.mutateAsync();
                 window.open(
                   projectsApi.exportReportUrl(project.id, token, "md"),
                   "_blank",
@@ -58,6 +61,7 @@ export function SidebarExportDock({ project }: SidebarExportDockProps) {
           icon="cloud-download"
           text="Export Data"
           endIcon="caret-up"
+          loading={exportTokenMutation.isPending}
         />
       </Popover>
     </div>

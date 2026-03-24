@@ -164,6 +164,15 @@ export type Organization = {
   created_at: string;
 };
 
+export type UserSession = {
+  id: string;
+  device: string;
+  location: string;
+  ip: string;
+  last_active: string;
+  current: boolean;
+};
+
 export type ProjectTemplate = {
   id: string;
   name: string;
@@ -200,6 +209,11 @@ export type ProjectStats = {
   total_annotations: number;
 };
 
+export type ArticleListResponse = {
+  articles: Article[];
+  total: number;
+};
+
 export type Article = {
   id: string;
   project_id: string;
@@ -215,7 +229,7 @@ export type Article = {
     name: string;
     latitude: number;
     longitude: number;
-    raw: any;
+    raw: unknown;
   }[];
   event_date?: string;
   processing_step: string;
@@ -275,7 +289,7 @@ export type Source = {
   url: string;
   type: string;
   active: boolean;
-  config?: any;
+  config?: Record<string, unknown>;
   polling_interval: number;
   last_polled?: string;
   created_at: string;
@@ -286,7 +300,7 @@ export type SourceCreate = {
   url: string;
   type: string;
   polling_interval: number;
-  config?: any;
+  config?: Record<string, unknown>;
 };
 
 export type SourceUpdate = {
@@ -294,7 +308,7 @@ export type SourceUpdate = {
   url?: string;
   active?: boolean;
   polling_interval?: number;
-  config?: any;
+  config?: Record<string, unknown>;
 };
 
 export type DiscoveryArticle = {

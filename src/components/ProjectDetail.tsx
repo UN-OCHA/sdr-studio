@@ -7,10 +7,9 @@ import {
 } from "@blueprintjs/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { articlesApi, projectsApi } from "../api";
 import { useLocalStorage } from "../hooks/useStorage";
 import { useToaster } from "../hooks/useToaster";
-import type { Article, Project, ProjectStats, SettingsSection } from "../types";
+import type { Article, ArticleListResponse, Project, SettingsSection } from "../types";
 import { ArticleView } from "./ArticleView";
 import { CoverageView } from "./CoverageView";
 import { ProjectHome } from "./ProjectHome";
@@ -21,17 +20,26 @@ import { ProjectHomeHeader } from "./project-detail/ProjectHomeHeader";
 import { SettingsContent } from "./project-detail/SettingsContent";
 import { SettingsSidebar } from "./project-detail/SettingsSidebar";
 import { SidebarExportDock } from "./project-detail/SidebarExportDock";
+import { 
+  useArticles, 
+  useProjectStats, 
+  useUpdateProject, 
+  useImportUrls, 
+  useReprocessProject, 
+  useProcessArticle, 
+  useBulkDeleteArticles 
+} from "../hooks/queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { ensureError } from "../utils/errorUtils";
 
 type ProjectDetailProps = {
   project: Project;
-  onImportUrls: (urls: string[]) => void;
   onUpdateProject: (project: Project) => void;
   onBack: () => void;
 };
 
 export function ProjectDetail({
   project,
-  onImportUrls,
   onUpdateProject,
   onBack,
 }: ProjectDetailProps) {
@@ -41,10 +49,8 @@ export function ProjectDetail({
   const [settingsSection, setSettingsSection] =
     useState<SettingsSection>("profile");
 
-  // Articles state
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const { toaster } = useToaster();
 
   // Selection state
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(
@@ -59,6 +65,34 @@ export function ProjectDetail({
     `pinned_articles_${project.id}`,
     [],
   );
+
+  // Filter/Sort/Pagination state
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [skip, setSkip] = useState(0);
+  const LIMIT = 50;
+
+  const articleParams = useMemo(() => ({
+    search,
+    status: statusFilter,
+    skip,
+    limit: LIMIT,
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  }), [search, statusFilter, skip, sortBy, sortOrder]);
+
+  const { data: articleData, isLoading: isLoadingArticles, refetch: refetchArticles } = useArticles(project.id, articleParams);
+  const { data: stats } = useProjectStats(project.id);
+  const updateProjectMutation = useUpdateProject();
+  const importUrlsMutation = useImportUrls(project.id);
+  const reprocessProjectMutation = useReprocessProject();
+  const processArticleMutation = useProcessArticle();
+  const bulkDeleteArticlesMutation = useBulkDeleteArticles(project.id);
+
+  const articles = useMemo(() => articleData?.articles || [], [articleData?.articles]);
+  const totalCount = articleData?.total || 0;
 
   const handleTogglePin = useCallback((article: Article) => {
     setPinnedIds((prev) => {
@@ -90,20 +124,10 @@ export function ProjectDetail({
     }));
   }, [articles, pinnedIds]);
 
-  // Filter/Sort/Pagination state
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("created_at");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [skip, setSkip] = useState(0);
-  const LIMIT = 50;
-
-  const { toaster } = useToaster();
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isFeedImportDialogOpen, setIsFeedImportDialogOpen] = useState(false);
   const [urlsToImport, setUrlsToImport] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [stats, setStats] = useState<ProjectStats | null>(null);
   const [pendingProjectUpdates, setPendingProjectUpdates] = useState<
     Partial<Project>
   >({});
@@ -120,131 +144,28 @@ export function ProjectDetail({
     setPendingProjectUpdates({});
   }, [project.id]);
 
-  const fetchArticles = useCallback(
-    async (isLoadMore = false) => {
-      try {
-        setIsLoading(true);
-        const currentSkip = isLoadMore ? skip + LIMIT : 0;
-        const data = await projectsApi.listArticles(project.id, {
-          search,
-          status: statusFilter,
-          skip: currentSkip,
-          limit: LIMIT,
-          sort_by: sortBy,
-          sort_order: sortOrder,
-        });
-
-        if (isLoadMore) {
-          setArticles((prev) => [...prev, ...data.articles]);
-        } else {
-          setArticles((prev) => {
-            // If the content is identical (excluding status/metadata changes), 
-            // we could potentially be more surgical, but a simple set is fine 
-            // as long as it doesn't break selection.
-            return data.articles;
-          });
-          
-          if (data.articles.length > 0 && !selectedArticleId) {
-            setSelectedArticleId(data.articles[0].id);
-          }
-        }
-        setTotalCount(data.total);
-        setSkip(currentSkip);
-      } catch (err) {
-        console.error("Failed to fetch articles:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [
-      project.id,
-      search,
-      statusFilter,
-      sortBy,
-      sortOrder,
-      skip,
-      selectedArticleId,
-    ],
-  );
-
-  // Initial fetch and on filter changes
   useEffect(() => {
-    void fetchArticles(false);
-  }, [fetchArticles, search, statusFilter, sortBy, sortOrder]);
-
-  // Keyboard navigation for articles
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in an input/textarea
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      if (activeTab !== "articles" || articles.length === 0) return;
-
-      const currentIndex = articles.findIndex((a) => a.id === selectedArticleId);
-
-      if (e.key === "ArrowLeft") {
-        if (currentIndex > 0) {
-          setSelectedArticleId(articles[currentIndex - 1].id);
-        }
-      } else if (e.key === "ArrowRight") {
-        if (currentIndex < articles.length - 1) {
-          setSelectedArticleId(articles[currentIndex + 1].id);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTab, articles, selectedArticleId]);
+    if (articles.length > 0 && !selectedArticleId) {
+      setSelectedArticleId(articles[0].id);
+    }
+  }, [articles, selectedArticleId]);
 
   // Poll for stats if there are items processing
   useEffect(() => {
     let interval: number | undefined;
-    let wasProcessing = false;
+    const isProcessing = stats && (stats.pending > 0 || stats.processing > 0);
 
-    const fetchStatsAndArticles = async () => {
-      try {
-        const data = await projectsApi.getStats(project.id);
-        setStats(data);
-
-        const isStillProcessing = data.pending > 0 || data.processing > 0;
-
-        // Refresh articles list during processing to show progress
-        if (isStillProcessing || (wasProcessing && !isStillProcessing)) {
-          void fetchArticles(false);
-        }
-
-        wasProcessing = isStillProcessing;
-
-        if (!isStillProcessing) {
-          if (interval) {
-            window.clearInterval(interval);
-            interval = undefined;
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch project stats:", err);
-      }
-    };
-
-    // Initial check
-    void fetchStatsAndArticles().then(() => {
-      // If still processing after initial check, start interval
-      // Note: stats state might not be updated yet, so we rely on local logic
-    });
-
-    // Always keep an interval if processing is expected or active
-    interval = window.setInterval(fetchStatsAndArticles, 3000);
+    if (isProcessing) {
+      interval = window.setInterval(() => {
+        void queryClient.invalidateQueries({ queryKey: ["project-stats", project.id] });
+        void queryClient.invalidateQueries({ queryKey: ["articles", project.id] });
+      }, 3000);
+    }
 
     return () => {
       if (interval) window.clearInterval(interval);
     };
-  }, [project.id, fetchArticles]);
+  }, [project.id, stats, queryClient]);
 
   const handleToggleCheck = useCallback((id: string) => {
     setCheckedArticleIds((prev) => {
@@ -272,7 +193,9 @@ export function ProjectDetail({
         <ProjectOnboarding
           project={project}
           onComplete={onUpdateProject}
-          onImport={async (urls) => onImportUrls(urls)}
+          onImport={async (urls) => {
+            await importUrlsMutation.mutateAsync(urls);
+          }}
         />
       </div>
     );
@@ -280,20 +203,27 @@ export function ProjectDetail({
 
   const selectedArticle = articles.find((a) => a.id === selectedArticleId);
 
-  const handleImport = () => {
+  const handleImport = async () => {
     const urls = urlsToImport
       .split("\n")
       .map((u) => u.trim())
       .filter((u) => u !== "");
     if (urls.length > 0) {
-      onImportUrls(urls);
-      toaster?.show({
-        message: `Importing ${urls.length} URLs in the background...`,
-        intent: Intent.PRIMARY,
-        icon: "cloud-upload",
-      });
-      setIsImportDialogOpen(false);
-      setUrlsToImport("");
+      try {
+        await importUrlsMutation.mutateAsync(urls);
+        toaster?.show({
+          message: `Importing ${urls.length} URLs in the background...`,
+          intent: Intent.PRIMARY,
+          icon: "cloud-upload",
+        });
+        setIsImportDialogOpen(false);
+        setUrlsToImport("");
+      } catch (err: unknown) {
+        toaster?.show({
+          message: ensureError(err).message || "Import failed",
+          intent: Intent.DANGER,
+        });
+      }
     }
   };
 
@@ -303,9 +233,12 @@ export function ProjectDetail({
   ) => {
     try {
       setIsSaving(true);
-      const updated = await projectsApi.update(project.id, {
-        extraction_config: newConfig,
-        export_config: newExportConfig,
+      const updated = await updateProjectMutation.mutateAsync({
+        id: project.id,
+        data: {
+          extraction_config: newConfig,
+          export_config: newExportConfig,
+        },
       });
       onUpdateProject(updated);
       setPendingConfig(null);
@@ -315,10 +248,10 @@ export function ProjectDetail({
         intent: Intent.SUCCESS,
         icon: "tick",
       });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to save configuration:", err);
       toaster?.show({
-        message: "Failed to update project configuration",
+        message: ensureError(err).message || "Failed to update project configuration",
         intent: Intent.DANGER,
         icon: "error",
       });
@@ -330,14 +263,17 @@ export function ProjectDetail({
   const handleUpdateProjectDetails = async (updates: Partial<Project>) => {
     try {
       setIsSaving(true);
-      const updated = await projectsApi.update(project.id, updates);
+      const updated = await updateProjectMutation.mutateAsync({
+        id: project.id,
+        data: updates,
+      });
       onUpdateProject(updated);
       toaster?.show({
         message: "Project details saved",
         intent: Intent.SUCCESS,
         icon: "tick",
       });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to update project details:", err);
       toaster?.show({
         message: "Failed to save project details",
@@ -351,24 +287,34 @@ export function ProjectDetail({
 
   const handleReprocessAll = async () => {
     try {
-      await projectsApi.reprocess(project.id);
+      await reprocessProjectMutation.mutateAsync(project.id);
       toaster?.show({
         message: "Reprocessing all articles...",
         intent: Intent.PRIMARY,
         icon: "automatic-updates",
       });
-      void fetchArticles(false);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to reprocess articles:", err);
+      toaster?.show({
+        message: ensureError(err).message || "Reprocess failed",
+        intent: Intent.DANGER,
+      });
     }
   };
 
   const handleRetryArticle = async (articleId: string) => {
     try {
-      await articlesApi.process(articleId);
-      void fetchArticles(false);
-    } catch (err) {
+      await processArticleMutation.mutateAsync(articleId);
+      toaster?.show({
+        message: "Retrying article processing...",
+        intent: Intent.PRIMARY,
+      });
+    } catch (err: unknown) {
       console.error("Failed to retry article:", err);
+      toaster?.show({
+        message: ensureError(err).message || "Retry failed",
+        intent: Intent.DANGER,
+      });
     }
   };
 
@@ -377,19 +323,19 @@ export function ProjectDetail({
     if (!confirm(`Delete ${checkedArticleIds.size} selected articles?`)) return;
 
     try {
-      await projectsApi.bulkDeleteArticles(
-        project.id,
-        Array.from(checkedArticleIds),
-      );
+      await bulkDeleteArticlesMutation.mutateAsync(Array.from(checkedArticleIds));
       toaster?.show({
         message: `Deleted ${checkedArticleIds.size} articles`,
         intent: Intent.SUCCESS,
         icon: "trash",
       });
       setCheckedArticleIds(new Set());
-      void fetchArticles(false);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to delete articles:", err);
+      toaster?.show({
+        message: ensureError(err).message || "Deletion failed",
+        intent: Intent.DANGER,
+      });
     }
   };
 
@@ -401,7 +347,7 @@ export function ProjectDetail({
         project={project}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        articlesCount={articles.length}
+        articlesCount={totalCount}
         onBack={onBack}
       />
 
@@ -428,8 +374,8 @@ export function ProjectDetail({
                     project={project}
                     articles={articlesWithPinned}
                     totalCount={totalCount}
-                    stats={stats}
-                    isLoading={isLoading}
+                    stats={stats || null}
+                    isLoading={isLoadingArticles}
                     selectedArticleId={selectedArticleId}
                     checkedArticleIds={checkedArticleIds}
                     search={search}
@@ -446,10 +392,10 @@ export function ProjectDetail({
                     onToggleCheck={handleToggleCheck}
                     onToggleCheckAll={handleToggleCheckAll}
                     onBulkDelete={handleBulkDelete}
-                    onRefresh={() => void fetchArticles(false)}
+                    onRefresh={() => void refetchArticles()}
                     onReprocessAll={handleReprocessAll}
                     onRetryArticle={handleRetryArticle}
-                    onLoadMore={() => void fetchArticles(true)}
+                    onLoadMore={() => setSkip(skip + LIMIT)}
                     onOpenUrlImportDialog={() => setIsImportDialogOpen(true)}
                     onOpenFeedImportDialog={() =>
                       setIsFeedImportDialogOpen(true)
@@ -492,8 +438,8 @@ export function ProjectDetail({
                   } else if (_tab === "general") {
                     setActiveTab("settings");
                     setSettingsSection("general");
-                  } else {
-                    setActiveTab(_tab as any);
+                  } else if (["home", "articles", "settings", "coverage"].includes(_tab)) {
+                    setActiveTab(_tab as "home" | "articles" | "settings" | "coverage");
                   }
                 }}
               />
@@ -507,14 +453,19 @@ export function ProjectDetail({
                   labels={entityLabels}
                   extractionConfig={project.extraction_config}
                   onUpdate={(updated) => {
-                    setArticles((prev) =>
-                      prev.map((a) => (a.id === updated.id ? updated : a)),
-                    );
+                    queryClient.setQueryData(["articles", project.id, articleParams], (old: ArticleListResponse | undefined) => {
+                      if (!old) return old;
+                      return {
+                        ...old,
+                        articles: old.articles.map((a: Article) => a.id === updated.id ? updated : a)
+                      };
+                    });
                   }}
-                  onRefresh={() => void fetchArticles(false)}
+                  onRefresh={() => {
+                    void queryClient.invalidateQueries({ queryKey: ["articles", project.id] });
+                  }}
                   onDelete={() => {
                     setSelectedArticleId(null);
-                    void fetchArticles(false);
                   }}
                   onTogglePin={handleTogglePin}
                 />
@@ -545,7 +496,7 @@ export function ProjectDetail({
             ) : (
               <SettingsContent
                 project={project}
-                stats={stats}
+                stats={stats || null}
                 settingsSection={settingsSection}
                 isSaving={isSaving}
                 pendingConfig={pendingConfig}
@@ -588,6 +539,7 @@ export function ProjectDetail({
             <Button
               intent={Intent.PRIMARY}
               text={`Import ${urlsToImport.split("\n").filter((u) => u.trim() !== "").length} URLs`}
+              loading={importUrlsMutation.isPending}
               onClick={handleImport}
             />
           </div>
@@ -598,7 +550,7 @@ export function ProjectDetail({
         project={project}
         isOpen={isFeedImportDialogOpen}
         onClose={() => setIsFeedImportDialogOpen(false)}
-        onRefresh={() => void fetchArticles(false)}
+        onRefresh={() => {}}
       />
     </div>
   );

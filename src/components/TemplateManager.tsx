@@ -17,18 +17,15 @@ import {
   Spinner,
   TextArea,
 } from "@blueprintjs/core";
-import { useCallback, useEffect, useState } from "react";
-import { templatesApi } from "../api";
+import { useState } from "react";
 import { useToaster } from "../hooks/useToaster";
 import type { ProjectTemplate, ProjectTemplateCreate } from "../types";
 import { IconPicker } from "./IconPicker";
 import { ExtractionSettings } from "./project-settings/ExtractionSettings";
 import { ExportSettings } from "./project-settings/ExportSettings";
+import { useTemplates, useCreateTemplate, useUpdateTemplate, useDeleteTemplate } from "../hooks/queries";
 
 export function TemplateManager() {
-  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [editingTemplate, setEditingTemplate] =
     useState<ProjectTemplate | null>(null);
 
@@ -41,27 +38,17 @@ export function TemplateManager() {
   });
   const { showToaster } = useToaster();
 
-  const fetchTemplates = useCallback(async () => {
-    try {
-      const data = await templatesApi.list();
-      setTemplates(data);
-    } catch {
-      showToaster("Failed to fetch templates", Intent.DANGER);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [showToaster]);
-
-  useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
+  const { data: templates = [], isLoading } = useTemplates();
+  const createTemplateMutation = useCreateTemplate();
+  const updateTemplateMutation = useUpdateTemplate();
+  const deleteTemplateMutation = useDeleteTemplate();
 
   const handleSave = async (
     config?: ProjectTemplate["extraction_config"],
     export_config?: ProjectTemplate["export_config"],
   ) => {
     if (!formData.name) return;
-    setIsSaving(true);
+    
     try {
       const payload = {
         ...formData,
@@ -70,27 +57,23 @@ export function TemplateManager() {
       };
 
       if (editingTemplate && editingTemplate.id !== "new") {
-        await templatesApi.update(editingTemplate.id, payload);
+        await updateTemplateMutation.mutateAsync({ id: editingTemplate.id, data: payload });
         showToaster("Template updated", Intent.SUCCESS);
       } else {
-        await templatesApi.create(payload);
+        await createTemplateMutation.mutateAsync(payload);
         showToaster("Template created", Intent.SUCCESS);
       }
       setEditingTemplate(null);
-      fetchTemplates();
     } catch {
       showToaster("Failed to save template", Intent.DANGER);
-    } finally {
-      setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this template?")) return;
     try {
-      await templatesApi.delete(id);
+      await deleteTemplateMutation.mutateAsync(id);
       showToaster("Template deleted", Intent.SUCCESS);
-      fetchTemplates();
     } catch {
       showToaster("Failed to delete template", Intent.DANGER);
     }
@@ -135,6 +118,8 @@ export function TemplateManager() {
       </div>
     );
   }
+
+  const isSaving = createTemplateMutation.isPending || updateTemplateMutation.isPending;
 
   if (editingTemplate) {
     return (

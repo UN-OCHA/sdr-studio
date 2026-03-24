@@ -12,10 +12,12 @@ import {
   TextArea,
 } from "@blueprintjs/core";
 import { useCallback, useState } from "react";
-import { projectsApi } from "../api";
 import type { Project } from "../types";
 import { ExtractionSettings } from "./project-settings/ExtractionSettings";
 import { GeneralSettings } from "./project-settings/GeneralSettings";
+import { useUpdateProject } from "../hooks/queries";
+import { ensureError } from "../utils/errorUtils";
+import { useToaster } from "../hooks/useToaster";
 
 type ProjectOnboardingProps = {
   project: Project;
@@ -31,18 +33,21 @@ export function ProjectOnboarding({
   const [step, setStep] = useState(1);
   const [config, setConfig] = useState(project.extraction_config);
   const [urls, setUrls] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const updateProjectMutation = useUpdateProject();
+  const { showToaster } = useToaster();
 
   const handleNext = useCallback(() => setStep((prev) => prev + 1), []);
   const handleBack = useCallback(() => setStep((prev) => prev - 1), []);
 
   const handleFinish = useCallback(async () => {
     try {
-      setIsSaving(true);
       // Save final config and mark onboarding as complete
-      const updated = await projectsApi.update(project.id, {
-        extraction_config: config,
-        onboarding_completed: true,
+      const updated = await updateProjectMutation.mutateAsync({
+        id: project.id,
+        data: {
+          extraction_config: config,
+          onboarding_completed: true,
+        },
       });
 
       // Import URLs if provided
@@ -56,11 +61,9 @@ export function ProjectOnboarding({
 
       onComplete(updated);
     } catch (error) {
-      console.error("Failed to complete onboarding:", error);
-    } finally {
-      setIsSaving(false);
+      showToaster(ensureError(error).message || "Failed to complete onboarding", Intent.DANGER);
     }
-  }, [project.id, config, urls, onImport, onComplete]);
+  }, [project.id, config, urls, onImport, onComplete, updateProjectMutation, showToaster]);
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
@@ -164,7 +167,7 @@ export function ProjectOnboarding({
             minimal
             text="Previous"
             icon="arrow-left"
-            disabled={step === 1 || isSaving}
+            disabled={step === 1 || updateProjectMutation.isPending}
             onClick={handleBack}
           />
           {step < 3 ? (
@@ -179,7 +182,7 @@ export function ProjectOnboarding({
               intent={Intent.SUCCESS}
               text="Finish Setup"
               icon="tick"
-              loading={isSaving}
+              loading={updateProjectMutation.isPending}
               onClick={handleFinish}
             />
           )}

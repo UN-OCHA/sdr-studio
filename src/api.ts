@@ -110,7 +110,7 @@ export const projectsApi = {
       method: "POST",
       body: JSON.stringify({ urls }),
     }),
-  discoverArticles: (projectId: string, data: { type: string; url: string; config?: any }) =>
+  discoverArticles: (projectId: string, data: { type: string; url: string; config?: Record<string, unknown> }) =>
     apiFetch(`/projects/${projectId}/discover`, {
       method: "POST",
       body: JSON.stringify(data),
@@ -147,7 +147,7 @@ export const projectsApi = {
     const qs = query.toString();
     return `${API_BASE_URL}/projects/${projectId}/export/report?${qs}`;
   },
-  getReportPreview: (projectId: string, reportConfig: any) =>
+  getReportPreview: (projectId: string, reportConfig: Record<string, unknown>) =>
     apiFetch(`/projects/${projectId}/export/report-preview`, {
       method: "POST",
       body: JSON.stringify(reportConfig),

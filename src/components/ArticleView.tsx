@@ -27,10 +27,16 @@ import {
 } from "@blueprintjs/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import TimeAgo from "react-timeago";
-import { articlesApi } from "../api";
 import type { Annotation, Article, Project } from "../types";
 import { Annotator } from "./Annotator";
 import { getProceduralColor } from "../colorUtils";
+import { 
+  useUpdateArticle, 
+  useDeleteArticle, 
+  useProcessArticle, 
+  useUpdateAnnotations,
+  useArticle
+} from "../hooks/queries";
 
 type ArticleViewProps = {
   article: Article;
@@ -42,6 +48,16 @@ type ArticleViewProps = {
   onTogglePin?: (article: Article) => void;
 };
 
+interface RelationSide {
+  text: string;
+  confidence?: number;
+}
+
+interface RelationInstance {
+  head: RelationSide;
+  tail: RelationSide;
+}
+
 export function ArticleView({
   article,
   labels,
@@ -51,8 +67,17 @@ export function ArticleView({
   onDelete,
   onTogglePin,
 }: ArticleViewProps) {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // Use useArticle for full article data if needed (polling/fetching)
+  const { data: fullArticle } = useArticle(
+    article.status === "completed" && (!article.annotations || article.annotations.length === 0) 
+    ? article.id : null
+  );
+
+  const updateArticleMutation = useUpdateArticle();
+  const deleteArticleMutation = useDeleteArticle(article.project_id);
+  const processArticleMutation = useProcessArticle();
+  const updateAnnotationsMutation = useUpdateAnnotations();
+
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isReprocessAlertOpen, setIsReprocessAlertOpen] = useState(false);
@@ -83,54 +108,47 @@ export function ArticleView({
   // Track review mode exit to auto-save reviewed status
   useEffect(() => {
     if (!isReviewMode && hasChanges) {
-      void articlesApi
-        .update(article.id, { reviewed: true })
-        .then((updated) => {
-          onUpdate({ ...article, reviewed: updated.reviewed });
-          setHasChanges(false);
-        });
+      void updateArticleMutation.mutateAsync({ 
+        id: article.id, 
+        data: { reviewed: true } 
+      }).then((updated) => {
+        onUpdate({ ...article, reviewed: updated.reviewed });
+        setHasChanges(false);
+      });
     }
-  }, [isReviewMode, hasChanges, article, onUpdate]);
+  }, [isReviewMode, hasChanges, article, onUpdate, updateArticleMutation]);
 
   // Reset hasChanges when article changes (selection changes)
   useEffect(() => {
-    setHasChanges(false);
+    Promise.resolve().then(() => setHasChanges(false));
   }, [article.id]);
 
-  // Fetch full article on mount if it's completed but doesn't have annotations
+  // Update with full article data if fetched
   useEffect(() => {
-    if (
-      article.status === "completed" &&
-      (!article.annotations || article.annotations.length === 0)
-    ) {
-      void articlesApi.get(article.id).then((full) => onUpdate(full));
+    if (fullArticle) {
+      onUpdate(fullArticle);
     }
-  }, [article.id, article.status, article.annotations, onUpdate]);
+  }, [fullArticle, onUpdate]);
 
   const handleDelete = useCallback(async () => {
     if (!confirm("Are you sure you want to delete this article?")) return;
     try {
-      setIsDeleting(true);
-      await articlesApi.delete(article.id);
+      await deleteArticleMutation.mutateAsync(article.id);
       onDelete();
     } catch (error) {
       console.error("Failed to delete article:", error);
-    } finally {
-      setIsDeleting(false);
     }
-  }, [article.id, onDelete]);
+  }, [article.id, onDelete, deleteArticleMutation]);
 
   const executeProcess = useCallback(async () => {
     try {
-      setIsProcessing(true);
       setIsReprocessAlertOpen(false);
-      await articlesApi.process(article.id);
+      await processArticleMutation.mutateAsync(article.id);
       onRefresh();
     } catch (error) {
       console.error("Failed to process article:", error);
-      setIsProcessing(false);
     }
-  }, [article.id, onRefresh]);
+  }, [article.id, onRefresh, processArticleMutation]);
 
   const handleProcess = useCallback(async () => {
     if (article.reviewed) {
@@ -140,50 +158,28 @@ export function ArticleView({
     }
   }, [article.reviewed, executeProcess]);
 
-  // Polling for processing updates
-  useEffect(() => {
-    let interval: number | undefined;
-    if (article.status === "processing" || isProcessing) {
-      interval = window.setInterval(async () => {
-        try {
-          const updated = await articlesApi.get(article.id);
-          onUpdate(updated);
-          if (updated.status === "completed" || updated.status === "error") {
-            clearInterval(interval);
-            setIsProcessing(false);
-          }
-        } catch {
-          clearInterval(interval);
-          setIsProcessing(false);
-        }
-      }, 2000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [article.status, isProcessing, article.id, onUpdate]);
-
   const handleAnnotationChange = useCallback(async (newAnnotations: Annotation[]) => {
     try {
-      await articlesApi.updateAnnotations(article.id, newAnnotations);
+      await updateAnnotationsMutation.mutateAsync({ id: article.id, annotations: newAnnotations });
       setHasChanges(true);
       onUpdate({ ...article, annotations: newAnnotations });
     } catch (error) {
       console.error("Failed to update annotations:", error);
     }
-  }, [article, onUpdate]);
+  }, [article, onUpdate, updateAnnotationsMutation]);
 
   const updateStructuredData = useCallback(async (newData: Record<string, unknown>) => {
     try {
-      const updated = await articlesApi.update(article.id, {
-        structured_data: newData,
+      const updated = await updateArticleMutation.mutateAsync({
+        id: article.id,
+        data: { structured_data: newData },
       });
       setHasChanges(true);
       onUpdate({ ...article, structured_data: updated.structured_data });
     } catch (error) {
       console.error("Failed to update structured data:", error);
     }
-  }, [article, onUpdate]);
+  }, [article, onUpdate, updateArticleMutation]);
 
   const handleUpdateClassification = (
     name: string,
@@ -258,15 +254,11 @@ export function ArticleView({
   ) => {
     const nextRelations = {
       ...(article.structured_data?.relation_extraction || {}),
-    } as Record<string, any[]>;
+    } as Record<string, RelationInstance[]>;
     const instances = [...(nextRelations[relType] || [])];
-    const current = { ...(instances[index] || {}) };
+    const current = { ...(instances[index] || { head: { text: "" }, tail: { text: "" } }) };
 
-    if (typeof current[field] === "object") {
-      current[field] = { ...current[field], text: value };
-    } else {
-      current[field] = { text: value };
-    }
+    current[field] = { ...current[field], text: value };
 
     instances[index] = current;
     nextRelations[relType] = instances;
@@ -280,7 +272,7 @@ export function ArticleView({
   const handleDeleteRelationInstance = (relType: string, index: number) => {
     const nextRelations = {
       ...(article.structured_data?.relation_extraction || {}),
-    } as Record<string, any[]>;
+    } as Record<string, unknown[]>;
     const instances = (nextRelations[relType] || []).filter(
       (_, i) => i !== index,
     );
@@ -300,7 +292,7 @@ export function ArticleView({
   const handleAddRelationInstance = (relType: string) => {
     const nextRelations = {
       ...(article.structured_data?.relation_extraction || {}),
-    } as Record<string, any[]>;
+    } as Record<string, RelationInstance[]>;
     const instances = [...(nextRelations[relType] || [])];
 
     instances.push({
@@ -648,13 +640,13 @@ export function ArticleView({
                 minimal
                 icon="trash"
                 intent={Intent.DANGER}
-                loading={isDeleting}
+                loading={deleteArticleMutation.isPending}
                 onClick={handleDelete}
               />
               <Button
                 intent={Intent.PRIMARY}
                 icon="refresh"
-                loading={isProcessing || article.status === "processing"}
+                loading={processArticleMutation.isPending || article.status === "processing"}
                 text="Reprocess"
                 onClick={handleProcess}
               />
@@ -679,7 +671,7 @@ export function ArticleView({
           <p>Are you sure you want to continue?</p>
         </Alert>
 
-        {article.status === "pending" && !isProcessing && (
+        {article.status === "pending" && !processArticleMutation.isPending && (
           <div className="p-12 rounded-lg text-center border border-dashed border-gray-300 dark:border-[#5e6064] bg-gray-50 dark:bg-bp-dark-surface">
             <Icon
               icon="cloud-upload"
@@ -696,12 +688,13 @@ export function ArticleView({
               intent={Intent.PRIMARY}
               icon="play"
               text="Extract Content & Entities"
+              loading={processArticleMutation.isPending}
               onClick={handleProcess}
             />
           </div>
         )}
 
-        {(isProcessing || article.status === "processing") && (
+        {(processArticleMutation.isPending || article.status === "processing") && (
           <div className="max-w-2xl mx-auto py-16">
             <Card elevation={2} className="p-8 space-y-8">
               <div className="text-center space-y-2">
@@ -1043,17 +1036,14 @@ export function ArticleView({
                                 {key}
                               </span>
                               <div className="text-sm">
-                                {typeof value === "object" &&
-                                value !== null &&
-                                !("label" in value) &&
-                                !("text" in value) ? (
-                                  <pre className="text-[10px] overflow-x-auto bg-white dark:bg-bp-dark-bg p-2 border border-gray-100 dark:border-bp-dark-border rounded mt-1">
-                                    {JSON.stringify(value, null, 2)}
-                                  </pre>
-                                ) : (
+                                {getDisplayText(value) ? (
                                   <span className="font-medium text-gray-700 dark:text-gray-200">
                                     {renderValueWithConfidence(value)}
                                   </span>
+                                ) : (
+                                  <pre className="text-[10px] overflow-x-auto bg-white dark:bg-bp-dark-bg p-2 border border-gray-100 dark:border-bp-dark-border rounded mt-1">
+                                    {JSON.stringify(value, null, 2)}
+                                  </pre>
                                 )}
                               </div>
                             </div>
@@ -1069,10 +1059,7 @@ export function ArticleView({
                   const relations = (article.structured_data
                     ?.relation_extraction || {}) as Record<
                     string,
-                    {
-                      head: { text: string; confidence?: number };
-                      tail: { text: string; confidence?: number };
-                    }[]
+                    RelationInstance[]
                   >;
 
                   // Get predefined relation types from config, plus any existing ones
@@ -1184,6 +1171,7 @@ export function ArticleView({
                                       minimal
                                       icon="trash"
                                       intent={Intent.DANGER}
+                                      loading={updateArticleMutation.isPending}
                                       onClick={() =>
                                         handleDeleteRelationInstance(
                                           relType,
@@ -1217,7 +1205,7 @@ export function ArticleView({
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div className="items-center gap-2 hidden group-hover:flex">
                                     <Icon
                                       icon="arrow-down"
                                       className="text-gray-300 group-hover:text-blue-400 transition-colors"
@@ -1291,7 +1279,7 @@ export function ArticleView({
                     <Tag minimal>
                       {article.annotations?.length || 0} Entities
                     </Tag>
-                    {isProcessing && (
+                    {processArticleMutation.isPending && (
                       <span className="text-xs text-gray-500 dark:text-gray-400 italic">
                         Polling...
                       </span>

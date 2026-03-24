@@ -6,31 +6,10 @@ import {
   SectionCard,
   Spinner,
 } from "@blueprintjs/core";
-import { useCallback, useEffect, useState } from "react";
-import { orgsApi } from "../../api";
-import { useToaster } from "../../hooks/useToaster";
-import type { Organization } from "../../types";
+import { useCurrentOrg } from "../../hooks/queries";
 
 export function OrgProfile() {
-  const [org, setOrg] = useState<Organization | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { showToaster } = useToaster();
-
-  const fetchOrg = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const data = await orgsApi.getCurrent();
-      setOrg(data);
-    } catch (err: any) {
-      showToaster(err.message || "Failed to fetch organization details", Intent.DANGER);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [showToaster]);
-
-  useEffect(() => {
-    fetchOrg();
-  }, [fetchOrg]);
+  const { data: org, isLoading } = useCurrentOrg();
 
   if (isLoading) {
     return (

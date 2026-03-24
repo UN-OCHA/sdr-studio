@@ -15,14 +15,15 @@ import {
   Spinner,
 } from "@blueprintjs/core";
 import { useEffect, useState } from "react";
-import { projectsApi, setAuthToken } from "./api";
+import { setAuthToken } from "./api";
 import { Dashboard } from "./components/Dashboard";
 import { ProjectDetail } from "./components/ProjectDetail";
 import { TemplateManager } from "./components/TemplateManager";
 import { OrgSettings } from "./components/OrgSettings";
 import { UserSettings } from "./components/UserSettings";
 import { useStore } from "./store";
-import type { Project, ProjectCreate } from "./types";
+import { useProjects, useCreateProject, useDeleteProject } from "./hooks/queries";
+import type { ProjectCreate } from "./types";
 
 function getInitials(name: string | undefined) {
   if (!name) return "?";
@@ -47,17 +48,15 @@ function App() {
   const [isTokenReady, setIsTokenReady] = useState(false);
 
   const {
-    projects,
     currentProjectId,
-    isLoadingProjects,
-    errorProjects,
     isDarkMode,
-    fetchProjects,
     setCurrentProjectId,
-    updateProject,
-    deleteProject,
     toggleDarkMode,
   } = useStore();
+
+  const { data: projects = [], isLoading: isLoadingProjects, error: errorProjects, refetch: fetchProjects } = useProjects();
+  const createProjectMutation = useCreateProject();
+  const deleteProjectMutation = useDeleteProject();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -66,7 +65,7 @@ function App() {
           const t = await getAccessTokenSilently();
           setAuthToken(t);
           setIsTokenReady(true);
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error("Token refresh failed:", err);
           setAuthToken(null);
           setIsTokenReady(true); // Release the spinner even on failure
@@ -79,45 +78,34 @@ function App() {
       return () => clearInterval(interval);
     } else {
       setAuthToken(null);
-      setIsTokenReady(false);
+      // Avoid calling setState synchronously within the effect
+      Promise.resolve().then(() => setIsTokenReady(false));
     }
   }, [isAuthenticated, getAccessTokenSilently]);
-
-  // Only fetch projects once token is ready
-  useEffect(() => {
-    if (isTokenReady && isAuthenticated) {
-      void fetchProjects();
-    }
-  }, [isTokenReady, isAuthenticated, fetchProjects]);
 
   const currentProject = projects.find((p) => p.id === currentProjectId);
 
   const handleCreateProject = async (projectData: ProjectCreate) => {
     try {
-      const newProject = await projectsApi.create(projectData);
-      void fetchProjects();
+      const newProject = await createProjectMutation.mutateAsync(projectData);
       setCurrentProjectId(newProject.id);
     } catch (error) {
       console.error("Failed to create project:", error);
     }
   };
 
-  const handleUpdateProject = (updatedProject: Project) => {
-    updateProject(updatedProject);
-  };
-
-  const handleImportUrls = async (projectId: string, urls: string[]) => {
-    try {
-      await projectsApi.importUrls(projectId, urls);
-    } catch (error) {
-      console.error("Failed to import URLs:", error);
-    }
+  const handleUpdateProject = () => {
+    // This will be handled by mutation in components or we can invalidate here
+    // For now, let's just make sure we refetch
+    void fetchProjects();
   };
 
   const handleDeleteProject = async (id: string) => {
     try {
-      await projectsApi.delete(id);
-      deleteProject(id);
+      await deleteProjectMutation.mutateAsync(id);
+      if (currentProjectId === id) {
+        setCurrentProjectId(null);
+      }
     } catch (error) {
       console.error("Failed to delete project:", error);
     }
@@ -291,7 +279,6 @@ function App() {
         ) : currentProject ? (
           <ProjectDetail
             project={currentProject}
-            onImportUrls={(urls) => handleImportUrls(currentProject.id, urls)}
             onUpdateProject={handleUpdateProject}
             onBack={() => {
               setCurrentProjectId(null);
@@ -311,7 +298,7 @@ function App() {
             <Dashboard
               projects={projects}
               isLoading={isLoadingProjects}
-              error={errorProjects}
+              error={errorProjects ? (errorProjects as Error).message : null}
               onRetry={fetchProjects}
               onCreateProject={handleCreateProject}
               onSelectProject={(id) => setCurrentProjectId(id)}

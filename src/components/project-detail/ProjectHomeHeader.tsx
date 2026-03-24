@@ -37,13 +37,16 @@ export function ProjectHomeHeader({
           title={project.name}
           subtitle={project.description}
           heading={H5}
-          className="ml-1"
+          className="ml-1 max-w-sm"
+          ellipsize
         />
       </div>
       <Tabs
         id="ProjectNavTabs"
         selectedTabId={activeTab}
-        onChange={(id) => onTabChange(id as any)}
+        onChange={(id) =>
+          onTabChange(id as "home" | "articles" | "settings" | "coverage")
+        }
         className="mb-0"
       >
         <Tab id="home" title="Home" icon="home" />

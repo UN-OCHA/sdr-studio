@@ -12,63 +12,47 @@ import {
   Section,
   SectionCard,
   Spinner,
+  type IconName,
 } from "@blueprintjs/core";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { projectsApi } from "../../api";
 import { useToaster } from "../../hooks/useToaster";
-import type { ApiKey, Project } from "../../types";
+import type { Project } from "../../types";
+import { useApiKeys, useCreateApiKey, useDeleteApiKey } from "../../hooks/queries";
+import { ensureError } from "../../utils/errorUtils";
 
 type ApiKeyManagerProps = {
   project: Project;
 };
 
 export function ApiKeyManager({ project }: ApiKeyManagerProps) {
-  const [keys, setKeys] = useState<ApiKey[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: keys = [], isLoading } = useApiKeys(project.id);
+  const createMutation = useCreateApiKey(project.id);
+  const deleteMutation = useDeleteApiKey(project.id);
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
   const { showToaster } = useToaster();
-
-  const fetchKeys = useCallback(async () => {
-    try {
-      const data = await projectsApi.listApiKeys(project.id);
-      setKeys(data);
-    } catch {
-      showToaster("Failed to fetch API keys", Intent.DANGER);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [project.id, showToaster]);
-
-  useEffect(() => {
-    fetchKeys();
-  }, [fetchKeys]);
 
   const handleCreate = async () => {
     if (!newKeyName) return;
-    setIsCreating(true);
     try {
-      await projectsApi.createApiKey(project.id, { name: newKeyName });
+      await createMutation.mutateAsync({ name: newKeyName });
       showToaster("API Key created successfully", Intent.SUCCESS);
       setIsCreateDialogOpen(false);
       setNewKeyName("");
-      fetchKeys();
-    } catch {
-      showToaster("Failed to create API key", Intent.DANGER);
-    } finally {
-      setIsCreating(false);
+    } catch (err: unknown) {
+      showToaster(ensureError(err).message || "Failed to create API key", Intent.DANGER);
     }
   };
 
   const handleDelete = async (keyId: string) => {
     if (!confirm("Are you sure you want to delete this API key? This will break any external integrations using it.")) return;
     try {
-      await projectsApi.deleteApiKey(keyId);
+      await deleteMutation.mutateAsync(keyId);
       showToaster("API Key deleted", Intent.SUCCESS);
-      fetchKeys();
-    } catch {
-      showToaster("Failed to delete API key", Intent.DANGER);
+    } catch (err: unknown) {
+      showToaster(ensureError(err).message || "Failed to delete API key", Intent.DANGER);
     }
   };
 
@@ -165,6 +149,7 @@ export function ApiKeyManager({ project }: ApiKeyManagerProps) {
                         small
                         intent={Intent.DANGER}
                         icon="trash"
+                        loading={deleteMutation.isPending && deleteMutation.variables === k.id}
                         onClick={() => handleDelete(k.id)}
                       />
                     </td>
@@ -193,7 +178,7 @@ export function ApiKeyManager({ project }: ApiKeyManagerProps) {
                 return (
                   <div key={fmt.format} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-bp-dark-surface rounded border border-gray-100 dark:border-bp-dark-border">
                     <div className="flex items-center gap-2">
-                      <Icon icon={fmt.icon as any} size={14} className="text-gray-400" />
+                      <Icon icon={fmt.icon as IconName} size={14} className="text-gray-400" />
                       <span className="text-xs font-bold">{fmt.label}</span>
                     </div>
                     <div className="flex items-center gap-2 max-w-[60%]">
@@ -234,7 +219,7 @@ export function ApiKeyManager({ project }: ApiKeyManagerProps) {
             <Button
               intent={Intent.PRIMARY}
               text="Generate Key"
-              loading={isCreating}
+              loading={createMutation.isPending}
               onClick={handleCreate}
               disabled={!newKeyName}
             />

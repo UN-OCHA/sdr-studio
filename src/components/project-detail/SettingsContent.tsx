@@ -189,7 +189,7 @@ export function SettingsContent({
           onChange={onPendingConfigChange}
           isSaving={isSaving}
           hideHeader
-          initialSection={settingsSection as any}
+          initialSection={settingsSection as "entities" | "relations" | "classifications" | "structures"}
         />
       )}
 

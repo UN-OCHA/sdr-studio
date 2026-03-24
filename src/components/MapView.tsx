@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { createRoot } from 'react-dom/client';
@@ -80,7 +80,10 @@ export function MapView({ articles, selection, onArticleClick }: MapViewProps) {
     onArticleClickRef.current = onArticleClick;
   }, [onArticleClick]);
 
-  const allLocations = articles.flatMap(a => (a.locations || []).map(l => ({ ...l, article: a })));
+  const allLocations = useMemo(() => 
+    articles.flatMap(a => (a.locations || []).map(l => ({ ...l, article: a }))),
+    [articles]
+  );
 
   // 1. Initialize Map
   useEffect(() => {
@@ -113,7 +116,7 @@ export function MapView({ articles, selection, onArticleClick }: MapViewProps) {
       m.remove();
       map.current = null;
     };
-  }, []);
+  }, [allLocations, isDarkMode]);
 
   // 2. Handle Theme Switch
   useEffect(() => {
@@ -166,7 +169,7 @@ export function MapView({ articles, selection, onArticleClick }: MapViewProps) {
         allLocations.forEach(loc => bounds.extend([loc.longitude, loc.latitude]));
         map.current.fitBounds(bounds, { padding: 50, maxZoom: 8, animate: false });
     }
-  }, [articles]);
+  }, [allLocations]);
 
   // 3. Handle External Selection (Sync from Timeline)
   useEffect(() => {

@@ -15,6 +15,7 @@ import { Select, type ItemRenderer } from "@blueprintjs/select";
 import TimeAgo from "react-timeago";
 import { projectsApi } from "../../api";
 import type { Article, Project, ProjectStats } from "../../types";
+import { useExportToken } from "../../hooks/queries";
 
 type SortOption = {
   label: string;
@@ -108,6 +109,7 @@ export function ArticleSidebar({
   onClearPinned,
 }: ArticleSidebarProps) {
   const isProcessing = stats && (stats.pending > 0 || stats.processing > 0);
+  const exportTokenMutation = useExportToken();
 
   const renderSortOption: ItemRenderer<SortOption> = (
     option,
@@ -292,7 +294,7 @@ export function ArticleSidebar({
                         icon="document"
                         text="Export Selected as JSON"
                         onClick={async () => {
-                          const { token } = await projectsApi.getExportToken();
+                          const { token } = await exportTokenMutation.mutateAsync();
                           const ids = Array.from(checkedArticleIds);
                           window.open(
                             projectsApi.exportJsonUrl(project.id, token, ids),
@@ -304,7 +306,7 @@ export function ArticleSidebar({
                         icon="th"
                         text="Export Selected as CSV"
                         onClick={async () => {
-                          const { token } = await projectsApi.getExportToken();
+                          const { token } = await exportTokenMutation.mutateAsync();
                           const ids = Array.from(checkedArticleIds);
                           window.open(
                             projectsApi.exportCsvUrl(project.id, token, ids),
@@ -316,7 +318,7 @@ export function ArticleSidebar({
                         icon="print"
                         text="Generate Report (MD)"
                         onClick={async () => {
-                          const { token } = await projectsApi.getExportToken();
+                          const { token } = await exportTokenMutation.mutateAsync();
                           const ids = Array.from(checkedArticleIds);
                           window.open(
                             projectsApi.exportReportUrl(
@@ -338,6 +340,7 @@ export function ArticleSidebar({
                     variant="minimal"
                     icon="download"
                     title="Export Selected"
+                    loading={exportTokenMutation.isPending}
                   />
                 </Popover>
               </>
@@ -487,7 +490,7 @@ export function ArticleSidebar({
                       icon="document"
                       text="Export Pinned as JSON"
                       onClick={async () => {
-                        const { token } = await projectsApi.getExportToken();
+                        const { token } = await exportTokenMutation.mutateAsync();
                         const ids = pinnedArticles.map((a) => a.id);
                         window.open(
                           projectsApi.exportJsonUrl(project.id, token, ids),
@@ -499,7 +502,7 @@ export function ArticleSidebar({
                       icon="th"
                       text="Export Pinned as CSV"
                       onClick={async () => {
-                        const { token } = await projectsApi.getExportToken();
+                        const { token } = await exportTokenMutation.mutateAsync();
                         const ids = pinnedArticles.map((a) => a.id);
                         window.open(
                           projectsApi.exportCsvUrl(project.id, token, ids),
@@ -511,7 +514,7 @@ export function ArticleSidebar({
                       icon="print"
                       text="Generate Report for Pinned (MD)"
                       onClick={async () => {
-                        const { token } = await projectsApi.getExportToken();
+                        const { token } = await exportTokenMutation.mutateAsync();
                         const ids = pinnedArticles.map((a) => a.id);
                         window.open(
                           projectsApi.exportReportUrl(
@@ -534,6 +537,7 @@ export function ArticleSidebar({
                   intent={Intent.PRIMARY}
                   icon="download"
                   text="Export"
+                  loading={exportTokenMutation.isPending}
                 />
               </Popover>
               <Button

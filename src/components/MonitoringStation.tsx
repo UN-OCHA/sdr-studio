@@ -21,14 +21,12 @@ import {
 import { Select, type ItemRenderer } from "@blueprintjs/select";
 import {
   forwardRef,
-  useCallback,
-  useEffect,
   useImperativeHandle,
   useState,
 } from "react";
-import { sourcesApi } from "../api";
 import { useToaster } from "../hooks/useToaster";
 import type { Project, Source } from "../types";
+import { useSources, useCreateSource, useUpdateSource, useDeleteSource } from "../hooks/queries";
 
 export interface MonitoringStationRef {
   openAddSource: () => void;
@@ -80,8 +78,6 @@ export const MonitoringStation = forwardRef<
   MonitoringStationRef,
   MonitoringStationProps
 >(({ project }, ref) => {
-  const [sources, setSources] = useState<Source[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -93,29 +89,19 @@ export const MonitoringStation = forwardRef<
     url: "",
     type: "rss",
     polling_interval: 15,
-    config: {} as any,
+    config: {} as Record<string, unknown>,
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const { showToaster } = useToaster();
+
+  const { data: sources = [], isLoading } = useSources(project.id);
+  const createSourceMutation = useCreateSource();
+  const updateSourceMutation = useUpdateSource();
+  const deleteSourceMutation = useDeleteSource(project.id);
 
   useImperativeHandle(ref, () => ({
     openAddSource: () => setIsAddDialogOpen(true),
   }));
-
-  const fetchSources = useCallback(async () => {
-    try {
-      const data = await sourcesApi.list(project.id);
-      setSources(data);
-    } catch {
-      showToaster("Failed to fetch sources", Intent.DANGER);
-    } finally {
-      setLoading(false);
-    }
-  }, [project.id, showToaster]);
-
-  useEffect(() => {
-    fetchSources();
-  }, [fetchSources]);
 
   const handleAddSource = async () => {
     if (!newSource.name || !newSource.url) {
@@ -128,11 +114,13 @@ export const MonitoringStation = forwardRef<
     if (pollingUnit === "hour") intervalInMinutes *= 60;
     if (pollingUnit === "day") intervalInMinutes *= 1440;
 
-    setIsSubmitting(true);
     try {
-      await sourcesApi.create(project.id, {
-        ...newSource,
-        polling_interval: intervalInMinutes,
+      await createSourceMutation.mutateAsync({
+        projectId: project.id,
+        data: {
+          ...newSource,
+          polling_interval: intervalInMinutes,
+        }
       });
       showToaster("Source added successfully", Intent.SUCCESS);
       setIsAddDialogOpen(false);
@@ -146,22 +134,17 @@ export const MonitoringStation = forwardRef<
       setTempInterval(15);
       setPollingUnit("min");
       setShowAdvanced(false);
-      fetchSources();
     } catch {
       showToaster("Failed to add source", Intent.DANGER);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleToggleActive = async (source: Source) => {
     try {
-      await sourcesApi.update(source.id, { active: !source.active });
-      setSources((prev) =>
-        prev.map((s) =>
-          s.id === source.id ? { ...s, active: !source.active } : s,
-        ),
-      );
+      await updateSourceMutation.mutateAsync({
+        id: source.id,
+        data: { active: !source.active }
+      });
     } catch {
       showToaster("Failed to update source", Intent.DANGER);
     }
@@ -171,15 +154,14 @@ export const MonitoringStation = forwardRef<
     if (!confirm("Are you sure you want to delete this source?")) return;
 
     try {
-      await sourcesApi.delete(sourceId);
-      setSources((prev) => prev.filter((s) => s.id !== sourceId));
+      await deleteSourceMutation.mutateAsync(sourceId);
       showToaster("Source deleted", Intent.SUCCESS);
     } catch {
       showToaster("Failed to delete source", Intent.DANGER);
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Spinner size={50} />
@@ -188,7 +170,7 @@ export const MonitoringStation = forwardRef<
     );
   }
 
-  const updateConfig = (key: string, value: any) => {
+  const updateConfig = (key: string, value: unknown) => {
     setNewSource((prev) => ({
       ...prev,
       config: { ...prev.config, [key]: value },
@@ -427,7 +409,7 @@ export const MonitoringStation = forwardRef<
                         fill
                         min={1}
                         max={50}
-                        value={newSource.config.limit || 10}
+                        value={(newSource.config.limit as number) || 10}
                         onValueChange={(val) => updateConfig("limit", val)}
                       />
                     </FormGroup>
@@ -436,7 +418,7 @@ export const MonitoringStation = forwardRef<
                       <FormGroup label="Search Type" className="mb-0">
                         <HTMLSelect
                           fill
-                          value={newSource.config.search_type || "neural"}
+                          value={(newSource.config.search_type as string) || "neural"}
                           onChange={(e) =>
                             updateConfig("search_type", e.target.value)
                           }
@@ -452,7 +434,7 @@ export const MonitoringStation = forwardRef<
                       <FormGroup label="Freshness" className="mb-0">
                         <HTMLSelect
                           fill
-                          value={newSource.config.freshness || ""}
+                          value={(newSource.config.freshness as string) || ""}
                           onChange={(e) =>
                             updateConfig("freshness", e.target.value)
                           }
@@ -473,7 +455,7 @@ export const MonitoringStation = forwardRef<
                       <FormGroup label="Category">
                         <HTMLSelect
                           fill
-                          value={newSource.config.category || ""}
+                          value={(newSource.config.category as string) || ""}
                           onChange={(e) =>
                             updateConfig("category", e.target.value)
                           }
@@ -492,7 +474,7 @@ export const MonitoringStation = forwardRef<
                       <FormGroup label="Published After (ISO Date)">
                         <InputGroup
                           placeholder="YYYY-MM-DD"
-                          value={newSource.config.published_after || ""}
+                          value={(newSource.config.published_after as string) || ""}
                           onChange={(e) =>
                             updateConfig("published_after", e.target.value)
                           }
@@ -506,7 +488,7 @@ export const MonitoringStation = forwardRef<
                       <FormGroup label="Country (2-letter)">
                         <InputGroup
                           placeholder="US, GB, etc."
-                          value={newSource.config.country || ""}
+                          value={(newSource.config.country as string) || ""}
                           onChange={(e) =>
                             updateConfig(
                               "country",
@@ -518,7 +500,7 @@ export const MonitoringStation = forwardRef<
                       <FormGroup label="Language (2-letter)">
                         <InputGroup
                           placeholder="en, fr, es"
-                          value={newSource.config.search_lang || ""}
+                          value={(newSource.config.search_lang as string) || ""}
                           onChange={(e) =>
                             updateConfig(
                               "search_lang",
@@ -541,7 +523,7 @@ export const MonitoringStation = forwardRef<
             <Button
               intent={Intent.PRIMARY}
               text="Add Source"
-              loading={isSubmitting}
+              loading={createSourceMutation.isPending}
               onClick={handleAddSource}
             />
           </div>
@@ -550,3 +532,4 @@ export const MonitoringStation = forwardRef<
     </div>
   );
 });
+MonitoringStation.displayName = "MonitoringStation";

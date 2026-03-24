@@ -5,38 +5,21 @@ import {
   Section,
   SectionCard,
   Spinner,
+  type IconName,
 } from "@blueprintjs/core";
-import { useEffect, useState } from "react";
-import { sourcesApi } from "../api";
-import type { Project, Source } from "../types";
+import type { Project } from "../types";
 import { IntelligencePipeline } from "./IntelligencePipeline";
+import { useSources } from "../hooks/queries";
 
 type ProjectHomeProps = {
   project: Project;
-  onTabChange: (tab: any) => void;
+  onTabChange: (tab: string) => void;
 };
 
 export function ProjectHome({ project, onTabChange }: ProjectHomeProps) {
-  const [sources, setSources] = useState<Source[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: sources = [], isLoading } = useSources(project.id);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [sourcesData] = await Promise.all([
-          sourcesApi.list(project.id),
-        ]);
-        setSources(sourcesData);
-      } catch (error) {
-        console.error("Failed to fetch project home data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [project.id]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <Spinner />
@@ -129,7 +112,7 @@ export function ProjectHome({ project, onTabChange }: ProjectHomeProps) {
                   }`}
                 >
                   <Icon
-                    icon={step.completed ? "tick" : (step.icon as any)}
+                    icon={step.completed ? "tick" : (step.icon as IconName)}
                     size={14}
                   />
                 </div>

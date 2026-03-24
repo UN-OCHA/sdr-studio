@@ -10,47 +10,23 @@ import {
   Tag,
   Tooltip,
 } from "@blueprintjs/core";
-import { useCallback, useEffect, useState } from "react";
-import { usersApi } from "../../api";
 import { useToaster } from "../../hooks/useToaster";
-
-interface SessionInfo {
-  id: string;
-  device: string;
-  location: string;
-  last_active: string;
-  current: boolean;
-}
+import { ensureError } from "../../utils/errorUtils";
+import { useUserSessions, useRevokeSession } from "../../hooks/queries";
+import type { UserSession } from "../../types";
 
 export function UserSessions() {
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: sessions = [], isLoading } = useUserSessions();
+  const revokeSessionMutation = useRevokeSession();
   const { showToaster } = useToaster();
-
-  const fetchSessions = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const data = await usersApi.listSessions();
-      setSessions(data);
-    } catch (err: any) {
-      showToaster(err.message || "Failed to fetch sessions", Intent.DANGER);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [showToaster]);
-
-  useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
 
   const handleRevoke = async (sessionId: string) => {
     if (!confirm("Are you sure you want to end this session? You will be logged out on that device.")) return;
     try {
-      await usersApi.revokeSession(sessionId);
+      await revokeSessionMutation.mutateAsync(sessionId);
       showToaster("Session revoked successfully", Intent.SUCCESS);
-      fetchSessions();
-    } catch (err: any) {
-      showToaster(err.message || "Failed to revoke session", Intent.DANGER);
+    } catch (err: unknown) {
+      showToaster(ensureError(err).message || "Failed to revoke session", Intent.DANGER);
     }
   };
 
@@ -91,7 +67,7 @@ export function UserSessions() {
                     </tr>
                     </thead>
                     <tbody>
-                    {sessions.map((s) => (
+                    {(sessions as UserSession[]).map((s) => (
                         <tr key={s.id}>
                         <td>
                             <div className="flex items-center gap-2">
@@ -111,6 +87,7 @@ export function UserSessions() {
                                         small
                                         intent={Intent.DANGER}
                                         icon="log-out"
+                                        loading={revokeSessionMutation.isPending && revokeSessionMutation.variables === s.id}
                                         onClick={() => handleRevoke(s.id)}
                                     />
                                 </Tooltip>

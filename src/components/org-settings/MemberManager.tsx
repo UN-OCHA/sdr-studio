@@ -14,10 +14,17 @@ import {
   Tag,
   Tooltip,
 } from "@blueprintjs/core";
-import { useCallback, useEffect, useState } from "react";
-import { orgsApi } from "../../api";
+import { useState } from "react";
 import { useToaster } from "../../hooks/useToaster";
-import type { Member, Invitation } from "../../types";
+import { ensureError } from "../../utils/errorUtils";
+import { 
+  useOrgMembers, 
+  useOrgInvitations, 
+  useInviteMember, 
+  useRemoveMember, 
+  useResendInvitation, 
+  useRevokeInvitation 
+} from "../../hooks/queries";
 
 interface MemberManagerProps {
   title: string;
@@ -25,80 +32,59 @@ interface MemberManagerProps {
 }
 
 export function MemberManager({ title, subtitle }: MemberManagerProps) {
-  const [members, setMembers] = useState<Member[]>([]);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: members = [], isLoading: isLoadingMembers } = useOrgMembers();
+  const { data: invitations = [], isLoading: isLoadingInvites } = useOrgInvitations();
+  
+  const inviteMutation = useInviteMember();
+  const removeMutation = useRemoveMember();
+  const resendMutation = useResendInvitation();
+  const revokeMutation = useRevokeInvitation();
+
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [isInviting, setIsInviting] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "pending">("active");
   const { showToaster } = useToaster();
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [membersData, invitesData] = await Promise.all([
-        orgsApi.listMembers(),
-        orgsApi.listInvitations(),
-      ]);
-      setMembers(membersData);
-      setInvitations(invitesData);
-    } catch (err: any) {
-      showToaster(err.message || "Failed to fetch team data", Intent.DANGER);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [showToaster]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const isLoading = isLoadingMembers || isLoadingInvites;
 
   const handleInvite = async () => {
     if (!inviteEmail) return;
-    setIsInviting(true);
     try {
-      await orgsApi.inviteMember(inviteEmail);
+      await inviteMutation.mutateAsync(inviteEmail);
       showToaster(`Invitation sent to ${inviteEmail}`, Intent.SUCCESS);
       setIsInviteOpen(false);
       setInviteEmail("");
-      fetchData();
-    } catch (err: any) {
-      showToaster(err.message || "Failed to send invitation", Intent.DANGER);
-    } finally {
-      setIsInviting(false);
+    } catch (err: unknown) {
+      showToaster(ensureError(err).message || "Failed to send invitation", Intent.DANGER);
     }
   };
 
   const handleRemove = async (memberId: string) => {
     if (!confirm("Are you sure you want to remove this member?")) return;
     try {
-      await orgsApi.removeMember(memberId);
+      await removeMutation.mutateAsync(memberId);
       showToaster("Member removed successfully", Intent.SUCCESS);
-      fetchData();
-    } catch (err: any) {
-      showToaster(err.message || "Failed to remove member", Intent.DANGER);
+    } catch (err: unknown) {
+      showToaster(ensureError(err).message || "Failed to remove member", Intent.DANGER);
     }
   };
 
   const handleResend = async (inviteId: string) => {
     try {
-        await orgsApi.resendInvitation(inviteId);
+        await resendMutation.mutateAsync(inviteId);
         showToaster("Invitation resent successfully", Intent.SUCCESS);
-        fetchData();
-    } catch (err: any) {
-        showToaster(err.message || "Failed to resend invitation", Intent.DANGER);
+    } catch (err: unknown) {
+        showToaster(ensureError(err).message || "Failed to resend invitation", Intent.DANGER);
     }
   };
 
   const handleRevoke = async (inviteId: string) => {
     if (!confirm("Are you sure you want to revoke this invitation?")) return;
     try {
-        await orgsApi.revokeInvitation(inviteId);
+        await revokeMutation.mutateAsync(inviteId);
         showToaster("Invitation revoked successfully", Intent.SUCCESS);
-        fetchData();
-    } catch (err: any) {
-        showToaster(err.message || "Failed to revoke invitation", Intent.DANGER);
+    } catch (err: unknown) {
+        showToaster(ensureError(err).message || "Failed to revoke invitation", Intent.DANGER);
     }
   };
 
@@ -126,7 +112,7 @@ export function MemberManager({ title, subtitle }: MemberManagerProps) {
       <Tabs
         id="MemberTabs"
         selectedTabId={activeTab}
-        onChange={(id) => setActiveTab(id as any)}
+        onChange={(id) => setActiveTab(id as "active" | "pending")}
         className="mb-4"
       >
         <Tab id="active" title="Active Members" icon="people" tagContent={members.length} />
@@ -165,6 +151,7 @@ export function MemberManager({ title, subtitle }: MemberManagerProps) {
                             small
                             intent={Intent.DANGER}
                             icon="trash"
+                            loading={removeMutation.isPending && removeMutation.variables === m.id}
                             onClick={() => handleRemove(m.id)}
                         />
                     </Tooltip>
@@ -208,6 +195,7 @@ export function MemberManager({ title, subtitle }: MemberManagerProps) {
                                 small
                                 intent={Intent.PRIMARY}
                                 icon="repeat"
+                                loading={resendMutation.isPending && resendMutation.variables === i.id}
                                 onClick={() => handleResend(i.id)}
                             />
                         </Tooltip>
@@ -217,6 +205,7 @@ export function MemberManager({ title, subtitle }: MemberManagerProps) {
                                 small
                                 intent={Intent.DANGER}
                                 icon="cross"
+                                loading={revokeMutation.isPending && revokeMutation.variables === i.id}
                                 onClick={() => handleRevoke(i.id)}
                             />
                         </Tooltip>
@@ -258,7 +247,7 @@ export function MemberManager({ title, subtitle }: MemberManagerProps) {
             <Button
               intent={Intent.PRIMARY}
               text="Send Invitation"
-              loading={isInviting}
+              loading={inviteMutation.isPending}
               onClick={handleInvite}
             />
           </div>

@@ -1,34 +1,12 @@
 import {
-  Intent,
   Section,
   SectionCard,
   Spinner,
 } from "@blueprintjs/core";
-import { useCallback, useEffect, useState } from "react";
-import { usersApi } from "../../api";
-import { useToaster } from "../../hooks/useToaster";
-import type { Member } from "../../types";
+import { useUserProfile } from "../../hooks/queries";
 
 export function UserProfile() {
-  const [profile, setProfile] = useState<Member | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { showToaster } = useToaster();
-
-  const fetchProfile = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const data = await usersApi.getMe();
-      setProfile(data);
-    } catch (err: any) {
-      showToaster(err.message || "Failed to fetch profile", Intent.DANGER);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [showToaster]);
-
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+  const { data: profile, isLoading } = useUserProfile();
 
   if (isLoading) {
     return (
