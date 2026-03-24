@@ -81,6 +81,7 @@ export const projectsApi = {
     params: {
       search?: string;
       status?: string;
+      source_type?: string;
       skip?: number;
       limit?: number;
       sort_by?: string;
@@ -90,6 +91,7 @@ export const projectsApi = {
     const query = new URLSearchParams();
     if (params.search) query.append("search", params.search);
     if (params.status) query.append("status", params.status);
+    if (params.source_type) query.append("source_type", params.source_type);
     if (params.skip !== undefined) query.append("skip", params.skip.toString());
     if (params.limit !== undefined) query.append("limit", params.limit.toString());
     if (params.sort_by) query.append("sort_by", params.sort_by);

@@ -69,6 +69,7 @@ export function ProjectDetail({
   // Filter/Sort/Pagination state
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [skip, setSkip] = useState(0);
@@ -77,11 +78,12 @@ export function ProjectDetail({
   const articleParams = useMemo(() => ({
     search,
     status: statusFilter,
+    source_type: sourceFilter,
     skip,
     limit: LIMIT,
     sort_by: sortBy,
     sort_order: sortOrder,
-  }), [search, statusFilter, skip, sortBy, sortOrder]);
+  }), [search, statusFilter, sourceFilter, skip, sortBy, sortOrder]);
 
   const { data: articleData, isLoading: isLoadingArticles, refetch: refetchArticles } = useArticles(project.id, articleParams);
   const { data: stats } = useProjectStats(project.id);
@@ -380,10 +382,12 @@ export function ProjectDetail({
                     checkedArticleIds={checkedArticleIds}
                     search={search}
                     statusFilter={statusFilter}
+                    sourceFilter={sourceFilter}
                     sortBy={sortBy}
                     sortOrder={sortOrder}
                     onSearchChange={setSearch}
                     onStatusFilterChange={setStatusFilter}
+                    onSourceFilterChange={setSourceFilter}
                     onSortByChange={setSortBy}
                     onSortOrderToggle={() =>
                       setSortOrder(sortOrder === "asc" ? "desc" : "asc")

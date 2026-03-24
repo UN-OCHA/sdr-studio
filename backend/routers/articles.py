@@ -19,6 +19,7 @@ def list_articles(
     project_id: UUID, 
     search: Optional[str] = None,
     status: Optional[str] = None,
+    source_type: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
     sort_by: str = "created_at",
@@ -40,6 +41,9 @@ def list_articles(
     
     if status and status != "all":
         query = query.where(Article.status == status)
+
+    if source_type and source_type != "all":
+        query = query.where(Article.source_type == source_type)
     
     total_query = select(func.count(Article.id)).where(Article.project_id == project_id)
     if search:
@@ -49,6 +53,8 @@ def list_articles(
         ))
     if status and status != "all":
         total_query = total_query.where(Article.status == status)
+    if source_type and source_type != "all":
+        total_query = total_query.where(Article.source_type == source_type)
     
     total = session.exec(total_query).one()
     

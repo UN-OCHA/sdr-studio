@@ -27,6 +27,8 @@ class ArticleBase(SQLModel):
     structured_data: Optional[Dict[str, Any]] = Field(default={}, sa_column=Column(JSON))
     locations: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
     event_date: Optional[datetime] = None
+    source_id: Optional[UUID] = None
+    source_type: Optional[str] = "manual"  # manual, rss, exa, brave
     org_id: str = Field(default="public", index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

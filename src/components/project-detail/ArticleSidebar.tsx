@@ -5,17 +5,17 @@ import {
   InputGroup,
   Intent,
   Menu,
+  MenuDivider,
   MenuItem,
   NonIdealState,
   Popover,
   ProgressBar,
   Tooltip,
 } from "@blueprintjs/core";
-import { Select, type ItemRenderer } from "@blueprintjs/select";
 import TimeAgo from "react-timeago";
 import { projectsApi } from "../../api";
+import { useExportToken, useSources } from "../../hooks/queries";
 import type { Article, Project, ProjectStats } from "../../types";
-import { useExportToken } from "../../hooks/queries";
 
 type SortOption = {
   label: string;
@@ -39,13 +39,13 @@ const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
   { label: "Error", value: "error" },
 ];
 
-const SORT_LABELS: Record<string, string> = Object.fromEntries(
-  SORT_OPTIONS.map((o) => [o.value, o.label]),
-);
-
-const STATUS_LABELS: Record<string, string> = Object.fromEntries(
-  STATUS_FILTER_OPTIONS.map((o) => [o.value, o.label]),
-);
+const SOURCE_FILTER_OPTIONS: { label: string; value: string }[] = [
+  { label: "All Sources", value: "all" },
+  { label: "Manual", value: "manual" },
+  { label: "RSS", value: "rss" },
+  { label: "Exa", value: "exa" },
+  { label: "Brave", value: "brave" },
+];
 
 type ArticleSidebarProps = {
   project: Project;
@@ -57,10 +57,12 @@ type ArticleSidebarProps = {
   checkedArticleIds: Set<string>;
   search: string;
   statusFilter: string;
+  sourceFilter: string;
   sortBy: string;
   sortOrder: "asc" | "desc";
   onSearchChange: (search: string) => void;
   onStatusFilterChange: (status: string) => void;
+  onSourceFilterChange: (source: string) => void;
   onSortByChange: (sortBy: string) => void;
   onSortOrderToggle: () => void;
   onArticleSelect: (id: string) => void;
@@ -88,10 +90,12 @@ export function ArticleSidebar({
   checkedArticleIds,
   search,
   statusFilter,
+  sourceFilter,
   sortBy,
   sortOrder,
   onSearchChange,
   onStatusFilterChange,
+  onSourceFilterChange,
   onSortByChange,
   onSortOrderToggle,
   onArticleSelect,
@@ -110,43 +114,39 @@ export function ArticleSidebar({
 }: ArticleSidebarProps) {
   const isProcessing = stats && (stats.pending > 0 || stats.processing > 0);
   const exportTokenMutation = useExportToken();
+  const { data: sources = [] } = useSources(project.id);
 
-  const renderSortOption: ItemRenderer<SortOption> = (
-    option,
-    { handleClick, handleFocus, modifiers },
-  ) => {
-    if (!modifiers.matchesPredicate) return null;
+  const getSourceDisplay = (article: Article) => {
+    const type = article.source_type || "manual";
+    const source = sources.find((s) => s.id === article.source_id);
+
     return (
-      <MenuItem
-        active={modifiers.active}
-        disabled={modifiers.disabled}
-        key={option.value}
-        onClick={handleClick}
-        onFocus={handleFocus}
-        text={option.label}
-      />
+      <div
+        className="flex items-center gap-1 shrink-0"
+        title={
+          source ? `Source: ${source.name}` : `Type: ${type.toUpperCase()}`
+        }
+      >
+        <Icon
+          icon={
+            type === "rss"
+              ? "feed"
+              : type === "exa" || type === "brave"
+                ? "search"
+                : "import"
+          }
+          size={10}
+        />
+        <span className="truncate max-w-[80px]">
+          {source
+            ? source.name
+            : type === "manual"
+              ? "Manual"
+              : type.toUpperCase()}
+        </span>
+      </div>
     );
   };
-
-  const renderStatusOption: ItemRenderer<StatusFilterOption> = (
-    option,
-    { handleClick, handleFocus, modifiers },
-  ) => {
-    if (!modifiers.matchesPredicate) return null;
-    return (
-      <MenuItem
-        active={modifiers.active}
-        disabled={modifiers.disabled}
-        key={option.value}
-        onClick={handleClick}
-        onFocus={handleFocus}
-        text={option.label}
-      />
-    );
-  };
-
-  const currentSortLabel = SORT_LABELS[sortBy] || "Sort By";
-  const currentStatusLabel = STATUS_LABELS[statusFilter] || "Filter Status";
 
   const getStatusIcon = (article: Article) => {
     if (article.reviewed) {
@@ -234,46 +234,74 @@ export function ArticleSidebar({
               onChange={onToggleCheckAll}
               className="mb-0! mr-1"
             />
-            <Select<StatusFilterOption>
-              items={STATUS_FILTER_OPTIONS}
-              itemRenderer={renderStatusOption}
-              onItemSelect={(o) => onStatusFilterChange(o.value)}
-              filterable={false}
-              popoverProps={{ minimal: true, matchTargetWidth: true }}
-            >
-              <Button
-                small
-                minimal
-                text={
-                  currentStatusLabel === "All Statuses"
-                    ? "All"
-                    : currentStatusLabel
-                }
-                rightIcon="filter"
-                title="Filter by Status"
-              />
-            </Select>
-            <Select<SortOption>
-              items={SORT_OPTIONS}
-              itemRenderer={renderSortOption}
-              onItemSelect={(o) => onSortByChange(o.value)}
-              filterable={false}
-              popoverProps={{ minimal: true }}
-            >
-              <Button
-                small
-                minimal
-                icon={sortOrder === "asc" ? "sort-asc" : "sort-desc"}
-                text={currentSortLabel === "Date Found" ? "Date" : "Title"}
-              />
-            </Select>
-            <Button
-              small
+            <Popover
               minimal
-              icon="swap-vertical"
-              title="Toggle Sort Direction"
-              onClick={onSortOrderToggle}
-            />
+              placement="bottom-start"
+              content={
+                <Menu>
+                  <MenuDivider title="Filter by Status" />
+                  {STATUS_FILTER_OPTIONS.map((o) => (
+                    <MenuItem
+                      key={o.value}
+                      text={o.label}
+                      icon={statusFilter === o.value ? "tick" : "blank"}
+                      active={statusFilter === o.value}
+                      onClick={() => onStatusFilterChange(o.value)}
+                    />
+                  ))}
+                  <MenuDivider title="Filter by Source" />
+                  {SOURCE_FILTER_OPTIONS.map((o) => (
+                    <MenuItem
+                      key={o.value}
+                      text={o.label}
+                      icon={
+                        sourceFilter === o.value
+                          ? "tick"
+                          : o.value === "rss"
+                            ? "feed"
+                            : o.value === "exa" || o.value === "brave"
+                              ? "search"
+                              : o.value === "manual"
+                                ? "import"
+                                : "blank"
+                      }
+                      active={sourceFilter === o.value}
+                      onClick={() => onSourceFilterChange(o.value)}
+                    />
+                  ))}
+                  <MenuDivider title="Sort Options" />
+                  <MenuItem icon="sort" text="Sort By">
+                    {SORT_OPTIONS.map((o) => (
+                      <MenuItem
+                        key={o.value}
+                        text={o.label}
+                        icon={sortBy === o.value ? "tick" : "blank"}
+                        active={sortBy === o.value}
+                        onClick={() => onSortByChange(o.value)}
+                      />
+                    ))}
+                  </MenuItem>
+                  <MenuItem
+                    icon={sortOrder === "asc" ? "sort-asc" : "sort-desc"}
+                    text={sortOrder === "asc" ? "Ascending" : "Descending"}
+                    onClick={onSortOrderToggle}
+                  />
+                </Menu>
+              }
+            >
+              <Button
+                size="small"
+                variant="minimal"
+                icon="properties"
+                text="View"
+                rightIcon="caret-down"
+                intent={
+                  statusFilter !== "all" || sourceFilter !== "all"
+                    ? Intent.PRIMARY
+                    : Intent.NONE
+                }
+              />
+            </Popover>
           </div>
 
           <div className="flex gap-1">
@@ -294,7 +322,8 @@ export function ArticleSidebar({
                         icon="document"
                         text="Export Selected as JSON"
                         onClick={async () => {
-                          const { token } = await exportTokenMutation.mutateAsync();
+                          const { token } =
+                            await exportTokenMutation.mutateAsync();
                           const ids = Array.from(checkedArticleIds);
                           window.open(
                             projectsApi.exportJsonUrl(project.id, token, ids),
@@ -306,7 +335,8 @@ export function ArticleSidebar({
                         icon="th"
                         text="Export Selected as CSV"
                         onClick={async () => {
-                          const { token } = await exportTokenMutation.mutateAsync();
+                          const { token } =
+                            await exportTokenMutation.mutateAsync();
                           const ids = Array.from(checkedArticleIds);
                           window.open(
                             projectsApi.exportCsvUrl(project.id, token, ids),
@@ -318,7 +348,8 @@ export function ArticleSidebar({
                         icon="print"
                         text="Generate Report (MD)"
                         onClick={async () => {
-                          const { token } = await exportTokenMutation.mutateAsync();
+                          const { token } =
+                            await exportTokenMutation.mutateAsync();
                           const ids = Array.from(checkedArticleIds);
                           window.open(
                             projectsApi.exportReportUrl(
@@ -453,6 +484,8 @@ export function ArticleSidebar({
                     <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-medium">
                       <Icon icon="calendar" size={10} />
                       <TimeAgo date={article.created_at} />
+                      <span className="text-gray-200">|</span>
+                      {getSourceDisplay(article)}
                     </div>
                   </div>
                 </div>
@@ -490,7 +523,8 @@ export function ArticleSidebar({
                       icon="document"
                       text="Export Pinned as JSON"
                       onClick={async () => {
-                        const { token } = await exportTokenMutation.mutateAsync();
+                        const { token } =
+                          await exportTokenMutation.mutateAsync();
                         const ids = pinnedArticles.map((a) => a.id);
                         window.open(
                           projectsApi.exportJsonUrl(project.id, token, ids),
@@ -502,7 +536,8 @@ export function ArticleSidebar({
                       icon="th"
                       text="Export Pinned as CSV"
                       onClick={async () => {
-                        const { token } = await exportTokenMutation.mutateAsync();
+                        const { token } =
+                          await exportTokenMutation.mutateAsync();
                         const ids = pinnedArticles.map((a) => a.id);
                         window.open(
                           projectsApi.exportCsvUrl(project.id, token, ids),
@@ -514,7 +549,8 @@ export function ArticleSidebar({
                       icon="print"
                       text="Generate Report for Pinned (MD)"
                       onClick={async () => {
-                        const { token } = await exportTokenMutation.mutateAsync();
+                        const { token } =
+                          await exportTokenMutation.mutateAsync();
                         const ids = pinnedArticles.map((a) => a.id);
                         window.open(
                           projectsApi.exportReportUrl(

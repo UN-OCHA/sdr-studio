@@ -8,7 +8,6 @@ import {
   EntityTitle,
   H3,
   H4,
-  H5,
   Icon,
   InputGroup,
   Intent,
@@ -27,7 +26,7 @@ import {
 } from "@blueprintjs/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import TimeAgo from "react-timeago";
-import type { Annotation, Article, Project } from "../types";
+import type { Annotation, Article, Project, Source } from "../types";
 import { Annotator } from "./Annotator";
 import { getProceduralColor } from "../colorUtils";
 import { 
@@ -35,7 +34,8 @@ import {
   useDeleteArticle, 
   useProcessArticle, 
   useUpdateAnnotations,
-  useArticle
+  useArticle,
+  useSources
 } from "../hooks/queries";
 
 type ArticleViewProps = {
@@ -72,6 +72,25 @@ export function ArticleView({
     article.status === "completed" && (!article.annotations || article.annotations.length === 0) 
     ? article.id : null
   );
+
+  const { data: sources = [] } = useSources(article.project_id);
+
+  const getSourceDisplay = () => {
+    const type = article.source_type || "manual";
+    const source = sources.find((s: Source) => s.id === article.source_id);
+
+    return (
+      <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+        <Icon 
+          icon={type === "rss" ? "feed" : (type === "exa" || type === "brave") ? "search" : "import"} 
+          size={12} 
+        />
+        <span className="text-[11px]">
+          {source ? source.name : type === "manual" ? "Manual Import" : `${type.toUpperCase()} Discovery`}
+        </span>
+      </div>
+    );
+  };
 
   const updateArticleMutation = useUpdateArticle();
   const deleteArticleMutation = useDeleteArticle(article.project_id);
@@ -628,6 +647,8 @@ export function ArticleView({
                     {new URL(article.url).hostname}
                   </a>
                 </div>
+                <div className="text-gray-300">|</div>
+                {getSourceDisplay()}
                 {article.reviewed && (
                   <Tag intent={Intent.SUCCESS} minimal round icon="tick-circle">
                     Verified
@@ -695,16 +716,34 @@ export function ArticleView({
         )}
 
         {(processArticleMutation.isPending || article.status === "processing") && (
-          <div className="max-w-2xl mx-auto py-16">
-            <Card elevation={2} className="p-8 space-y-8">
-              <div className="text-center space-y-2">
-                <H4>Ingesting Article</H4>
-                <Text className="text-gray-500">
-                  Running automated extraction pipeline...
-                </Text>
+          <div className="max-w-xl mx-auto py-12 px-4">
+            <Card elevation={1} className="p-0! overflow-hidden border-0 shadow-lg bg-white dark:bg-bp-dark-surface">
+              <div className="bg-gray-50 dark:bg-bp-dark-header border-b border-gray-200 dark:border-bp-dark-border px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Spinner size={20} intent={Intent.PRIMARY} />
+                  <div>
+                    <H4 className="mb-0!">Ingesting Article</H4>
+                    <Text className="text-xs text-gray-500 font-medium">
+                      Automated Pipeline • <TimeAgo date={article.created_at} />
+                    </Text>
+                  </div>
+                </div>
+                <Tag minimal round intent={Intent.PRIMARY} className="font-bold">
+                  {Math.round(
+                    (((article.processing_steps || [
+                      "Downloading source...",
+                      "Generating summary...",
+                      "Running GLiNER2 extraction & enrichment...",
+                    ]).indexOf(article.processing_step || "") +
+                      1) /
+                      (article.processing_steps?.length || 3)) *
+                      100,
+                  )}
+                  %
+                </Tag>
               </div>
 
-              <div className="space-y-6">
+              <div className="p-6 space-y-0">
                 {(
                   article.processing_steps || [
                     "Downloading source...",
@@ -724,76 +763,71 @@ export function ArticleView({
                   const isCompleted = idx < currentStepIdx;
                   const isActive = idx === currentStepIdx;
 
-                  // Define UI labels and descriptions for backend step names
                   const stepMeta: Record<
                     string,
-                    { label: string; description: string }
+                    { label: string; description: string; icon: any }
                   > = {
                     "Downloading source...": {
                       label: "Downloading & Cleaning",
                       description: "Fetching content and removing boilerplate.",
+                      icon: "cloud-download",
                     },
                     "Generating summary...": {
                       label: "Generating AI Summary",
                       description: "Condensing article into key insights.",
+                      icon: "citation",
                     },
                     "Running GLiNER2 extraction & enrichment...": {
                       label: "Extracting Entities & Relations",
-                      description:
-                        "Identifying locations, dates, and semantic relations.",
+                      description: "Identifying locations and semantic relations.",
+                      icon: "layout-group-by",
                     },
                   };
 
                   const meta = stepMeta[stepName] || {
                     label: stepName,
                     description: "Executing task...",
+                    icon: "dot",
                   };
 
                   return (
-                    <div key={stepName} className="flex gap-4">
-                      <div className="flex flex-col items-center">
+                    <div key={stepName} className="flex gap-4 relative">
+                      <div className="flex flex-col items-center shrink-0">
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${
+                          className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-300 z-10 ${
                             isCompleted
-                              ? "bg-green-500 border-green-500 text-white"
+                              ? "bg-green-500 border-green-600 text-white shadow-sm"
                               : isActive
-                                ? "border-blue-500 text-blue-500"
-                                : "border-gray-200 text-gray-300"
+                                ? "bg-white dark:bg-bp-dark-surface border-blue-500 text-blue-500 shadow-md scale-110"
+                                : "bg-gray-100 dark:bg-bp-dark-header border-gray-300 dark:border-gray-600 text-gray-400"
                           }`}
                         >
                           {isCompleted ? (
-                            <Icon icon="tick" size={16} />
+                            <Icon icon="tick" size={12} />
                           ) : isActive ? (
-                            <Spinner size={16} intent={Intent.PRIMARY} />
+                            <Icon icon={meta.icon} size={12} className="animate-pulse" />
                           ) : (
-                            <span className="text-xs font-bold">{idx + 1}</span>
+                            <span className="text-[10px] font-bold">{idx + 1}</span>
                           )}
                         </div>
                         {idx < arr.length - 1 && (
                           <div
-                            className={`w-0.5 grow mt-2 mb-2 rounded transition-colors ${
-                              isCompleted ? "bg-green-500" : "bg-gray-100"
+                            className={`w-0.5 grow transition-colors duration-500 ${
+                              isCompleted ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"
                             }`}
                           />
                         )}
                       </div>
-                      <div className="pb-4">
-                        <H5
-                          className={
-                            isCompleted
-                              ? "text-green-600"
-                              : isActive
-                                ? "text-blue-600"
-                                : "text-gray-400"
-                          }
-                        >
-                          {meta.label}
-                        </H5>
-                        <Text
-                          className={
-                            isActive ? "text-gray-700" : "text-gray-400"
-                          }
-                        >
+                      <div className={`pb-6 grow transition-opacity duration-300 ${!isActive && !isCompleted ? "opacity-50" : "opacity-100"}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-bold ${
+                            isCompleted ? "text-green-600 dark:text-green-400" : isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-500"
+                          }`}>
+                            {meta.label}
+                          </span>
+                          {isActive && <Tag minimal intent={Intent.PRIMARY} className="text-[9px] h-4 px-1 leading-none uppercase font-black">Active</Tag>}
+                        </div>
+                        <Text className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                           {meta.description}
                         </Text>
                       </div>
@@ -802,39 +836,31 @@ export function ArticleView({
                 })}
               </div>
 
-              <Divider />
-
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  <span>Overall Progress</span>
-                  <span>
-                    {Math.round(
-                      (((article.processing_steps || [
+              <div className="p-6 pt-0 space-y-4">
+                <Divider />
+                <div className="space-y-2">
+                  <div className="flex justify-between items-end text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    <span>Overall Pipeline Progress</span>
+                    <span className="text-blue-500">
+                      {article.processing_step || "Initializing..."}
+                    </span>
+                  </div>
+                  <ProgressBar
+                    intent={Intent.PRIMARY}
+                    value={
+                      ((article.processing_steps || [
                         "Downloading source...",
                         "Generating summary...",
                         "Running GLiNER2 extraction & enrichment...",
                       ]).indexOf(article.processing_step || "") +
                         1) /
-                        (article.processing_steps?.length || 3)) *
-                        100,
-                    )}
-                    %
-                  </span>
+                      (article.processing_steps?.length || 3)
+                    }
+                    stripes={true}
+                    animate={true}
+                    className="h-2 rounded-full overflow-hidden"
+                  />
                 </div>
-                <ProgressBar
-                  intent={Intent.PRIMARY}
-                  animate={true}
-                  stripes={true}
-                  value={
-                    ((article.processing_steps || [
-                      "Downloading source...",
-                      "Generating summary...",
-                      "Running GLiNER2 extraction & enrichment...",
-                    ]).indexOf(article.processing_step || "") +
-                      1) /
-                    (article.processing_steps?.length || 3)
-                  }
-                />
               </div>
             </Card>
           </div>
@@ -842,26 +868,27 @@ export function ArticleView({
 
         {article.status === "completed" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 @xl:grid-cols-3 gap-6">
-              {/* Left Column: Summary, Classifications, Structured Analysis */}
-              <div className="@xl:col-span-2 flex flex-col gap-6">
-                <Section
-                  title="Summary"
-                  icon="align-left"
-                  collapsible
-                  collapseProps={{
-                    isOpen: !collapsed.summary,
-                    onToggle: () => toggleCollapse("summary"),
-                  }}
-                  className="flex flex-col"
-                >
-                  <div className="p-4 text-gray-800 dark:text-gray-100 leading-relaxed">
-                    {article.summary}
-                  </div>
-                </Section>
+            {/* Top Section: Summary (Full Width) */}
+            <Section
+              title="Summary"
+              icon="align-left"
+              collapsible
+              collapseProps={{
+                isOpen: !collapsed.summary,
+                onToggle: () => toggleCollapse("summary"),
+              }}
+              className="flex flex-col"
+            >
+              <div className="p-4 text-gray-800 dark:text-gray-100 leading-relaxed text-sm">
+                {article.summary}
+              </div>
+            </Section>
 
-                {/* Classifications Section */}
-                {Object.keys(classifications).length > 0 && (
+            {/* Middle Section: Analysis Grid (Masonry-lite) */}
+            <div className="columns-1 @3xl:columns-2 gap-6 space-y-6 [column-fill:balance]">
+              {/* Classifications Section */}
+              {Object.keys(classifications).length > 0 && (
+                <div className="break-inside-avoid">
                   <Section
                     title="Classifications"
                     icon="list-columns"
@@ -872,7 +899,7 @@ export function ArticleView({
                     }}
                     className="flex flex-col"
                   >
-                    <div className="grid grid-cols-1 @md:grid-cols-2 gap-3 p-4 h-full">
+                    <div className="grid grid-cols-1 gap-3 p-4 h-full">
                       {Object.entries(classifications).map(([name, config]) => {
                         const value = article.structured_data?.[name];
                         const choices = Array.isArray(config)
@@ -992,93 +1019,41 @@ export function ArticleView({
                       })}
                     </div>
                   </Section>
-                )}
+                </div>
+              )}
 
-                {/* Structured Data Section */}
-                {structuredAnalysis && (
-                  <div className="flex flex-col">{structuredAnalysis}</div>
-                )}
+              {/* Structured Data Section */}
+              {structuredAnalysis && (
+                <div className="break-inside-avoid flex flex-col">
+                  {structuredAnalysis}
+                </div>
+              )}
 
-                {/* Fallback for unknown keys in structured_data */}
-                {article.structured_data &&
-                  Object.keys(article.structured_data).some(
-                    (k: string) =>
-                      !classifications[k] &&
-                      k !== "relation_extraction" &&
-                      !structures.some((s: { name: string }) => s.name === k),
-                  ) && (
-                    <Section
-                      title="Other Extracted Data"
-                      icon="cube"
-                      collapsible
-                      collapseProps={{
-                        isOpen: !collapsed.other,
-                        onToggle: () => toggleCollapse("other"),
-                      }}
-                      className="flex flex-col"
-                    >
-                      <div className="grid grid-cols-1 @md:grid-cols-2 gap-4 p-4 h-full bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
-                        {Object.entries(article.structured_data)
-                          .filter(
-                            ([k]: [string, unknown]) =>
-                              !classifications[k] &&
-                              k !== "relation_extraction" &&
-                              !structures.some(
-                                (s: { name: string }) => s.name === k,
-                              ),
-                          )
-                          .map(([key, value]: [string, unknown]) => (
-                            <div
-                              key={key}
-                              className="p-3 bg-gray-50 dark:bg-bp-dark-surface rounded border border-gray-200 dark:border-bp-dark-border"
-                            >
-                              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
-                                {key}
-                              </span>
-                              <div className="text-sm">
-                                {getDisplayText(value) ? (
-                                  <span className="font-medium text-gray-700 dark:text-gray-200">
-                                    {renderValueWithConfidence(value)}
-                                  </span>
-                                ) : (
-                                  <pre className="text-[10px] overflow-x-auto bg-white dark:bg-bp-dark-bg p-2 border border-gray-100 dark:border-bp-dark-border rounded mt-1">
-                                    {JSON.stringify(value, null, 2)}
-                                  </pre>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </Section>
-                  )}
-              </div>
+              {/* Relations Section */}
+              {(() => {
+                const relations = (article.structured_data
+                  ?.relation_extraction || {}) as Record<
+                  string,
+                  RelationInstance[]
+                >;
 
-              {/* Right Column: Relations */}
-              <div className="@xl:col-span-1 flex flex-col gap-6">
-                {(() => {
-                  const relations = (article.structured_data
-                    ?.relation_extraction || {}) as Record<
-                    string,
-                    RelationInstance[]
-                  >;
+                const definedRelTypes = Object.keys(
+                  extractionConfig?.relations || {},
+                );
+                const existingRelTypes = Object.keys(relations);
+                const allRelTypes = Array.from(
+                  new Set([...definedRelTypes, ...existingRelTypes]),
+                );
 
-                  // Get predefined relation types from config, plus any existing ones
-                  const definedRelTypes = Object.keys(
-                    extractionConfig?.relations || {},
-                  );
-                  const existingRelTypes = Object.keys(relations);
-                  const allRelTypes = Array.from(
-                    new Set([...definedRelTypes, ...existingRelTypes]),
-                  );
+                const activeRelations = Object.entries(relations).filter(
+                  ([, instances]) => instances.length > 0,
+                );
 
-                  const activeRelations = Object.entries(relations).filter(
-                    ([, instances]) => instances.length > 0,
-                  );
+                if (activeRelations.length === 0 && !isReviewMode)
+                  return null;
 
-                  if (activeRelations.length === 0 && !isReviewMode)
-                    return null;
-
-                  return (
+                return (
+                  <div className="break-inside-avoid">
                     <Section
                       title="Relations"
                       icon="link"
@@ -1247,9 +1222,64 @@ export function ArticleView({
                         ))}
                       </div>
                     </Section>
-                  );
-                })()}
-              </div>
+                  </div>
+                );
+              })()}
+
+              {/* Fallback for unknown keys in structured_data */}
+              {article.structured_data &&
+                Object.keys(article.structured_data).some(
+                  (k: string) =>
+                    !classifications[k] &&
+                    k !== "relation_extraction" &&
+                    !structures.some((s: { name: string }) => s.name === k),
+                ) && (
+                  <div className="break-inside-avoid">
+                    <Section
+                      title="Other Extracted Data"
+                      icon="cube"
+                      collapsible
+                      collapseProps={{
+                        isOpen: !collapsed.other,
+                        onToggle: () => toggleCollapse("other"),
+                      }}
+                      className="flex flex-col"
+                    >
+                      <div className="grid grid-cols-1 gap-4 p-4 h-full bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
+                        {Object.entries(article.structured_data)
+                          .filter(
+                            ([k]: [string, unknown]) =>
+                              !classifications[k] &&
+                              k !== "relation_extraction" &&
+                              !structures.some(
+                                (s: { name: string }) => s.name === k,
+                              ),
+                          )
+                          .map(([key, value]: [string, unknown]) => (
+                            <div
+                              key={key}
+                              className="p-3 bg-gray-50 dark:bg-bp-dark-surface rounded border border-gray-200 dark:border-bp-dark-border"
+                            >
+                              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
+                                {key}
+                              </span>
+                              <div className="text-sm">
+                                {getDisplayText(value) ? (
+                                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                                    {renderValueWithConfidence(value)}
+                                  </span>
+                                ) : (
+                                  <pre className="text-[10px] overflow-x-auto bg-white dark:bg-bp-dark-bg p-2 border border-gray-100 dark:border-bp-dark-border rounded mt-1">
+                                    {JSON.stringify(value, null, 2)}
+                                  </pre>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </Section>
+                  </div>
+                )}
             </div>
 
             <Section

@@ -78,6 +78,7 @@ export const useDeleteProject = () => {
 export const useArticles = (projectId: string, params: {
   search?: string;
   status?: string;
+  source_type?: string;
   skip?: number;
   limit?: number;
   sort_by?: string;

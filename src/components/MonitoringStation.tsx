@@ -78,13 +78,14 @@ export const MonitoringStation = forwardRef<
   MonitoringStationRef,
   MonitoringStationProps
 >(({ project }, ref) => {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [pollingUnit, setPollingUnit] = useState<PollingUnit>("min");
   const [tempInterval, setTempInterval] = useState(15);
 
-  const [newSource, setNewSource] = useState({
+  const [formData, setFormData] = useState({
     name: "",
     url: "",
     type: "rss",
@@ -99,12 +100,54 @@ export const MonitoringStation = forwardRef<
   const updateSourceMutation = useUpdateSource();
   const deleteSourceMutation = useDeleteSource(project.id);
 
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      url: "",
+      type: "rss",
+      polling_interval: 15,
+      config: {},
+    });
+    setTempInterval(15);
+    setPollingUnit("min");
+    setEditingSourceId(null);
+    setShowAdvanced(false);
+  };
+
   useImperativeHandle(ref, () => ({
-    openAddSource: () => setIsAddDialogOpen(true),
+    openAddSource: () => {
+      resetForm();
+      setIsDialogOpen(true);
+    },
   }));
 
-  const handleAddSource = async () => {
-    if (!newSource.name || !newSource.url) {
+  const handleEditSource = (source: Source) => {
+    setEditingSourceId(source.id);
+    setFormData({
+      name: source.name,
+      url: source.url,
+      type: source.type,
+      polling_interval: source.polling_interval,
+      config: source.config || {},
+    });
+
+    // Convert polling_interval back to display unit
+    if (source.polling_interval >= 1440 && source.polling_interval % 1440 === 0) {
+      setPollingUnit("day");
+      setTempInterval(source.polling_interval / 1440);
+    } else if (source.polling_interval >= 60 && source.polling_interval % 60 === 0) {
+      setPollingUnit("hour");
+      setTempInterval(source.polling_interval / 60);
+    } else {
+      setPollingUnit("min");
+      setTempInterval(source.polling_interval);
+    }
+
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmitSource = async () => {
+    if (!formData.name || !formData.url) {
       showToaster("Please fill in all fields", Intent.WARNING);
       return;
     }
@@ -115,27 +158,29 @@ export const MonitoringStation = forwardRef<
     if (pollingUnit === "day") intervalInMinutes *= 1440;
 
     try {
-      await createSourceMutation.mutateAsync({
-        projectId: project.id,
-        data: {
-          ...newSource,
-          polling_interval: intervalInMinutes,
-        }
-      });
-      showToaster("Source added successfully", Intent.SUCCESS);
-      setIsAddDialogOpen(false);
-      setNewSource({
-        name: "",
-        url: "",
-        type: "rss",
-        polling_interval: 15,
-        config: {},
-      });
-      setTempInterval(15);
-      setPollingUnit("min");
-      setShowAdvanced(false);
+      if (editingSourceId) {
+        await updateSourceMutation.mutateAsync({
+          id: editingSourceId,
+          data: {
+            ...formData,
+            polling_interval: intervalInMinutes,
+          }
+        });
+        showToaster("Source updated successfully", Intent.SUCCESS);
+      } else {
+        await createSourceMutation.mutateAsync({
+          projectId: project.id,
+          data: {
+            ...formData,
+            polling_interval: intervalInMinutes,
+          }
+        });
+        showToaster("Source added successfully", Intent.SUCCESS);
+      }
+      setIsDialogOpen(false);
+      resetForm();
     } catch {
-      showToaster("Failed to add source", Intent.DANGER);
+      showToaster(`Failed to ${editingSourceId ? "update" : "add"} source`, Intent.DANGER);
     }
   };
 
@@ -171,7 +216,7 @@ export const MonitoringStation = forwardRef<
   }
 
   const updateConfig = (key: string, value: unknown) => {
-    setNewSource((prev) => ({
+    setFormData((prev) => ({
       ...prev,
       config: { ...prev.config, [key]: value },
     }));
@@ -209,7 +254,7 @@ export const MonitoringStation = forwardRef<
   };
 
   const currentSourceType =
-    SOURCE_TYPES.find((s) => s.value === newSource.type) || SOURCE_TYPES[0];
+    SOURCE_TYPES.find((s) => s.value === formData.type) || SOURCE_TYPES[0];
 
   return (
     <div className="space-y-6">
@@ -234,7 +279,10 @@ export const MonitoringStation = forwardRef<
                 intent={Intent.PRIMARY}
                 icon="plus"
                 text="Add Source"
-                onClick={() => setIsAddDialogOpen(true)}
+                onClick={() => {
+                  resetForm();
+                  setIsDialogOpen(true);
+                }}
               />
             }
           />
@@ -278,13 +326,21 @@ export const MonitoringStation = forwardRef<
                       : "Never"}
                   </td>
                   <td className="text-right">
-                    <Button
-                      minimal
-                      small
-                      intent={Intent.DANGER}
-                      icon="trash"
-                      onClick={() => handleDeleteSource(source.id)}
-                    />
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        minimal
+                        small
+                        icon="edit"
+                        onClick={() => handleEditSource(source)}
+                      />
+                      <Button
+                        minimal
+                        small
+                        intent={Intent.DANGER}
+                        icon="trash"
+                        onClick={() => handleDeleteSource(source.id)}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -294,18 +350,18 @@ export const MonitoringStation = forwardRef<
       )}
 
       <Dialog
-        title="Add Monitoring Source"
-        isOpen={isAddDialogOpen}
-        onClose={() => setIsAddDialogOpen(false)}
+        title={editingSourceId ? "Edit Monitoring Source" : "Add Monitoring Source"}
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
         style={{ width: "500px" }}
       >
         <div className="p-6 space-y-4">
           <FormGroup label="Source Name" labelInfo="(required)">
             <InputGroup
               placeholder="e.g. ReliefWeb Global Disaster Alerts"
-              value={newSource.name}
+              value={formData.name}
               onChange={(e) =>
-                setNewSource((prev) => ({ ...prev, name: e.target.value }))
+                setFormData((prev) => ({ ...prev, name: e.target.value }))
               }
             />
           </FormGroup>
@@ -317,9 +373,8 @@ export const MonitoringStation = forwardRef<
                   items={SOURCE_TYPES}
                   itemRenderer={renderSourceType}
                   onItemSelect={(item) =>
-                    setNewSource((prev) => ({ ...prev, type: item.value, config: {} }))
+                    setFormData((prev) => ({ ...prev, type: item.value, config: {} }))
                   }
-
                   filterable={false}
                   popoverProps={{ minimal: true, matchTargetWidth: true }}
                 >
@@ -368,23 +423,23 @@ export const MonitoringStation = forwardRef<
           </div>
 
           <FormGroup
-            label={SOURCE_LABELS[newSource.type] || "URL"}
+            label={SOURCE_LABELS[formData.type] || "URL"}
             labelInfo="(required)"
           >
             <InputGroup
               placeholder={
-                newSource.type === "rss"
+                formData.type === "rss"
                   ? "https://reliefweb.int/updates/rss.xml"
                   : "e.g. floods in South Sudan 2024"
               }
-              value={newSource.url}
+              value={formData.url}
               onChange={(e) =>
-                setNewSource((prev) => ({ ...prev, url: e.target.value }))
+                setFormData((prev) => ({ ...prev, url: e.target.value }))
               }
             />
           </FormGroup>
 
-          {(newSource.type === "exa" || newSource.type === "brave") && (
+          {(formData.type === "exa" || formData.type === "brave") && (
             <>
               <Button
                 minimal
@@ -409,16 +464,16 @@ export const MonitoringStation = forwardRef<
                         fill
                         min={1}
                         max={50}
-                        value={(newSource.config.limit as number) || 10}
+                        value={(formData.config.limit as number) || 10}
                         onValueChange={(val) => updateConfig("limit", val)}
                       />
                     </FormGroup>
 
-                    {newSource.type === "exa" && (
+                    {formData.type === "exa" && (
                       <FormGroup label="Search Type" className="mb-0">
                         <HTMLSelect
                           fill
-                          value={(newSource.config.search_type as string) || "neural"}
+                          value={(formData.config.search_type as string) || "neural"}
                           onChange={(e) =>
                             updateConfig("search_type", e.target.value)
                           }
@@ -430,11 +485,11 @@ export const MonitoringStation = forwardRef<
                       </FormGroup>
                     )}
 
-                    {newSource.type === "brave" && (
+                    {formData.type === "brave" && (
                       <FormGroup label="Freshness" className="mb-0">
                         <HTMLSelect
                           fill
-                          value={(newSource.config.freshness as string) || ""}
+                          value={(formData.config.freshness as string) || ""}
                           onChange={(e) =>
                             updateConfig("freshness", e.target.value)
                           }
@@ -450,12 +505,12 @@ export const MonitoringStation = forwardRef<
                     )}
                   </div>
 
-                  {newSource.type === "exa" && (
+                  {formData.type === "exa" && (
                     <>
                       <FormGroup label="Category">
                         <HTMLSelect
                           fill
-                          value={(newSource.config.category as string) || ""}
+                          value={(formData.config.category as string) || ""}
                           onChange={(e) =>
                             updateConfig("category", e.target.value)
                           }
@@ -474,7 +529,7 @@ export const MonitoringStation = forwardRef<
                       <FormGroup label="Published After (ISO Date)">
                         <InputGroup
                           placeholder="YYYY-MM-DD"
-                          value={(newSource.config.published_after as string) || ""}
+                          value={(formData.config.published_after as string) || ""}
                           onChange={(e) =>
                             updateConfig("published_after", e.target.value)
                           }
@@ -483,12 +538,12 @@ export const MonitoringStation = forwardRef<
                     </>
                   )}
 
-                  {newSource.type === "brave" && (
+                  {formData.type === "brave" && (
                     <div className="grid grid-cols-2 gap-4">
                       <FormGroup label="Country (2-letter)">
                         <InputGroup
                           placeholder="US, GB, etc."
-                          value={(newSource.config.country as string) || ""}
+                          value={(formData.config.country as string) || ""}
                           onChange={(e) =>
                             updateConfig(
                               "country",
@@ -500,7 +555,7 @@ export const MonitoringStation = forwardRef<
                       <FormGroup label="Language (2-letter)">
                         <InputGroup
                           placeholder="en, fr, es"
-                          value={(newSource.config.search_lang as string) || ""}
+                          value={(formData.config.search_lang as string) || ""}
                           onChange={(e) =>
                             updateConfig(
                               "search_lang",
@@ -519,12 +574,12 @@ export const MonitoringStation = forwardRef<
           <Divider />
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button text="Cancel" onClick={() => setIsAddDialogOpen(false)} />
+            <Button text="Cancel" onClick={() => setIsDialogOpen(false)} />
             <Button
               intent={Intent.PRIMARY}
-              text="Add Source"
-              loading={createSourceMutation.isPending}
-              onClick={handleAddSource}
+              text={editingSourceId ? "Update Source" : "Add Source"}
+              loading={createSourceMutation.isPending || updateSourceMutation.isPending}
+              onClick={handleSubmitSource}
             />
           </div>
         </div>

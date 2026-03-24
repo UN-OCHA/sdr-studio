@@ -55,7 +55,15 @@ def poll_sources_task():
                     
                     if new_urls:
                         print(f"    Found {len(new_urls)} new articles in {source.name}")
-                        import_articles_logic(source.project_id, new_urls, source.org_id, session, None)
+                        import_articles_logic(
+                            source.project_id, 
+                            new_urls, 
+                            source.org_id, 
+                            session, 
+                            None,
+                            source_id=source.id,
+                            source_type="rss"
+                        )
                 
                 elif source.type in ["exa", "brave"]:
                     # Discovery tasks handle their own article import logic

@@ -174,6 +174,14 @@ def discover_from_source(source_id: UUID):
                 
         if new_urls:
             print(f"Found {len(new_urls)} new articles via {source.type} discovery")
-            import_articles_logic(source.project_id, new_urls, source.org_id, session, None)
+            import_articles_logic(
+                source.project_id, 
+                new_urls, 
+                source.org_id, 
+                session, 
+                None,
+                source_id=source.id,
+                source_type=source.type
+            )
         else:
             print(f"No new articles found via {source.type} discovery")

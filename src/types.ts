@@ -232,6 +232,8 @@ export type Article = {
     raw: unknown;
   }[];
   event_date?: string;
+  source_id?: string;
+  source_type?: string;
   processing_step: string;
   processing_steps?: string[];
   created_at: string;

@@ -11,7 +11,7 @@ from utils.model_loader import get_summarizer, get_gliner, get_cleaning_model
 from utils.extraction_utils import build_gliner_schema
 from utils.config import DEFAULT_CONFIG
 
-def import_articles_logic(project_id: UUID, urls: List[str], org_id: str, session: Session, background_tasks = None):
+def import_articles_logic(project_id: UUID, urls: List[str], org_id: str, session: Session, background_tasks = None, source_id: Optional[UUID] = None, source_type: str = "manual"):
     # Verify project belongs to org
     project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
     if not project:
@@ -26,7 +26,13 @@ def import_articles_logic(project_id: UUID, urls: List[str], org_id: str, sessio
         if existing:
             continue
             
-        article = Article(project_id=project_id, url=url, org_id=org_id)
+        article = Article(
+            project_id=project_id, 
+            url=url, 
+            org_id=org_id, 
+            source_id=source_id, 
+            source_type=source_type
+        )
         session.add(article)
         session.commit()
         session.refresh(article)
