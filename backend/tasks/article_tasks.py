@@ -224,6 +224,26 @@ def _run_extraction_and_geocode(article: Article, session: Session, clean_text: 
             if parsed_date:
                 article.event_date = parsed_date
 
+from utils.model_loader import get_summarizer, get_gliner, get_cleaning_model, get_translation_model
+
+def _translate_content(article: Article, raw_text: str, config: dict):
+    trans_cfg = config.get("translation", {})
+    model_id = trans_cfg.get("model_id", "google-t5/t5-small")
+    tokenizer, model = get_translation_model(model_id)
+    
+    # Simple chunking for T5 as it has a max length
+    # We'll take the first ~3000 chars of readability-extracted content for now
+    content_to_translate = raw_text[:3000]
+    
+    # T5 prompt for translation
+    prompt = f"translate to English: {content_to_translate}"
+    
+    inputs = tokenizer(prompt, return_tensors="pt", max_length=1024, truncation=True)
+    outputs = model.generate(inputs["input_ids"], max_length=1024)
+    translated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    
+    return translated_text
+
 def process_article_task(article_id: UUID):
     with Session(engine) as session:
         article = session.get(Article, article_id)
@@ -235,8 +255,9 @@ def process_article_task(article_id: UUID):
         
         # Define steps based on configuration
         steps = ["Downloading source..."]
-        # In this simplified version, summary and extraction are always part of the plan
-        # but you could conditionally add them if config allowed disabling them.
+        if config.get("translation", {}).get("enabled", False):
+            steps.append("Translating to English...")
+        
         steps.append("Generating summary...")
         steps.append("Running GLiNER2 extraction & enrichment...")
         
@@ -251,13 +272,20 @@ def process_article_task(article_id: UUID):
             # 1. Download & Clean
             clean_text = _download_and_clean(article, config)
             
-            # 2. Summary
+            # 2. Translation (Optional)
+            if config.get("translation", {}).get("enabled", False):
+                article.processing_step = "Translating to English..."
+                session.add(article)
+                session.commit()
+                clean_text = _translate_content(article, clean_text, config)
+
+            # 3. Summary
             article.processing_step = "Generating summary..."
             session.add(article)
             session.commit()
             _generate_summary(article, clean_text, config)
             
-            # 3. Extraction, Geocode, Date Parsing
+            # 4. Extraction, Geocode, Date Parsing
             article.processing_step = "Running GLiNER2 extraction & enrichment..."
             session.add(article)
             session.commit()

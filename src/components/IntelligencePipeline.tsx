@@ -84,6 +84,37 @@ export function IntelligencePipeline({
       ...nodeDefaults,
     });
 
+    let lastId = "fetch-clean";
+    let xOffset = xSpacing * 2;
+
+    if (config.translation?.enabled) {
+      const transId = "translate";
+      allNodes.push({
+        id: transId,
+        data: {
+          label: "Translation",
+          subtitle: "Google T5",
+          icon: "translate",
+          details: [
+            {
+              label: "Model",
+              value: config.translation.model_id?.split("/").pop() || "t5-small",
+            },
+          ],
+        },
+        position: { x: xOffset, y: 0 },
+        ...nodeDefaults,
+      });
+      allEdges.push({
+        id: `e-${lastId}-${transId}`,
+        source: lastId,
+        target: transId,
+        animated: true,
+      });
+      lastId = transId;
+      xOffset += xSpacing;
+    }
+
     allNodes.push({
       id: "summarize",
       data: {
@@ -97,9 +128,17 @@ export function IntelligencePipeline({
           },
         ],
       },
-      position: { x: xSpacing * 2, y: 0 },
+      position: { x: xOffset, y: 0 },
       ...nodeDefaults,
     });
+    allEdges.push({
+      id: `e-${lastId}-summarize`,
+      source: lastId,
+      target: "summarize",
+      animated: true,
+    });
+    lastId = "summarize";
+    xOffset += xSpacing;
 
     allNodes.push({
       id: "extraction",
@@ -119,12 +158,20 @@ export function IntelligencePipeline({
           { label: "Threshold", value: config.threshold || 0.3 },
         ],
       },
-      position: { x: xSpacing * 3, y: 0 },
+      position: { x: xOffset, y: 0 },
       ...nodeDefaults,
     });
+    allEdges.push({
+      id: `e-${lastId}-extract`,
+      source: lastId,
+      target: "extraction",
+      animated: true,
+    });
+    lastId = "extraction";
+    xOffset += xSpacing;
 
     // --- Output Nodes ---
-    const outputX = xSpacing * 4;
+    const outputX = xOffset;
     const outputNodes: Node[] = [];
 
     if (config.entities && Object.keys(config.entities).length > 0) {
@@ -183,25 +230,10 @@ export function IntelligencePipeline({
     outputNodes.forEach((node, i) => {
       node.position = { x: outputX, y: outputStartY + i * ySpacing };
       allNodes.push(node);
-    });
-
-    // --- Edges ---
-    allEdges.push({
-      id: "e-clean-summarize",
-      source: "fetch-clean",
-      target: "summarize",
-      animated: true,
-    });
-    allEdges.push({
-      id: "e-summarize-extract",
-      source: "summarize",
-      target: "extraction",
-      animated: true,
-    });
-
-    outputNodes.forEach((node) => {
+      
+      // Add edge from extraction to each output node
       allEdges.push({
-        id: `e-extract-${node.id}`,
+        id: `e-extraction-${node.id}`,
         source: "extraction",
         target: node.id,
         animated: true,

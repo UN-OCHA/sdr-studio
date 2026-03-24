@@ -648,6 +648,271 @@ export function ArticleView({
     handleUpdateField,
   ]);
 
+  const relationAnalysis = useMemo(() => {
+    const relations = (article.structured_data?.relation_extraction ||
+      {}) as Record<string, RelationInstance[]>;
+
+    const definedRelTypes = Object.keys(extractionConfig?.relations || {});
+    const existingRelTypes = Object.keys(relations);
+    const allRelTypes = Array.from(
+      new Set([...definedRelTypes, ...existingRelTypes]),
+    );
+
+    const activeRelations = Object.entries(relations).filter(
+      ([, instances]) => instances.length > 0,
+    );
+
+    if (activeRelations.length === 0 && !isReviewMode) return null;
+
+    return (
+      <div className="flex flex-col">
+        <Section
+          title="Relations"
+          icon="link"
+          collapsible
+          collapseProps={{
+            isOpen: !collapsed.relations,
+            onToggle: () => toggleCollapse("relations"),
+          }}
+          rightElement={
+            isReviewMode && allRelTypes.length > 0 ? (
+              <div onClick={(e) => e.stopPropagation()}>
+                <Popover
+                  content={
+                    <Menu>
+                      <li className={Classes.MENU_HEADER}>
+                        <h6 className={Classes.HEADING}>
+                          Add Relation Instance
+                        </h6>
+                      </li>
+                      {allRelTypes.map((type) => (
+                        <MenuItem
+                          key={type}
+                          text={type}
+                          icon="plus"
+                          onClick={() => handleAddRelationInstance(type)}
+                        />
+                      ))}
+                    </Menu>
+                  }
+                  position="bottom"
+                >
+                  <Button small minimal icon="plus" text="Add" />
+                </Popover>
+              </div>
+            ) : undefined
+          }
+        >
+          <div className="p-4 space-y-6 bg-white dark:bg-bp-dark-bg">
+            {activeRelations.length === 0 && (
+              <NonIdealState
+                icon="graph"
+                title="No Relations"
+                description="No semantic relations were extracted for this article."
+                className="p-4"
+              />
+            )}
+            {activeRelations.map(([relType, instances]) => (
+              <div key={relType} className="space-y-2 mb-2">
+                <div className="flex items-center justify-between">
+                  <h6 className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">
+                    {relType}
+                  </h6>
+                  {isReviewMode && (
+                    <Button
+                      small
+                      minimal
+                      icon="plus"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddRelationInstance(relType);
+                      }}
+                      title={`Add ${relType} instance`}
+                    />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {instances.map((inst, idx) => (
+                    <div
+                      key={idx}
+                      className="relative flex items-center gap-4 p-3 bg-gray-50 dark:bg-bp-dark-surface border border-gray-100 dark:border-bp-dark-border rounded text-sm transition-colors"
+                      style={{
+                        borderColor: isReviewMode ? "#0f9960" : undefined,
+                        borderWidth: isReviewMode ? "2px" : "1px",
+                      }}
+                    >
+                      {isReviewMode && (
+                        <Button
+                          className="absolute -top-2 -right-2 z-10 shadow-sm"
+                          small
+                          icon="trash"
+                          intent={Intent.DANGER}
+                          loading={updateArticleMutation.isPending}
+                          onClick={() =>
+                            handleDeleteRelationInstance(relType, idx)
+                          }
+                        />
+                      )}
+
+                      {/* Source */}
+                      <div className="flex-1 flex flex-col min-w-0">
+                        <span className="text-[8px] text-gray-400 font-black uppercase leading-none mb-1 tracking-widest">
+                          SOURCE
+                        </span>
+                        {isReviewMode ? (
+                          <InputGroup
+                            small
+                            fill
+                            placeholder="Source..."
+                            value={getDisplayText(inst.head)}
+                            onChange={(e) =>
+                              handleUpdateRelation(
+                                relType,
+                                idx,
+                                "head",
+                                e.target.value,
+                              )
+                            }
+                          />
+                        ) : (
+                          <span
+                            className="font-bold text-gray-900 dark:text-white truncate"
+                            title={getDisplayText(inst.head)}
+                          >
+                            {renderValueWithConfidence(inst.head)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Connector */}
+                      <div className="flex flex-col items-center shrink-0 px-2 transition-transform">
+                        <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter leading-none mb-1">
+                          {relType}
+                        </span>
+                        <Icon
+                          icon="arrow-right"
+                          className="text-gray-300"
+                          size={14}
+                        />
+                      </div>
+
+                      {/* Target */}
+                      <div className="flex-1 flex flex-col min-w-0">
+                        <span className="text-[8px] text-gray-400 font-black uppercase leading-none mb-1 tracking-widest">
+                          TARGET
+                        </span>
+                        {isReviewMode ? (
+                          <InputGroup
+                            small
+                            fill
+                            placeholder="Target..."
+                            value={getDisplayText(inst.tail)}
+                            onChange={(e) =>
+                              handleUpdateRelation(
+                                relType,
+                                idx,
+                                "tail",
+                                e.target.value,
+                              )
+                            }
+                          />
+                        ) : (
+                          <span
+                            className="font-bold text-gray-900 dark:text-white truncate"
+                            title={getDisplayText(inst.tail)}
+                          >
+                            {renderValueWithConfidence(inst.tail)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      </div>
+    );
+  }, [
+    article.structured_data,
+    extractionConfig?.relations,
+    isReviewMode,
+    collapsed.relations,
+    toggleCollapse,
+    handleAddRelationInstance,
+    updateArticleMutation.isPending,
+    handleDeleteRelationInstance,
+    getDisplayText,
+    handleUpdateRelation,
+    renderValueWithConfidence,
+  ]);
+
+  const otherAnalysis = useMemo(() => {
+    if (!article.structured_data) return null;
+    const hasOtherData = Object.keys(article.structured_data).some(
+      (k: string) =>
+        !classifications[k] &&
+        k !== "relation_extraction" &&
+        !structures.some((s: { name: string }) => s.name === k),
+    );
+
+    if (!hasOtherData) return null;
+
+    return (
+      <div className="flex flex-col">
+        <Section
+          title="Other Extracted Data"
+          icon="cube"
+          collapsible
+          collapseProps={{
+            isOpen: !collapsed.other,
+            onToggle: () => toggleCollapse("other"),
+          }}
+        >
+          <div className="grid grid-cols-1 gap-4 p-4 bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
+            {Object.entries(article.structured_data)
+              .filter(
+                ([k]: [string, unknown]) =>
+                  !classifications[k] &&
+                  k !== "relation_extraction" &&
+                  !structures.some((s: { name: string }) => s.name === k),
+              )
+              .map(([key, value]: [string, unknown]) => (
+                <div
+                  key={key}
+                  className="p-3 bg-gray-50 dark:bg-bp-dark-surface rounded border border-gray-200 dark:border-bp-dark-border"
+                >
+                  <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
+                    {key}
+                  </span>
+                  <div className="text-sm">
+                    {getDisplayText(value) ? (
+                      <span className="font-medium text-gray-700 dark:text-gray-200">
+                        {renderValueWithConfidence(value)}
+                      </span>
+                    ) : (
+                      <pre className="text-[10px] overflow-x-auto bg-white dark:bg-bp-dark-bg p-2 border border-gray-100 dark:border-bp-dark-border rounded mt-1">
+                        {JSON.stringify(value, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </Section>
+      </div>
+    );
+  }, [
+    article.structured_data,
+    classifications,
+    structures,
+    collapsed.other,
+    toggleCollapse,
+    getDisplayText,
+    renderValueWithConfidence,
+  ]);
+
   return (
     <div className="relative animate-[fade-in_0.3s_ease] @container flex flex-col min-h-full">
       {/* Article Content */}
@@ -806,14 +1071,9 @@ export function ArticleView({
                     "Running GLiNER2 extraction & enrichment...",
                   ]
                 ).map((stepName, idx, arr) => {
-                  const stepOrder = article.processing_steps || [
-                    "Downloading source...",
-                    "Generating summary...",
-                    "Running GLiNER2 extraction & enrichment...",
-                  ];
-                  const currentStepIdx = stepOrder.indexOf(
-                    article.processing_step || "",
-                  );
+                  const currentStepIdx = (
+                    article.processing_steps || []
+                  ).indexOf(article.processing_step || "");
                   const isCompleted =
                     idx < currentStepIdx && article.status !== "pending";
                   const isActive =
@@ -827,6 +1087,12 @@ export function ArticleView({
                       label: "Downloading & Cleaning",
                       description: "Fetching content and removing boilerplate.",
                       icon: "cloud-download",
+                    },
+                    "Translating to English...": {
+                      label: "Translating to English",
+                      description:
+                        "Converting foreign language content to English.",
+                      icon: "translate",
                     },
                     "Generating summary...": {
                       label: "Generating AI Summary",
@@ -970,393 +1236,159 @@ export function ArticleView({
               </div>
             </Section>
 
-            {/* Middle Section: Analysis Grid (Masonry-lite) */}
-            <div className="columns-1 @3xl:columns-2 gap-6 space-y-6">
-              {/* Classifications Section */}
-              {Object.keys(classifications).length > 0 && (
-                <div className="break-inside-avoid">
-                  <Section
-                    title="Classifications"
-                    icon="list-columns"
-                    collapsible
-                    collapseProps={{
-                      isOpen: !collapsed.classifications,
-                      onToggle: () => toggleCollapse("classifications"),
-                    }}
-                  >
-                    <div className="grid grid-cols-1 gap-3 p-4">
-                      {Object.entries(classifications).map(([name, config]) => {
-                        const value = article.structured_data?.[name];
-                        const choices = Array.isArray(config)
-                          ? config
-                          : Array.isArray(config.labels)
-                            ? config.labels
-                            : Object.keys(config.labels);
+            {/* Middle Section: Analysis Grid (Masonry-lite for others) */}
+            <div className="space-y-6">
+              {/* Grid for Classifications, Structured, and Relations */}
+              <div className="grid grid-cols-1 @4xl:grid-cols-2 gap-6 items-start">
+                <div className="space-y-6">
+                  {/* Classifications Section (Full width grid) */}
+                  {Object.keys(classifications).length > 0 && (
+                    <Section
+                      title="Classifications"
+                      icon="list-columns"
+                      collapsible
+                      collapseProps={{
+                        isOpen: !collapsed.classifications,
+                        onToggle: () => toggleCollapse("classifications"),
+                      }}
+                    >
+                      <div className="grid grid-cols-2 @2xl:grid-cols-2 gap-3 p-4">
+                        {Object.entries(classifications).map(
+                          ([name, config]) => {
+                            const value = article.structured_data?.[name];
+                            const choices = Array.isArray(config)
+                              ? config
+                              : Array.isArray(config.labels)
+                                ? config.labels
+                                : Object.keys(config.labels);
 
-                        return (
-                          <div
-                            key={name}
-                            className="p-3 bg-gray-50 dark:bg-bp-dark-surface rounded border transition-all"
-                            style={{
-                              borderColor: isReviewMode ? "#0f9960" : "#e1e8ed",
-                              borderWidth: isReviewMode ? "4px" : "1px",
-                              boxShadow: isReviewMode
-                                ? "0 2px 4px rgba(15, 153, 96, 0.1)"
-                                : "none",
-                            }}
-                          >
-                            <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
-                              {name}
-                            </span>
-                            <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                              {isReviewMode ? (
-                                <Popover
-                                  content={
-                                    <Menu>
-                                      {choices.map((choice) => (
-                                        <MenuItem
-                                          key={choice}
-                                          text={choice}
-                                          active={
-                                            Array.isArray(value)
-                                              ? value.includes(choice)
-                                              : value === choice
-                                          }
-                                          onClick={() => {
-                                            if (
-                                              !Array.isArray(config) &&
-                                              config.multi_label
-                                            ) {
-                                              const current = Array.isArray(
-                                                value,
-                                              )
-                                                ? (value as string[])
-                                                : value
-                                                  ? [String(value)]
-                                                  : [];
-                                              const next = current.includes(
-                                                choice,
-                                              )
-                                                ? current.filter(
-                                                    (c) => c !== choice,
-                                                  )
-                                                : [...current, choice];
-                                              handleUpdateClassification(
-                                                name,
-                                                next,
-                                              );
-                                            } else {
-                                              handleUpdateClassification(
-                                                name,
-                                                choice,
-                                              );
-                                            }
-                                          }}
-                                        />
-                                      ))}
-                                    </Menu>
-                                  }
-                                  position="bottom"
-                                  fill
+                            return (
+                              <div
+                                key={name}
+                                className="p-2 bg-gray-50 dark:bg-bp-dark-surface rounded border transition-all flex flex-col justify-between min-h-[60px]"
+                                style={{
+                                  borderColor: isReviewMode
+                                    ? "#0f9960"
+                                    : "#e1e8ed",
+                                  borderWidth: isReviewMode ? "2px" : "1px",
+                                  boxShadow: isReviewMode
+                                    ? "0 2px 4px rgba(15, 153, 96, 0.1)"
+                                    : "none",
+                                }}
+                              >
+                                <span
+                                  className="text-[9px] font-black text-gray-400 uppercase block mb-1 truncate tracking-tighter"
+                                  title={name}
                                 >
-                                  <Button
-                                    rightIcon="caret-down"
-                                    minimal
-                                    small
-                                    fill
-                                    text={
-                                      Array.isArray(value)
-                                        ? value
-                                            .map(getDisplayText)
-                                            .join(", ") || "Select..."
-                                        : getDisplayText(value) || "Select..."
-                                    }
-                                    intent={
-                                      value ? Intent.PRIMARY : Intent.NONE
-                                    }
-                                    className="text-left flex justify-between"
-                                  />
-                                </Popover>
-                              ) : value ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {(Array.isArray(value) ? value : [value]).map(
-                                    (v) => (
-                                      <Tag
-                                        key={String(v)}
-                                        intent={Intent.PRIMARY}
+                                  {name}
+                                </span>
+                                <div className="text-xs font-bold text-gray-800 dark:text-gray-100">
+                                  {isReviewMode ? (
+                                    <Popover
+                                      content={
+                                        <Menu>
+                                          {choices.map((choice) => (
+                                            <MenuItem
+                                              key={choice}
+                                              text={choice}
+                                              active={
+                                                Array.isArray(value)
+                                                  ? value.includes(choice)
+                                                  : value === choice
+                                              }
+                                              onClick={() => {
+                                                if (
+                                                  !Array.isArray(config) &&
+                                                  config.multi_label
+                                                ) {
+                                                  const current = Array.isArray(
+                                                    value,
+                                                  )
+                                                    ? (value as string[])
+                                                    : value
+                                                      ? [String(value)]
+                                                      : [];
+                                                  const next = current.includes(
+                                                    choice,
+                                                  )
+                                                    ? current.filter(
+                                                        (c) => c !== choice,
+                                                      )
+                                                    : [...current, choice];
+                                                  handleUpdateClassification(
+                                                    name,
+                                                    next,
+                                                  );
+                                                } else {
+                                                  handleUpdateClassification(
+                                                    name,
+                                                    choice,
+                                                  );
+                                                }
+                                              }}
+                                            />
+                                          ))}
+                                        </Menu>
+                                      }
+                                      position="bottom"
+                                      fill
+                                    >
+                                      <Button
+                                        rightIcon="caret-down"
                                         minimal
-                                        large
-                                        className="grow justify-center"
-                                      >
-                                        {renderValueWithConfidence(v)}
-                                      </Tag>
-                                    ),
+                                        small
+                                        fill
+                                        text={
+                                          Array.isArray(value)
+                                            ? value
+                                                .map(getDisplayText)
+                                                .join(", ") || "Select..."
+                                            : getDisplayText(value) ||
+                                              "Select..."
+                                        }
+                                        intent={
+                                          value ? Intent.PRIMARY : Intent.NONE
+                                        }
+                                        className="text-left flex justify-between px-1 h-6"
+                                      />
+                                    </Popover>
+                                  ) : value ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {(Array.isArray(value)
+                                        ? value
+                                        : [value]
+                                      ).map((v) => (
+                                        <Tag
+                                          key={String(v)}
+                                          intent={Intent.PRIMARY}
+                                          minimal
+                                          round
+                                          className="text-[10px] py-0 h-5 min-h-0"
+                                        >
+                                          {renderValueWithConfidence(v)}
+                                        </Tag>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-300 italic text-[10px]">
+                                      No match
+                                    </span>
                                   )}
                                 </div>
-                              ) : (
-                                <span className="text-gray-300 italic">
-                                  No match found
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </Section>
-                </div>
-              )}
-
-              {/* Structured Data Section */}
-              {structuredAnalysis && (
-                <div className="break-inside-avoid flex flex-col">
+                              </div>
+                            );
+                          },
+                        )}
+                      </div>
+                    </Section>
+                  )}
                   {structuredAnalysis}
                 </div>
-              )}
-
-              {/* Relations Section */}
-              {(() => {
-                const relations = (article.structured_data
-                  ?.relation_extraction || {}) as Record<
-                  string,
-                  RelationInstance[]
-                >;
-
-                const definedRelTypes = Object.keys(
-                  extractionConfig?.relations || {},
-                );
-                const existingRelTypes = Object.keys(relations);
-                const allRelTypes = Array.from(
-                  new Set([...definedRelTypes, ...existingRelTypes]),
-                );
-
-                const activeRelations = Object.entries(relations).filter(
-                  ([, instances]) => instances.length > 0,
-                );
-
-                if (activeRelations.length === 0 && !isReviewMode) return null;
-
-                return (
-                  <div className="break-inside-avoid">
-                    <Section
-                      title="Relations"
-                      icon="link"
-                      collapsible
-                      collapseProps={{
-                        isOpen: !collapsed.relations,
-                        onToggle: () => toggleCollapse("relations"),
-                      }}
-                      rightElement={
-                        isReviewMode && allRelTypes.length > 0 ? (
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <Popover
-                              content={
-                                <Menu>
-                                  <li className={Classes.MENU_HEADER}>
-                                    <h6 className={Classes.HEADING}>
-                                      Add Relation Instance
-                                    </h6>
-                                  </li>
-                                  {allRelTypes.map((type) => (
-                                    <MenuItem
-                                      key={type}
-                                      text={type}
-                                      icon="plus"
-                                      onClick={() =>
-                                        handleAddRelationInstance(type)
-                                      }
-                                    />
-                                  ))}
-                                </Menu>
-                              }
-                              position="bottom"
-                            >
-                              <Button small minimal icon="plus" text="Add" />
-                            </Popover>
-                          </div>
-                        ) : undefined
-                      }
-                    >
-                      <div className="p-4 space-y-6 bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
-                        {activeRelations.length === 0 && (
-                          <NonIdealState
-                            icon="graph"
-                            title="No Relations"
-                            description="No semantic relations were extracted for this article."
-                            className="p-4"
-                          />
-                        )}
-                        {activeRelations.map(([relType, instances]) => (
-                          <div key={relType} className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <h6 className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">
-                                {relType}
-                              </h6>
-                              {isReviewMode && (
-                                <Button
-                                  small
-                                  minimal
-                                  icon="plus"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAddRelationInstance(relType);
-                                  }}
-                                  title={`Add ${relType} instance`}
-                                />
-                              )}
-                            </div>
-                            <div className="space-y-2">
-                              {instances.map((inst, idx) => (
-                                <div
-                                  key={idx}
-                                  className="relative flex flex-col gap-2 p-3 bg-gray-50 dark:bg-bp-dark-surface border border-gray-100 dark:border-bp-dark-border rounded text-sm group hover:border-blue-200 transition-colors"
-                                  style={{
-                                    borderColor: isReviewMode
-                                      ? "#0f9960"
-                                      : undefined,
-                                    borderWidth: isReviewMode ? "2px" : "1px",
-                                  }}
-                                >
-                                  {isReviewMode && (
-                                    <Button
-                                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      small
-                                      minimal
-                                      icon="trash"
-                                      intent={Intent.DANGER}
-                                      loading={updateArticleMutation.isPending}
-                                      onClick={() =>
-                                        handleDeleteRelationInstance(
-                                          relType,
-                                          idx,
-                                        )
-                                      }
-                                    />
-                                  )}
-                                  <div className="flex flex-col">
-                                    <span className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">
-                                      SOURCE
-                                    </span>
-                                    {isReviewMode ? (
-                                      <InputGroup
-                                        small
-                                        fill
-                                        placeholder="Source text..."
-                                        value={getDisplayText(inst.head)}
-                                        onChange={(e) =>
-                                          handleUpdateRelation(
-                                            relType,
-                                            idx,
-                                            "head",
-                                            e.target.value,
-                                          )
-                                        }
-                                      />
-                                    ) : (
-                                      <span className="font-medium text-gray-900 dark:text-white">
-                                        {renderValueWithConfidence(inst.head)}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="items-center gap-2 hidden group-hover:flex">
-                                    <Icon
-                                      icon="arrow-down"
-                                      className="text-gray-300 group-hover:text-blue-400 transition-colors"
-                                      size={12}
-                                    />
-                                    <span className="text-[9px] font-bold text-blue-500 uppercase tracking-tighter">
-                                      {relType}
-                                    </span>
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-[9px] text-gray-400 font-bold uppercase leading-none mb-1">
-                                      TARGET
-                                    </span>
-                                    {isReviewMode ? (
-                                      <InputGroup
-                                        small
-                                        fill
-                                        placeholder="Target text..."
-                                        value={getDisplayText(inst.tail)}
-                                        onChange={(e) =>
-                                          handleUpdateRelation(
-                                            relType,
-                                            idx,
-                                            "tail",
-                                            e.target.value,
-                                          )
-                                        }
-                                      />
-                                    ) : (
-                                      <span className="font-medium text-gray-900 dark:text-white">
-                                        {renderValueWithConfidence(inst.tail)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </Section>
-                  </div>
-                );
-              })()}
-
-              {/* Fallback for unknown keys in structured_data */}
-              {article.structured_data &&
-                Object.keys(article.structured_data).some(
-                  (k: string) =>
-                    !classifications[k] &&
-                    k !== "relation_extraction" &&
-                    !structures.some((s: { name: string }) => s.name === k),
-                ) && (
-                  <div className="break-inside-avoid">
-                    <Section
-                      title="Other Extracted Data"
-                      icon="cube"
-                      collapsible
-                      collapseProps={{
-                        isOpen: !collapsed.other,
-                        onToggle: () => toggleCollapse("other"),
-                      }}
-                    >
-                      <div className="grid grid-cols-1 gap-4 p-4 bg-white dark:bg-bp-dark-bg rounded border border-gray-100 dark:border-bp-dark-border">
-                        {Object.entries(article.structured_data)
-                          .filter(
-                            ([k]: [string, unknown]) =>
-                              !classifications[k] &&
-                              k !== "relation_extraction" &&
-                              !structures.some(
-                                (s: { name: string }) => s.name === k,
-                              ),
-                          )
-                          .map(([key, value]: [string, unknown]) => (
-                            <div
-                              key={key}
-                              className="p-3 bg-gray-50 dark:bg-bp-dark-surface rounded border border-gray-200 dark:border-bp-dark-border"
-                            >
-                              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
-                                {key}
-                              </span>
-                              <div className="text-sm">
-                                {getDisplayText(value) ? (
-                                  <span className="font-medium text-gray-700 dark:text-gray-200">
-                                    {renderValueWithConfidence(value)}
-                                  </span>
-                                ) : (
-                                  <pre className="text-[10px] overflow-x-auto bg-white dark:bg-bp-dark-bg p-2 border border-gray-100 dark:border-bp-dark-border rounded mt-1">
-                                    {JSON.stringify(value, null, 2)}
-                                  </pre>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </Section>
-                  </div>
-                )}
+                <div className="space-y-6">
+                  {relationAnalysis}
+                  {otherAnalysis}
+                </div>
+              </div>
             </div>
             <Section
               title="Content & Entities"

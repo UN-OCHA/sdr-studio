@@ -57,6 +57,19 @@ const SUMMARY_MODELS: ModelOption[] = [
   },
 ];
 
+const TRANSLATION_MODELS: ModelOption[] = [
+  {
+    label: "T5 Small (Fast)",
+    value: "google-t5/t5-small",
+    description: "Lightweight and fast translation. Good for short news snippets.",
+  },
+  {
+    label: "T5 Base (Accurate)",
+    value: "google-t5/t5-base",
+    description: "More accurate translation. Slower but better for complex text.",
+  },
+];
+
 type GeneralSettingsProps = {
   config: Project["extraction_config"];
   onUpdateConfig: (updates: Partial<Project["extraction_config"]>) => void;
@@ -77,6 +90,11 @@ export function GeneralSettings({
         m.value ===
         (config.summary_model_id || "sshleifer/distilbart-cnn-12-6"),
     ) || SUMMARY_MODELS[0];
+
+  const currentTranslationModel =
+    TRANSLATION_MODELS.find(
+      (m) => m.value === (config.translation?.model_id || "google-t5/t5-small"),
+    ) || TRANSLATION_MODELS[0];
 
   const cleaning = (config.cleaning as { use_local_model?: boolean }) || {
     use_local_model: false,
@@ -170,6 +188,75 @@ export function GeneralSettings({
                 />
               </Select>
             </FormGroup>
+          </div>
+        </SectionCard>
+      </Section>
+
+      <Section
+        title="Translation"
+        subtitle="Convert foreign language content to English before processing."
+        icon="translate"
+      >
+        <SectionCard>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-bold text-sm text-gray-800 dark:text-gray-100">
+                  Auto-Translate to English
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Enable this for foreign language articles. Uses Google T5.
+                </div>
+              </div>
+              <Switch
+                large
+                className="mb-0"
+                checked={config.translation?.enabled || false}
+                onChange={(e) =>
+                  onUpdateConfig({
+                    translation: {
+                      ...config.translation,
+                      enabled: e.currentTarget.checked,
+                    },
+                  })
+                }
+                innerLabelChecked="On"
+                innerLabel="Off"
+              />
+            </div>
+
+            {config.translation?.enabled && (
+              <div className="pt-4 border-t border-gray-100 dark:border-bp-dark-border">
+                <FormGroup
+                  label="Translation Model"
+                  helperText="Choose the model used to convert content to English."
+                  className="mb-0"
+                >
+                  <Select<ModelOption>
+                    items={TRANSLATION_MODELS}
+                    itemRenderer={renderModel}
+                    onItemSelect={(m) =>
+                      onUpdateConfig({
+                        translation: {
+                          ...config.translation,
+                          model_id: m.value,
+                        },
+                      })
+                    }
+                    filterable={false}
+                    popoverProps={{ minimal: true, matchTargetWidth: true }}
+                  >
+                    <Button
+                      text={currentTranslationModel.label}
+                      rightIcon="double-caret-vertical"
+                      fill
+                      alignText="left"
+                      variant="outlined"
+                    />
+                  </Select>
+                </FormGroup>
+              </div>
+            )}
           </div>
         </SectionCard>
       </Section>

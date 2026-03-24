@@ -73,7 +73,9 @@ type ArticleSidebarProps = {
   onRefresh: () => void;
   onReprocessAll: () => void;
   onRetryArticle: (id: string) => void;
-  onLoadMore: () => void;
+  page: number;
+  limit: number;
+  onPageChange: (page: number) => void;
   onOpenUrlImportDialog: () => void;
   onOpenFeedImportDialog: () => void;
   pinnedArticles: Article[];
@@ -106,7 +108,9 @@ export function ArticleSidebar({
   onRefresh,
   onReprocessAll,
   onRetryArticle,
-  onLoadMore,
+  page,
+  limit,
+  onPageChange,
   onOpenUrlImportDialog,
   onOpenFeedImportDialog,
   pinnedArticles,
@@ -114,6 +118,7 @@ export function ArticleSidebar({
   onClearPinned,
 }: ArticleSidebarProps) {
   const isProcessing = stats && (stats.pending > 0 || stats.processing > 0);
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
   const exportTokenMutation = useExportToken();
   const { data: sources = [] } = useSources(project.id);
 
@@ -155,7 +160,9 @@ export function ArticleSidebar({
     }
     switch (article.status) {
       case "completed":
-        return <Icon icon="tick-circle" intent={Intent.SUCCESS} title="Completed" />;
+        return (
+          <Icon icon="tick-circle" intent={Intent.SUCCESS} title="Completed" />
+        );
       case "processing":
         return (
           <Icon
@@ -495,16 +502,34 @@ export function ArticleSidebar({
                 </div>
               ))}
             </Menu>
-            {articles.length < totalCount && (
-              <div className="p-4 flex justify-center">
+
+            {/* Pagination Footer */}
+            <div className="sticky bottom-0 bg-white dark:bg-bp-dark-bg border-t border-gray-200 dark:border-bp-dark-border p-1 px-2 flex items-center justify-between shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+              <div className="flex items-center gap-0.5">
                 <Button
-                  loading={isLoading}
-                  text="Load More"
-                  onClick={onLoadMore}
+                  small
                   minimal
+                  icon="chevron-left"
+                  disabled={page <= 1}
+                  onClick={() => onPageChange(page - 1)}
+                  className="h-6 w-6 p-0"
+                />
+                <div className="text-[9px] font-black uppercase text-gray-500 bg-gray-100 dark:bg-bp-dark-header px-1.5 py-0.5 rounded border border-gray-200 dark:border-bp-dark-border min-w-[50px] text-center tracking-tighter">
+                  {page} / {totalPages}
+                </div>
+                <Button
+                  small
+                  minimal
+                  icon="chevron-right"
+                  disabled={page >= totalPages}
+                  onClick={() => onPageChange(page + 1)}
+                  className="h-6 w-6 p-0"
                 />
               </div>
-            )}
+              <div className="text-[9px] font-black uppercase text-gray-400 tracking-tighter">
+                {totalCount} Total
+              </div>
+            </div>
           </>
         )}
       </div>

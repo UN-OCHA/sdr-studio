@@ -97,6 +97,10 @@ export type Project = {
     };
     active_adapter_id?: string;
     active_adapter_path?: string;
+    translation?: {
+      enabled?: boolean;
+      model_id?: string;
+    };
   };
   export_config: ExportConfig;
   onboarding_completed: boolean;

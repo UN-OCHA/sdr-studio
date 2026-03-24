@@ -7,6 +7,7 @@ import os
 summarizer_cache: Dict[str, Tuple[AutoTokenizer, AutoModelForSeq2SeqLM]] = {}
 gliner_cache: Dict[str, GLiNER2] = {}
 cleaning_cache: Dict[str, Tuple[AutoTokenizer, AutoModelForSeq2SeqLM]] = {}
+translation_cache: Dict[str, Tuple[AutoTokenizer, AutoModelForSeq2SeqLM]] = {}
 
 def get_summarizer(model_name: str = "sshleifer/distilbart-cnn-12-6"):
     if model_name not in summarizer_cache:
@@ -35,3 +36,11 @@ def get_cleaning_model(model_id: str = "google/flan-t5-small"):
         model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
         cleaning_cache[model_id] = (tokenizer, model)
     return cleaning_cache[model_id]
+
+def get_translation_model(model_id: str = "google-t5/t5-small"):
+    if model_id not in translation_cache:
+        print(f"Loading translation model ({model_id})...")
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
+        translation_cache[model_id] = (tokenizer, model)
+    return translation_cache[model_id]

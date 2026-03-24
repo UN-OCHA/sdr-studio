@@ -72,18 +72,23 @@ export function ProjectDetail({
   const [sourceFilter, setSourceFilter] = useState("all");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [skip, setSkip] = useState(0);
+  const [page, setPage] = useState(1);
   const LIMIT = 50;
+
+  // Reset page when filters or sort change
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, sourceFilter, sortBy, sortOrder]);
 
   const articleParams = useMemo(() => ({
     search,
     status: statusFilter,
     source_type: sourceFilter,
-    skip,
+    skip: (page - 1) * LIMIT,
     limit: LIMIT,
     sort_by: sortBy,
     sort_order: sortOrder,
-  }), [search, statusFilter, sourceFilter, skip, sortBy, sortOrder]);
+  }), [search, statusFilter, sourceFilter, page, sortBy, sortOrder]);
 
   const { data: articleData, isLoading: isLoadingArticles, refetch: refetchArticles } = useArticles(project.id, articleParams);
   const { data: stats } = useProjectStats(project.id);
@@ -384,7 +389,9 @@ export function ProjectDetail({
                     onRefresh={() => void refetchArticles()}
                     onReprocessAll={handleReprocessAll}
                     onRetryArticle={handleRetryArticle}
-                    onLoadMore={() => setSkip(skip + LIMIT)}
+                    page={page}
+                    limit={LIMIT}
+                    onPageChange={setPage}
                     onOpenUrlImportDialog={() => setIsImportDialogOpen(true)}
                     onOpenFeedImportDialog={() =>
                       setIsFeedImportDialogOpen(true)

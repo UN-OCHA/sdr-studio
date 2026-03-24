@@ -1,6 +1,10 @@
 DEFAULT_CONFIG = {
     "model_id": "fastino/gliner2-base-v1",
     "summary_model_id": "sshleifer/distilbart-cnn-12-6",
+    "translation": {
+        "enabled": False,
+        "model_id": "google-t5/t5-small"
+    },
     "threshold": 0.3,
     "cleaning": {
         "use_local_model": False,
