@@ -226,12 +226,18 @@ def delete_project(project_id: UUID, org_id: str = Depends(get_current_org_id), 
     return {"message": "Project deleted"}
 
 @router.post("/{project_id}/reprocess")
-def reprocess_project(project_id: UUID, background_tasks: BackgroundTasks, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+def reprocess_project(project_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
     project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
     if not project: raise HTTPException(status_code=404, detail="Project not found or access denied")
+    
     articles = session.exec(select(Article).where(Article.project_id == project_id)).all()
-    for article in articles: background_tasks.add_task(process_article_task, article.id)
-    return {"message": "Reprocessing started for all articles"}
+    for article in articles:
+        article.status = "pending"
+        article.processing_step = None
+        session.add(article)
+    session.commit()
+    
+    return {"message": f"Queued {len(articles)} articles for reprocessing"}
 
 @router.get("/{project_id}/stats")
 def get_project_stats(project_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):

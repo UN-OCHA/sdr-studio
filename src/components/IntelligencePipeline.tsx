@@ -21,7 +21,7 @@ const nodeDefaults = {
 };
 
 const SOURCE_ICONS: Record<string, string> = {
-  rss: "rss",
+  rss: "feed",
   exa: "search",
   brave: "search",
   manual: "upload",

@@ -35,6 +35,7 @@ type StatusFilterOption = {
 const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
   { label: "All Statuses", value: "all" },
   { label: "Completed", value: "completed" },
+  { label: "Queued", value: "pending" },
   { label: "Processing", value: "processing" },
   { label: "Error", value: "error" },
 ];
@@ -154,15 +155,18 @@ export function ArticleSidebar({
     }
     switch (article.status) {
       case "completed":
-        return <Icon icon="tick-circle" intent={Intent.SUCCESS} />;
+        return <Icon icon="tick-circle" intent={Intent.SUCCESS} title="Completed" />;
       case "processing":
         return (
           <Icon
             icon="refresh"
             intent={Intent.PRIMARY}
             className="animate-spin"
+            title="Processing..."
           />
         );
+      case "pending":
+        return <Icon icon="time" intent={Intent.NONE} title="Queued" />;
       case "error":
         return (
           <Tooltip
@@ -173,7 +177,7 @@ export function ArticleSidebar({
           </Tooltip>
         );
       default:
-        return <Icon icon="circle" intent={Intent.NONE} />;
+        return <Icon icon="circle" intent={Intent.NONE} title="Unknown" />;
     }
   };
 

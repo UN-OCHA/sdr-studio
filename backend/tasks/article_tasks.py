@@ -11,6 +11,8 @@ from utils.model_loader import get_summarizer, get_gliner, get_cleaning_model
 from utils.extraction_utils import build_gliner_schema
 from utils.config import DEFAULT_CONFIG
 
+import time
+
 def import_articles_logic(project_id: UUID, urls: List[str], org_id: str, session: Session, background_tasks = None, source_id: Optional[UUID] = None, source_type: str = "manual"):
     # Verify project belongs to org
     project = session.exec(select(Project).where(Project.id == project_id).where(Project.org_id == org_id)).first()
@@ -31,7 +33,8 @@ def import_articles_logic(project_id: UUID, urls: List[str], org_id: str, sessio
             url=url, 
             org_id=org_id, 
             source_id=source_id, 
-            source_type=source_type
+            source_type=source_type,
+            status="pending"
         )
         session.add(article)
         session.commit()
@@ -39,12 +42,42 @@ def import_articles_logic(project_id: UUID, urls: List[str], org_id: str, sessio
         
         imported_count += 1
         
-        if background_tasks:
-            background_tasks.add_task(process_article_task, article.id)
-        else:
-            from threading import Thread
-            Thread(target=process_article_task, args=(article.id,)).start()
+        # We no longer start threads here; the background loop will pick them up.
     return imported_count
+
+def reset_processing_articles():
+    """On startup, reset articles stuck in 'processing' back to 'pending'."""
+    with Session(engine) as session:
+        stuck_articles = session.exec(select(Article).where(Article.status == "processing")).all()
+        for article in stuck_articles:
+            article.status = "pending"
+            article.processing_step = None
+            session.add(article)
+        session.commit()
+        if stuck_articles:
+            print(f"Reset {len(stuck_articles)} stuck articles to pending.")
+
+def process_pending_articles_loop():
+    """Background loop that picks up pending articles and processes them sequentially."""
+    print("Starting article processing loop...")
+    while True:
+        try:
+            with Session(engine) as session:
+                # Find the next pending article
+                article = session.exec(
+                    select(Article).where(Article.status == "pending").order_by(Article.created_at.asc())
+                ).first()
+                
+                if article:
+                    # We process it
+                    # Note: process_article_task opens its own session, which is fine
+                    process_article_task(article.id)
+                else:
+                    # No pending articles, sleep for a bit
+                    time.sleep(5)
+        except Exception as e:
+            print(f"Error in processing loop: {e}")
+            time.sleep(10)
 
 def _download_and_clean(article: Article, config: dict):
     response = requests.get(article.url, timeout=60, impersonate="chrome", allow_redirects=True)

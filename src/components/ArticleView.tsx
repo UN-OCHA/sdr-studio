@@ -651,7 +651,7 @@ export function ArticleView({
   return (
     <div className="relative animate-[fade-in_0.3s_ease] @container flex flex-col min-h-full">
       {/* Article Content */}
-      <div className="mx-auto px-4 pt-4 w-full flex-grow">
+      <div className="mx-auto px-4 pt-4 w-full grow">
         <header className="mb-4 border-b border-gray-100 dark:border-bp-dark-border pb-1">
           <div className="flex items-start gap-4 mb-2">
             <div className="flex-1">
@@ -728,31 +728,9 @@ export function ArticleView({
           <p>Are you sure you want to continue?</p>
         </Alert>
 
-        {article.status === "pending" && !processArticleMutation.isPending && (
-          <div className="p-12 rounded-lg text-center border border-dashed border-gray-300 dark:border-[#5e6064] bg-gray-50 dark:bg-bp-dark-surface">
-            <Icon
-              icon="cloud-upload"
-              size={40}
-              className="mb-4 text-gray-400"
-            />
-            <H4>Ready for Processing</H4>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
-              Click the button to extract content, summary and entities using
-              GLiNER2 and ReadabilityJS.
-            </p>
-            <Button
-              large
-              intent={Intent.PRIMARY}
-              icon="play"
-              text="Extract Content & Entities"
-              loading={processArticleMutation.isPending}
-              onClick={handleProcess}
-            />
-          </div>
-        )}
-
         {(processArticleMutation.isPending ||
-          article.status === "processing") && (
+          article.status === "processing" ||
+          article.status === "pending") && (
           <div className="max-w-xl mx-auto py-12 px-4">
             <Card
               elevation={1}
@@ -764,7 +742,8 @@ export function ArticleView({
                   <div>
                     <H4 className="mb-0!">Ingesting Article</H4>
                     <Text className="text-xs text-gray-500 font-medium">
-                      Automated Pipeline • <TimeAgo date={article.created_at} />
+                      Automated Pipeline • Registered{" "}
+                      <TimeAgo date={article.created_at} />
                     </Text>
                   </div>
                 </div>
@@ -774,23 +753,52 @@ export function ArticleView({
                   intent={Intent.PRIMARY}
                   className="font-bold"
                 >
-                  {Math.round(
-                    (((
-                      article.processing_steps || [
-                        "Downloading source...",
-                        "Generating summary...",
-                        "Running GLiNER2 extraction & enrichment...",
-                      ]
-                    ).indexOf(article.processing_step || "") +
-                      1) /
-                      (article.processing_steps?.length || 3)) *
-                      100,
-                  )}
+                  {article.status === "pending"
+                    ? 0
+                    : Math.round(
+                        (((
+                          article.processing_steps || [
+                            "Downloading source...",
+                            "Generating summary...",
+                            "Running GLiNER2 extraction & enrichment...",
+                          ]
+                        ).indexOf(article.processing_step || "") +
+                          1) /
+                          (article.processing_steps?.length || 3)) *
+                          100,
+                      )}
                   %
                 </Tag>
               </div>
 
               <div className="p-6 space-y-0">
+                {article.status === "pending" && (
+                  <div className="flex gap-4 relative mb-6">
+                    <div className="flex flex-col items-center shrink-0">
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center border bg-white dark:bg-bp-dark-surface border-blue-500 text-blue-500 shadow-md scale-110 z-10">
+                        <Icon icon="time" size={12} className="animate-pulse" />
+                      </div>
+                      <div className="w-0.5 grow bg-gray-200 dark:bg-gray-700" />
+                    </div>
+                    <div className="pb-6 grow">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                          Waiting in Queue...
+                        </span>
+                        <Tag
+                          minimal
+                          intent={Intent.PRIMARY}
+                          className="text-[9px] h-4 px-1 leading-none uppercase font-black"
+                        >
+                          Queued
+                        </Tag>
+                      </div>
+                      <Text className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Article is in the processing queue.
+                      </Text>
+                    </div>
+                  </div>
+                )}
                 {(
                   article.processing_steps || [
                     "Downloading source...",
@@ -806,8 +814,10 @@ export function ArticleView({
                   const currentStepIdx = stepOrder.indexOf(
                     article.processing_step || "",
                   );
-                  const isCompleted = idx < currentStepIdx;
-                  const isActive = idx === currentStepIdx;
+                  const isCompleted =
+                    idx < currentStepIdx && article.status !== "pending";
+                  const isActive =
+                    idx === currentStepIdx && article.status === "processing";
 
                   const stepMeta: Record<
                     string,
@@ -912,22 +922,26 @@ export function ArticleView({
                 <div className="space-y-2">
                   <div className="flex justify-between items-end text-[10px] font-black text-gray-400 uppercase tracking-widest">
                     <span>Overall Pipeline Progress</span>
-                    <span className="text-blue-500">
-                      {article.processing_step || "Initializing..."}
+                    <span className="text-blue-500 text-end">
+                      {article.status === "pending"
+                        ? "Queued"
+                        : article.processing_step || "Initializing..."}
                     </span>
                   </div>
                   <ProgressBar
                     intent={Intent.PRIMARY}
                     value={
-                      ((
-                        article.processing_steps || [
-                          "Downloading source...",
-                          "Generating summary...",
-                          "Running GLiNER2 extraction & enrichment...",
-                        ]
-                      ).indexOf(article.processing_step || "") +
-                        1) /
-                      (article.processing_steps?.length || 3)
+                      article.status === "pending"
+                        ? 0
+                        : ((
+                            article.processing_steps || [
+                              "Downloading source...",
+                              "Generating summary...",
+                              "Running GLiNER2 extraction & enrichment...",
+                            ]
+                          ).indexOf(article.processing_step || "") +
+                            1) /
+                          (article.processing_steps?.length || 3)
                     }
                     stripes={true}
                     animate={true}
@@ -1344,16 +1358,15 @@ export function ArticleView({
                   </div>
                 )}
             </div>
-<Section
-  title="Content & Entities"
-  icon="highlight"
-  collapsible
-  collapseProps={{
-    isOpen: !collapsed.content,
-    onToggle: () => toggleCollapse("content"),
-  }}
-  rightElement={
-
+            <Section
+              title="Content & Entities"
+              icon="highlight"
+              collapsible
+              collapseProps={{
+                isOpen: !collapsed.content,
+                onToggle: () => toggleCollapse("content"),
+              }}
+              rightElement={
                 <div
                   className="flex items-center gap-4"
                   onClick={(e) => e.stopPropagation()}

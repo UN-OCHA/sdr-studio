@@ -174,11 +174,16 @@ def update_annotations(article_id: UUID, data: AnnotationUpdate, org_id: str = D
     return {"message": "Annotations updated"}
 
 @router.post("/api/articles/{article_id}/process")
-def process_article(article_id: UUID, background_tasks: BackgroundTasks, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
+def process_article(article_id: UUID, org_id: str = Depends(get_current_org_id), session: Session = Depends(get_session)):
     article = session.exec(
         select(Article).join(Project).where(Article.id == article_id).where(Project.org_id == org_id)
     ).first()
     if not article:
         raise HTTPException(status_code=404, detail="Article not found or access denied")
-    background_tasks.add_task(process_article_task, article_id)
-    return {"message": "Processing started in background"}
+    
+    article.status = "pending"
+    article.processing_step = None
+    session.add(article)
+    session.commit()
+    
+    return {"message": "Article queued for processing"}

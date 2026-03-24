@@ -152,22 +152,7 @@ export function ProjectDetail({
     }
   }, [articles, selectedArticleId]);
 
-  // Poll for stats if there are items processing
-  useEffect(() => {
-    let interval: number | undefined;
-    const isProcessing = stats && (stats.pending > 0 || stats.processing > 0);
-
-    if (isProcessing) {
-      interval = window.setInterval(() => {
-        void queryClient.invalidateQueries({ queryKey: ["project-stats", project.id] });
-        void queryClient.invalidateQueries({ queryKey: ["articles", project.id] });
-      }, 3000);
-    }
-
-    return () => {
-      if (interval) window.clearInterval(interval);
-    };
-  }, [project.id, stats, queryClient]);
+  // No-op: manual polling removed in favor of hook-level refetchIntervals
 
   const handleToggleCheck = useCallback((id: string) => {
     setCheckedArticleIds((prev) => {
