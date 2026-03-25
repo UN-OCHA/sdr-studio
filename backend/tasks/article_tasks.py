@@ -2,7 +2,7 @@ from uuid import UUID
 from typing import List, Optional
 from sqlmodel import Session, select, delete
 from curl_cffi import requests
-from readability import Document
+from trafilatura import fetch_url, extract_metadata, extract
 import bs4
 import re
 from database import engine
@@ -80,63 +80,69 @@ def process_pending_articles_loop():
             time.sleep(10)
 
 def _download_and_clean(article: Article, config: dict):
-    response = requests.get(article.url, timeout=60, impersonate="chrome", allow_redirects=True)
-    response.raise_for_status()
-    
-    # Sanitize to remove NULL bytes and control characters that break lxml
-    raw_text = response.text
-    if '\x00' in raw_text:
-        raw_text = raw_text.replace('\x00', '')
+    downloaded = fetch_url(article.url)
         
-    # More aggressive cleanup for other non-printable characters if needed
-    # but NULL is the most common culprit for the reported error.
+    metadata = extract_metadata(downloaded)
+    contents = extract(downloaded)
     
-    doc = Document(raw_text)
-    article.title = doc.title()
-    soup = bs4.BeautifulSoup(doc.summary(), "lxml")
+    if not contents:
+        # Fallback to basic soup extraction if trafilatura fails
+        soup = bs4.BeautifulSoup(downloaded, "lxml")
+        for element in soup(["script", "style", "nav", "footer", "header", "aside", "form"]):
+            element.decompose()
+        main_content = soup.find('article') or soup.find('main') or soup.find(id=re.compile(r'content|article|body', re.I))
+        target = main_content if main_content else soup
+        clean_text = target.get_text(separator="\n", strip=True)
+        if not article.title and soup.title:
+            article.title = soup.title.string
+    else:
+        article.title = metadata.title
+        clean_text = contents
     
-    # Base text extraction
-    clean_text = re.sub(r'\n{2,}', '\n\n', soup.get_text(separator="\n").strip())
+    # Base text extraction normalization
+    clean_text = clean_text.replace('\xa0', ' ') # Remove non-breaking spaces
+    clean_text = re.sub(r'[ \t]+', ' ', clean_text) # Normalize horizontal whitespace
+
+    if article.title and len(article.title) > 10:
+        title_norm = re.sub(r'\W+', '', article.title.lower())
+        lines = clean_text.split('\n')
+        for i, line in enumerate(lines[:15]): # Check top of document
+            line_norm = re.sub(r'\W+', '', line.lower())
+            if title_norm[:30] in line_norm:
+                clean_text = "\n".join(lines[i+1:]).strip()
+                break
     
-    # --- Content Cleaning (Internal Slop Removal) ---
+    # --- Content Cleaning (Slop Patterns) ---
     slop_patterns = [
-        r"^list of \d+ items$",
-        r"^end of list$",
+        r"(?i)^read more:.*",
+        r"(?i)^related (articles|stories):.*",
+        r"(?i)follow us on (twitter|facebook|instagram|linkedin).*",
+        r"(?i)image copyright.*",
+        r"(?i)reporting by .*?; editing by .*",
+        r"\[\d+\]", # Remove citation markers like [1]
         r"^Advertisement$",
         r"^Story continues below advertisement$",
     ]
     for pattern in slop_patterns:
-        clean_text = re.sub(pattern, "", clean_text, flags=re.IGNORECASE | re.MULTILINE)
+        clean_text = re.sub(pattern, "", clean_text, flags=re.MULTILINE)
     
-    # --- Content Cleaning (Start Detection) ---
+    # --- Local Model Start Detection (Secondary Check) ---
     cleaning_cfg = config.get("cleaning", {})
     if cleaning_cfg.get("use_local_model", False):
         tokenizer, model = get_cleaning_model()
+        context = clean_text[:1500]
+        prompt = f"Identify the exact first sentence of the story: {context}"
         
-        context = clean_text[:2000]
-        prompt = f"Identify the exact first sentence of the news story, ignoring all headers and navigation: {context}"
-        
-        inputs = tokenizer(prompt, return_tensors="pt", max_length=1024, truncation=True)
-        outputs = model.generate(inputs["input_ids"], max_length=120)
+        inputs = tokenizer(prompt, return_tensors="pt", max_length=512, truncation=True)
+        outputs = model.generate(inputs["input_ids"], max_length=100)
         first_sentence = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         
-        if first_sentence and len(first_sentence) > 10:
-            marker = first_sentence[:40]
-            idx = clean_text.find(marker)
-            
-            if idx != -1 and idx < 1500:
-                line_start = clean_text.rfind("\n", 0, idx)
-                if line_start != -1:
-                    clean_text = clean_text[line_start:].strip()
-                else:
-                    clean_text = clean_text[idx:].strip()
-            else:
-                lines = clean_text.split("\n")
-                for i, line in enumerate(lines[:20]):
-                    if marker[:20] in line:
-                        clean_text = "\n".join(lines[i:]).strip()
-                        break
+        if len(first_sentence) > 15:
+            idx = clean_text.find(first_sentence[:40])
+            if 0 < idx < 1000: # Only trim if we found it near the current top
+                clean_text = clean_text[idx:].strip()
 
+    # Final whitespace cleanup
     clean_text = re.sub(r'\n{3,}', '\n\n', clean_text).strip()
     article.content = clean_text
     return clean_text
