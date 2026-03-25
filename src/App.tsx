@@ -58,7 +58,7 @@ function App() {
   const createProjectMutation = useCreateProject();
   const deleteProjectMutation = useDeleteProject();
   const refresh = useCallback(
-    async (options: { ignoreCache?: boolean } = {}) => {
+    async (options: { cacheMode?: "on" | "off" | "cache-only" } = {}) => {
       try {
         const t = await getAccessTokenSilently(options);
         setAuthToken(t);
@@ -92,7 +92,7 @@ function App() {
       // Handle 401s by attempting to refresh the token, bypassing the cache
       setOnUnauthorized(() => {
         console.warn("401 detected, attempting token refresh...");
-        void refresh({ ignoreCache: true });
+        void refresh({ cacheMode: "off" });
       });
 
       // Refresh every 10 minutes to keep session alive
