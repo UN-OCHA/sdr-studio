@@ -14,8 +14,8 @@ import {
   Popover,
   Spinner,
 } from "@blueprintjs/core";
-import { useEffect, useState } from "react";
-import { setAuthToken } from "./api";
+import { useEffect, useState, useCallback } from "react";
+import { setAuthToken, setOnUnauthorized } from "./api";
 import { Dashboard } from "./components/Dashboard";
 import { ProjectDetail } from "./components/ProjectDetail";
 import { TemplateManager } from "./components/TemplateManager";
@@ -57,31 +57,57 @@ function App() {
   const { data: projects = [], isLoading: isLoadingProjects, error: errorProjects, refetch: fetchProjects } = useProjects(isTokenReady);
   const createProjectMutation = useCreateProject();
   const deleteProjectMutation = useDeleteProject();
+  const refresh = useCallback(
+    async (options: { ignoreCache?: boolean } = {}) => {
+      try {
+        const t = await getAccessTokenSilently(options);
+        setAuthToken(t);
+        setIsTokenReady(true);
+        return t;
+      } catch (err: any) {
+        console.error("Token refresh failed:", err);
+        setAuthToken(null);
+
+        // If the error suggests we need to log in again, we should do it
+        if (
+          err.error === "login_required" ||
+          err.error === "consent_required" ||
+          err.error === "invalid_grant"
+        ) {
+          console.warn("Session expired, forcing re-authentication");
+          void loginWithRedirect();
+        }
+
+        setIsTokenReady(true); // Release the spinner even on failure
+        return null;
+      }
+    },
+    [getAccessTokenSilently, loginWithRedirect]
+  );
 
   useEffect(() => {
     if (isAuthenticated) {
-      const refresh = async () => {
-        try {
-          const t = await getAccessTokenSilently();
-          setAuthToken(t);
-          setIsTokenReady(true);
-        } catch (err: unknown) {
-          console.error("Token refresh failed:", err);
-          setAuthToken(null);
-          setIsTokenReady(true); // Release the spinner even on failure
-        }
-      };
-
       void refresh();
+
+      // Handle 401s by attempting to refresh the token, bypassing the cache
+      setOnUnauthorized(() => {
+        console.warn("401 detected, attempting token refresh...");
+        void refresh({ ignoreCache: true });
+      });
+
       // Refresh every 10 minutes to keep session alive
       const interval = setInterval(() => void refresh(), 1000 * 60 * 10);
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        setOnUnauthorized(() => {});
+      };
     } else {
       setAuthToken(null);
+      setOnUnauthorized(() => {});
       // Avoid calling setState synchronously within the effect
       Promise.resolve().then(() => setIsTokenReady(false));
     }
-  }, [isAuthenticated, getAccessTokenSilently]);
+  }, [isAuthenticated, refresh]);
 
   const currentProject = projects.find((p) => p.id === currentProjectId);
 

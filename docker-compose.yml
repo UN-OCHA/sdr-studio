@@ -2,7 +2,6 @@ services:
   backend:
     build: ./backend
     restart: always
-    env_file: ./backend/.env
     volumes:
       - ./backend/data:/app/data
       - ./backend/adapters:/app/adapters

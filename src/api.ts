@@ -26,9 +26,14 @@ import type {
 const API_BASE_URL = "/api";
 
 let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
 
 export function setAuthToken(token: string | null) {
   authToken = token;
+}
+
+export function setOnUnauthorized(handler: () => void) {
+  onUnauthorized = handler;
 }
 
 /**
@@ -54,6 +59,9 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
 
     if (response.status === 401) {
       console.error("Unauthorized access - token may be expired");
+      if (onUnauthorized) {
+        onUnauthorized();
+      }
     }
 
     if (!response.ok) {

@@ -71,7 +71,8 @@ def _decode_token(token: str) -> dict:
             rsa_key,
             algorithms=["RS256"],
             audience=AUTH0_AUDIENCE,
-            issuer=f"https://{AUTH0_DOMAIN}/"
+            issuer=f"https://{AUTH0_DOMAIN}/",
+            options={"leeway": 60}
         )
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
@@ -89,7 +90,7 @@ def create_export_token(org_id: str) -> str:
 
 def verify_export_token(token: str) -> str:
     try:
-        payload = jwt.decode(token, APP_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(token, APP_SECRET, algorithms=["HS256"], options={"leeway": 60})
         org_id: str = payload.get("org_id")
         if org_id is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid export token")
