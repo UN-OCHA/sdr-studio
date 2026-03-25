@@ -80,10 +80,11 @@ def process_pending_articles_loop():
             time.sleep(10)
 
 def _download_and_clean(article: Article, config: dict):
-    downloaded = fetch_url(article.url)
+    downloaded = requests.get(article.url, timeout=60, impersonate="chrome", allow_redirects=True)
+    downloaded.raise_for_status()
         
-    metadata = extract_metadata(downloaded)
-    contents = extract(downloaded)
+    metadata = extract_metadata(downloaded.content)
+    contents = extract(downloaded.content)
     
     if not contents:
         # Fallback to basic soup extraction if trafilatura fails

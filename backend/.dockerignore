@@ -1,0 +1,19 @@
+# Ignore the local virtual environment
+.venv/
+venv/
+env/
+
+# Ignore local caches
+.cache/
+__pycache__/
+.pytest_cache/
+
+# Ignore git and IDE junk
+.git/
+.vscode/
+.idea/
+
+# Ignore local model weights if they exist
+models/
+*.bin
+*.pt
